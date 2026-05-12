@@ -401,7 +401,7 @@ export default function Pipeline() {
           <div className="flex-1 bg-[#12161F] border border-[#1E293B] rounded-3xl p-8 relative overflow-hidden flex flex-col items-center">
             <h3 className="text-xl font-black text-white italic uppercase mb-8">Embudo de Conversión (Leads a Contratos)</h3>
             <div className="w-full max-w-4xl h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <FunnelChart>
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: '#0B0E14', border: '1px solid #1E293B', borderRadius: '12px' }}
@@ -543,3 +543,4 @@ export default function Pipeline() {
     </div>
   );
 }
+
