@@ -174,9 +174,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const breadcrumbs = generateBreadcrumbs();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex relative">
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <img src="/images/portada.jpg" alt="Portada" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-multiply" />
+      </div>
       {/* Sidebar */}
-      <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+      <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
@@ -342,7 +345,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-10 shadow-sm">
           <div className="flex flex-1 items-center gap-4">
             <button 
@@ -429,7 +432,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
           </div>
         </header>
         
-        <main className="flex-1 overflow-auto p-4 sm:p-8 bg-gray-50/50 relative">
+        <main className="flex-1 overflow-auto p-4 sm:p-8 bg-transparent relative z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
