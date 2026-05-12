@@ -64,7 +64,16 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
     <div className="min-h-screen bg-[#05070a] text-gray-100 font-sans selection:bg-[#00F0FF]/30 overflow-x-hidden">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-        <img src="/images/portada.jpg" alt="Portada de la web" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen" />
+        <img 
+          src="/images/portada.jpg" 
+          alt="Portada" 
+          className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen"
+          onError={(e) => {
+            // Fallback strategy if target image is missing
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+          referrerPolicy="no-referrer"
+        />
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#05070a]/80 via-black/80 to-[#00F0FF]/10 animate-gradient" />
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/10 rounded-full blur-[150px]" />
