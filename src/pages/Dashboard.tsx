@@ -111,7 +111,7 @@ export default function Dashboard() {
       {/* HEADER: DYNAMIC STATUS BAR COM LOGO */}
       <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
         <div className="flex items-center gap-4">
-          {/* LOGO AQUI */}
+          {/* LOGO KAIVINCIA */}
           <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center overflow-hidden">
             <img 
               src="/images/logo.png" 
@@ -123,7 +123,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Kaivincia Corp</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Sistema Activo
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Admin System: Active
               </span>
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
                 Dashboard Executivo
@@ -527,8 +527,12 @@ export default function Dashboard() {
             <div className="mt-8 pt-8 border-t border-white/5">
                <div className="bg-white/5 border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
                   <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative z-10 flex flex-col items-center gap-4">
-                     <Network className="w-8 h-8 text-white opacity-20" />
+                  <div className="relative z-10 flex flex-col items-center gap-2">
+                     <img 
+                       src="/images/logo.png" 
+                       alt="Kaivincia" 
+                       className="h-8 w-8 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
+                     />
                      <p className="text-[9px] font-black uppercase tracking-widest text-center text-gray-500 leading-relaxed">
                         Red Neuronal Kaivincia <br/> <span className="text-white">Active Node: Austin-Cluster-01</span>
                      </p>
