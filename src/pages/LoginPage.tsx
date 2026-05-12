@@ -10,8 +10,16 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      // Si llegamos aquí, el login fue exitoso
+      // El redireccionamiento se maneja en otro lugar (App.tsx o router)
     } catch (err: any) {
-      setError(err.message);
+      // Ignorar errores de ventana emergente cancelada
+      if (err.code !== 'auth/cancelled-popup-request') {
+        // Solo mostrar errores que no sean de cancelación
+        setError(err.message);
+        console.error('Erro no login:', err);
+      }
+      // Si el error es 'auth/cancelled-popup-request', no hacemos nada
     }
   };
 
