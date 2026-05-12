@@ -1,54 +1,74 @@
-import { BrainCircuit } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { 
+  ArrowRight, CheckCircle2, BookOpen, MonitorPlay, 
+  BarChart3, X, Zap, ShieldCheck, 
+  Globe, Cpu, Layers, Sparkles, Navigation,
+  Play, Users, Star, Lock, ChevronRight
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import DataEcosystemParticles from '../components/DataEcosystemParticles';
+import Logo from '../components/Logo';
 
-interface LogoProps {
-  className?: string;
-  iconOnly?: boolean;
+interface LandingPageProps {
+  onGuestMode: () => void;
 }
 
-export default function Logo({ className = "", iconOnly = false }: LogoProps) {
-  const [imageError, setImageError] = useState(false);
+export default function LandingPage({ onGuestMode }: LandingPageProps) {
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<any>(null);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const courses = [
+    { 
+      id: 1, 
+      title: 'Appointment Setter Mastery', 
+      price: '$497', 
+      rating: 4.9, 
+      students: 1240, 
+      image: 'https://images.unsplash.com/photo-1552581234-26160f608093?auto=format&fit=crop&q=80&w=400',
+      video: 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    { 
+      id: 2, 
+      title: 'Growth Agency Systems', 
+      price: '$997', 
+      rating: 5.0, 
+      students: 850, 
+      image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=400',
+      video: 'https://www.w3schools.com/html/mov_bbb.mp4'
+    },
+    { 
+      id: 3, 
+      title: 'Sales Psychology 2.0', 
+      price: '$297', 
+      rating: 4.8, 
+      students: 2100, 
+      image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=400',
+      video: 'https://www.w3schools.com/html/mov_bbb.mp4'
+    }
+  ];
+
+  const handleGuestEntry = () => {
+    onGuestMode();
+    navigate('/guest-academy');
+  };
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      <motion.div 
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        className="relative group"
-      >
-        <div className="absolute inset-0 bg-[#00F0FF]/20 blur-lg rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-        
-        <div className="h-10 w-10 bg-gradient-to-br from-gray-900 to-black border border-[#00F0FF]/30 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(0,240,255,0.1)] relative z-10 transition-all duration-300 group-hover:border-[#00F0FF] overflow-hidden">
-          {!imageError ? (
-            <img 
-              src="https://kaivincia.vercel.app/images/logo.png"
-              alt="Kaivincia Logo" 
-              className="w-full h-full object-contain p-1"
-              onError={() => {
-                console.log('Logo image failed to load');
-                setImageError(true);
-              }}
-            />
-          ) : (
-            <BrainCircuit className="w-6 h-6 text-[#00F0FF]" />
-          )}
-        </div>
-      </motion.div>
-      
-      {!iconOnly && (
-        <div className="flex flex-col leading-none">
-          <span className="text-xl font-black italic tracking-tighter text-white uppercase group-hover:text-[#00F0FF] transition-colors">
-            Kaivincia
-          </span>
-          <span className="text-[8px] font-mono font-black text-slate-500 uppercase tracking-widest mt-0.5">
-            Neural Ecosystem
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
+    <div className="min-h-screen bg-[#05070a] text-gray-100 font-sans selection:bg-[#00F0FF]/30 overflow-x-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#05070a]/80 via-black/80 to-[#00F0FF]/10 animate-gradient" />
+        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/10 rounded-full blur-[150px]" />
+        <DataEcosystemParticles />
+      </div>
 
       {/* Navbar */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
@@ -260,7 +280,7 @@ export default function Logo({ className = "", iconOnly = false }: LogoProps) {
       </section>
 
       {/* Footer */}
-      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black text-center">
+      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
            <Logo />
            <div className="flex gap-10">
