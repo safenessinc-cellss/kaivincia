@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { motion } from 'motion/react';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -104,22 +105,74 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black relative flex flex-col items-center justify-center overflow-hidden">
-        {/* Estrellas simples */}
+      <div className="min-h-screen bg-[#05070a] relative flex flex-col items-center justify-center overflow-hidden">
+        {/* Background stars */}
         <div className="absolute inset-0 z-0 opacity-50">
-          <div className="w-2 h-2 bg-white rounded-full absolute top-10 left-10 shadow-[0_0_10px_white]"></div>
-          <div className="w-1 h-1 bg-white rounded-full absolute top-20 left-1/4 shadow-[0_0_5px_white]"></div>
-          <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-3/4 shadow-[0_0_10px_white]"></div>
-          <div className="w-3 h-3 bg-white rounded-full absolute bottom-20 left-1/3 shadow-[0_0_15px_white]"></div>
-          <div className="w-1 h-1 bg-white rounded-full absolute bottom-10 right-10 shadow-[0_0_5px_white]"></div>
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 bg-white rounded-full absolute"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                opacity: [0.2, 1, 0.2],
+                scale: [1, 1.5, 1],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
         </div>
-        <svg className="w-24 h-24 text-[#00F0FF] z-10 animate-pulse" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
-          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
-          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
-          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
-        </svg>
-        <h2 className="text-[#00F0FF] font-bold text-2xl tracking-widest uppercase mt-8 z-10 animate-bounce">Viajando...</h2>
+
+        {/* Spaceship animation */}
+        <div className="relative z-10 flex items-center h-32 w-full max-w-3xl justify-center">
+          <motion.div
+            className="absolute left-1/2 -translate-x-1/2 flex items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* The Text being revealed/formed */}
+            <div className="relative overflow-hidden flex items-center">
+              <motion.div
+                className="absolute inset-y-0 right-0 bg-[#05070a] z-20 origin-right"
+                initial={{ width: "100%" }}
+                animate={{ width: "0%" }}
+                transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
+              />
+              <h1 className="text-4xl md:text-6xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] via-white to-[#00F0FF] uppercase italic relative z-10">
+                Kaivincia Corp
+              </h1>
+            </div>
+
+            {/* Spaceship shooting */}
+            <motion.div
+              className="absolute text-[#00F0FF] right-0 z-30"
+              initial={{ right: "100%", x: "0%" }}
+              animate={{ right: "0%", x: "100%" }}
+              transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
+            >
+              {/* Laser beam */}
+              <motion.div 
+                className="absolute right-full top-1/2 -translate-y-1/2 h-0.5 bg-[#00F0FF] shadow-[0_0_10px_#00F0FF]"
+                initial={{ width: 0 }}
+                animate={{ width: 40 }}
+                transition={{ duration: 0.2, repeat: Infinity, repeatType: "reverse" }}
+              />
+              <svg className="w-12 h-12 rotate-90 drop-shadow-[0_0_15px_rgba(0,240,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+              </svg>
+            </motion.div>
+          </motion.div>
+        </div>
       </div>
     );
   }
