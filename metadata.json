@@ -1,0 +1,6 @@
+{
+  "name": "Kaivincia Corp CRM",
+  "description": "CRM and Debt Collection system similar to Bitrix24/Zoho with internal chat, pipeline, and automated collection logic.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": []
+}
