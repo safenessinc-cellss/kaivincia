@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase';
-import { LOGO_FULL } from '../constants/images';
 
 export default function LoginPage() {
   const [error, setError] = useState('');
@@ -28,10 +27,9 @@ export default function LoginPage() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
           <img 
-            src={LOGO_FULL} 
+            src="/images/logo.png"
             alt="Kaivincia Corp Logo" 
             className="h-16 object-contain"
-            referrerPolicy="no-referrer"
           />
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
