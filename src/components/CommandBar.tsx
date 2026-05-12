@@ -103,21 +103,6 @@ export default function CommandBar({ isOpen, onClose }: { isOpen: boolean, onClo
         className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden border border-gray-200"
         onClick={e => e.stopPropagation()}
       >
-        {/* HEADER COM LOGO KAIVINCIA */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
-          <div className="h-8 w-8 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia" 
-              className="h-6 w-6 object-contain"
-            />
-          </div>
-          <div>
-            <p className="text-[8px] font-black text-[#00F0FF] uppercase tracking-[0.2em]">Kaivincia AI</p>
-            <p className="text-[9px] font-medium text-gray-500 -mt-0.5">Comando Neural</p>
-          </div>
-        </div>
-
         <form onSubmit={handleNaturalLanguage} className="flex items-center px-4 py-3 border-b border-gray-200">
           <Search className="w-5 h-5 text-[#00F0FF] mr-3" />
           <input
@@ -149,7 +134,7 @@ export default function CommandBar({ isOpen, onClose }: { isOpen: boolean, onClo
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-purple-100 text-purple-600">
-                      {aiResult.icon && <aiResult.icon className="w-5 h-5" />}
+                      <aiResult.icon className="w-5 h-5" />
                     </div>
                     <div>
                       <p className="font-bold text-purple-900">{aiResult.title}</p>
@@ -197,7 +182,7 @@ export default function CommandBar({ isOpen, onClose }: { isOpen: boolean, onClo
               ))}
             </div>
           ) : (
-             !aiResult && !isProcessingAI && filteredResults.length === 0 && (
+             !aiResult && !isProcessingAI && (
                <div className="p-8 text-center text-gray-500">
                  <p className="mb-2">No hay coincidencias exactas para "{query}".</p>
                  <p className="text-sm">Presiona Enter o haz click en 'Procesar IA' para que Kaivincia interprete tu comando.</p>
@@ -213,10 +198,7 @@ export default function CommandBar({ isOpen, onClose }: { isOpen: boolean, onClo
         </div>
         
         <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 text-xs text-gray-500 flex justify-between">
-          <span className="flex items-center gap-2">
-            <img src="/images/logo.png" alt="Kaivincia" className="h-4 w-4 object-contain" />
-            Kaivincia Neural Command
-          </span>
+          <span>🧠 Escribe en lenguaje natural o usa comandos /</span>
           <span className="flex gap-3">
             <span><kbd className="bg-white border px-1 rounded">↵</kbd> Procesar AI</span>
             <span><kbd className="bg-white border px-1 rounded">ESC</kbd> Cerrar</span>
@@ -225,5 +207,5 @@ export default function CommandBar({ isOpen, onClose }: { isOpen: boolean, onClo
       </div>
     </div>
   );
-});
 }
+
