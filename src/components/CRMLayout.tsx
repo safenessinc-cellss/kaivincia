@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { LOGO_FULL, LOGO_ICON } from '../constants/images';
+import Logo from './Logo';
 import CommandBar from './CommandBar';
 import NotificationCenter from './NotificationCenter';
 
@@ -182,14 +183,9 @@ export default function CRMLayout({ userData }: { userData: any }) {
       <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
-            <img 
-              src={LOGO_FULL}
-              alt="Kaivincia Logo" 
-              className="h-8 object-contain"
-              referrerPolicy="no-referrer"
-            />
+            <Logo />
           ) : (
-            <div className="w-8 h-8 mx-auto bg-gradient-to-br from-[#00F0FF] to-yellow-700 rounded-lg flex items-center justify-center font-bold text-white uppercase shadow-lg">K</div>
+            <Logo iconOnly />
           )}
         </div>
 
@@ -297,9 +293,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
           {!isSidebarCollapsed ? (
             <>
               <div className="flex items-center gap-3 mb-4 px-2">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00F0FF] to-yellow-700 flex items-center justify-center text-sm font-bold text-white shadow-lg">
-                  {userData?.name?.charAt(0) || 'U'}
-                </div>
+                {userData?.avatarUrl ? (
+                  <img src={userData.avatarUrl} alt={userData?.name} className="h-10 w-10 rounded-full object-cover border border-gray-700 shadow-lg" />
+                ) : (
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00F0FF] to-yellow-700 flex items-center justify-center text-sm font-bold text-white shadow-lg">
+                    {userData?.name?.charAt(0) || 'U'}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white truncate">{userData?.name}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
@@ -329,9 +329,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
             </>
           ) : (
             <div className="flex flex-col gap-2 items-center">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00F0FF] to-yellow-700 flex items-center justify-center text-sm font-bold text-white shadow-lg cursor-pointer" onClick={() => navigate('/crm/user-portal')} title="Perfil">
-                {userData?.name?.charAt(0) || 'U'}
-              </div>
+              {userData?.avatarUrl ? (
+                <img src={userData.avatarUrl} alt={userData?.name} className="h-10 w-10 rounded-full object-cover shadow-lg cursor-pointer border border-gray-700" onClick={() => navigate('/crm/user-portal')} title="Perfil" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[#00F0FF] to-yellow-700 flex items-center justify-center text-sm font-bold text-white shadow-lg cursor-pointer" onClick={() => navigate('/crm/user-portal')} title="Perfil">
+                  {userData?.name?.charAt(0) || 'U'}
+                </div>
+              )}
               <button
                   onClick={handleLogout}
                   className="p-2 text-red-500 hover:bg-red-900/30 rounded-lg transition-colors mt-2"
