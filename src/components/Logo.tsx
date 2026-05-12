@@ -25,7 +25,10 @@ export default function Logo({ className = "", iconOnly = false }: LogoProps) {
               src="/images/logo.png" 
               alt="Logo" 
               className="w-full h-full object-contain p-1"
-              onError={() => setImageError(true)}
+              onError={(e) => {
+                console.log('Logo image failed to load');
+                setImageError(true);
+              }}
               referrerPolicy="no-referrer"
             />
           ) : (
