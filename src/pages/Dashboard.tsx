@@ -323,7 +323,8 @@ export default function Dashboard() {
                 <Wallet className="w-5 h-5" />
               </div>
             </div>
-            <div className="h-48 w-full">
+            {/* CORREÇÃO DO GRÁFICO - ADICIONADO minHeight e minWidth */}
+            <div className="h-48 w-full" style={{ minHeight: '192px', minWidth: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
