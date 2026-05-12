@@ -236,3 +236,4 @@ export default function Commissions() {
       </div>
     </div>
   );
+}
