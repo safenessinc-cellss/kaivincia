@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
+import Logo from '../components/Logo';
 
 interface LandingPageProps {
   onGuestMode: () => void;
@@ -63,6 +64,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
     <div className="min-h-screen bg-[#05070a] text-gray-100 font-sans selection:bg-[#00F0FF]/30 overflow-x-hidden">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <img src="/images/portada.jpg" alt="Portada de la web" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen" />
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#05070a]/80 via-black/80 to-[#00F0FF]/10 animate-gradient" />
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/10 rounded-full blur-[150px]" />
@@ -72,15 +74,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       {/* Navbar */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          {/* LOGO CORRIGIDO - Classe ajustada */}
-          <div className="flex items-center gap-3">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia Corp Logo" 
-              className="h-12 w-auto"
-            />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
-          </div>
+          <Logo />
 
           <div className="hidden md:flex items-center gap-8">
             {['Sistemas', 'Academia', 'Resultados'].map((item) => (
@@ -286,17 +280,10 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Footer - LOGO CORRIGIDO */}
-      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
+      {/* Footer */}
+      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black text-center">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-           <div className="flex items-center gap-3">
-             <img 
-               src="/images/logo.png" 
-               alt="Kaivincia Corp Logo" 
-               className="h-10 w-auto"
-             />
-             <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
-           </div>
+           <Logo />
            <div className="flex gap-10">
               <Link to="/guest-academy" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Academia</Link>
               <Link to="/strategy-blog" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Blog Estratégico</Link>
