@@ -55,11 +55,21 @@ export default function UserPortal() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
       >
-        <div>
-          <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">Mi Portal <span className="text-emerald-500">Kaivincia</span></h2>
-          <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 flex items-center gap-2">
-            <Sparkles className="w-3 h-3 text-emerald-400" /> Dashboard de Alto Rendimiento • Nivel 4
-          </p>
+        <div className="flex items-center gap-4">
+          {/* LOGO AQUI */}
+          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center overflow-hidden">
+            <img 
+              src="/images/logo.png" 
+              alt="Kaivincia Corp Logo" 
+              className="h-12 w-12 object-contain"
+            />
+          </div>
+          <div>
+            <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">Mi Portal <span className="text-emerald-500">Kaivincia</span></h2>
+            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-emerald-400" /> Dashboard de Alto Rendimiento • Nivel 4
+            </p>
+          </div>
         </div>
         <div className="flex gap-4">
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-4 rounded-2xl flex items-center gap-4 shadow-2xl">
@@ -252,4 +262,3 @@ export default function UserPortal() {
     </div>
   );
 }
-
