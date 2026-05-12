@@ -149,7 +149,7 @@ export default function Commissions() {
             <Award className="w-5 h-5 text-cyan-500/100" /> Ranking de Productividad
           </h3>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={commissionData.slice(0, 5)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
@@ -170,7 +170,7 @@ export default function Commissions() {
             <TrendingUp className="w-5 h-5 text-blue-500" /> Rendimiento de Conversión
           </h3>
           <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <LineChart data={commissionData.slice(0, 5)}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} />
@@ -236,4 +236,3 @@ export default function Commissions() {
       </div>
     </div>
   );
-}
