@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase';
+import { LOGO_FULL } from '../constants/images';
+import Logo from '../components/Logo';
 
 export default function LoginPage() {
   const [error, setError] = useState('');
@@ -9,16 +11,8 @@ export default function LoginPage() {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-      // Si llegamos aquí, el login fue exitoso
-      // El redireccionamiento se maneja en otro lugar (App.tsx o router)
     } catch (err: any) {
-      // Ignorar errores de ventana emergente cancelada
-      if (err.code !== 'auth/cancelled-popup-request') {
-        // Solo mostrar errores que no sean de cancelación
-        setError(err.message);
-        console.error('Erro no login:', err);
-      }
-      // Si el error es 'auth/cancelled-popup-request', no hacemos nada
+      setError(err.message);
     }
   };
 
@@ -26,13 +20,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          <img 
-            src="/images/logo.png"
-            alt="Kaivincia Corp Logo" 
-            className="h-16 object-contain"
-          />
+          <Logo className="scale-125" />
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 font-serif">
           Ingresa a Kaivincia Corp
         </h2>
       </div>
