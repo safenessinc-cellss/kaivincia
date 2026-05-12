@@ -8,7 +8,7 @@ export default defineConfig(({mode}) => {
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.VITE_GEMINI_API_KEY || ''),
-      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(AIzaSyBlQ-7QHws8kal0SXvXvBK-2z_jgKnYNps ),
+      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(AIzaSyBlQ-7QHws8kal0SXvXvBK-2z_jgKnYNps),
     },
     server: {
       port: 3000,
