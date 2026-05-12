@@ -108,20 +108,25 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#0B0E14] text-gray-400 font-sans p-6 lg:p-10 pb-20">
       
-      {/* HEADER: DYNAMIC STATUS BAR */}
+      {/* HEADER: DYNAMIC STATUS BAR COM LOGO */}
       <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
         <div className="flex items-center gap-4">
-          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.1)]">
-            <Cpu className="w-8 h-8 animate-pulse" />
+          {/* LOGO AQUI */}
+          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center overflow-hidden">
+            <img 
+              src="/images/logo.png" 
+              alt="Kaivincia Corp Logo" 
+              className="h-12 w-12 object-contain"
+            />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Nervous System</h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Kaivincia Corp</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Sistema Activo
               </span>
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
-                Kaivincia Architecture v5.0
+                Dashboard Executivo
               </span>
             </div>
           </div>
