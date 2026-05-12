@@ -364,7 +364,7 @@ export default function CallSystem() {
                           <TrendingUp className="w-4 h-4" /> Evolución del Sentimiento (IA NLP)
                        </h4>
                        <div className="h-64">
-                          <ResponsiveContainer width="100%" height="100%">
+                          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                              <AreaChart data={sentimentData}>
                                 <defs>
                                    <linearGradient id="sentimentGradient" x1="0" y1="0" x2="0" y2="1">
@@ -586,7 +586,7 @@ export default function CallSystem() {
                             <td className="px-10 py-8 font-mono font-black text-gray-900 text-xs italic">{provider.costPerMinute}</td>
                             <td className="px-10 py-8">
                                <div className="h-10 w-32 filter drop-shadow-sm">
-                                  <ResponsiveContainer width="100%" height="100%">
+                                  <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                                      <LineChart data={(provider.qualityTrend || [80, 85, 82, 90, 88, 92, 95]).map((v, i) => ({ v, i }))}>
                                         <Line type="stepAfter" dataKey="v" stroke={provider.status === 'Activo' ? "#3b82f6" : "#cbd5e1"} strokeWidth={3} dot={false} />
                                      </LineChart>
@@ -1158,3 +1158,4 @@ export default function CallSystem() {
     </div>
   );
 }
+
