@@ -108,25 +108,20 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#0B0E14] text-gray-400 font-sans p-6 lg:p-10 pb-20">
       
-      {/* HEADER: DYNAMIC STATUS BAR COM LOGO */}
+      {/* HEADER: DYNAMIC STATUS BAR */}
       <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
         <div className="flex items-center gap-4">
-          {/* LOGO KAIVINCIA */}
-          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center overflow-hidden">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia Corp Logo" 
-              className="h-12 w-12 object-contain"
-            />
+          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <Cpu className="w-8 h-8 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Kaivincia Corp</h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Nervous System</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Admin System: Active
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
               </span>
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
-                Dashboard Executivo
+                Kaivincia Architecture v5.0
               </span>
             </div>
           </div>
@@ -323,9 +318,8 @@ export default function Dashboard() {
                 <Wallet className="w-5 h-5" />
               </div>
             </div>
-            {/* CORREÇÃO DO GRÁFICO - ADICIONADO minHeight e minWidth */}
-            <div className="h-48 w-full" style={{ minHeight: '192px', minWidth: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -528,12 +522,8 @@ export default function Dashboard() {
             <div className="mt-8 pt-8 border-t border-white/5">
                <div className="bg-white/5 border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
                   <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  <div className="relative z-10 flex flex-col items-center gap-2">
-                     <img 
-                       src="/images/logo.png" 
-                       alt="Kaivincia" 
-                       className="h-8 w-8 object-contain opacity-50 group-hover:opacity-100 transition-opacity"
-                     />
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                     <Network className="w-8 h-8 text-white opacity-20" />
                      <p className="text-[9px] font-black uppercase tracking-widest text-center text-gray-500 leading-relaxed">
                         Red Neuronal Kaivincia <br/> <span className="text-white">Active Node: Austin-Cluster-01</span>
                      </p>
