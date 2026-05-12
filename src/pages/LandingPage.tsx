@@ -61,7 +61,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-[#05070a] text-gray-100 font-sans selection:bg-[#00F0FF]/30 overflow-x-hidden">
-      {/* Animated Background - REMOVIDA a imagem portada.jpg que causava erro 404 */}
+      {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#05070a]/80 via-black/80 to-[#00F0FF]/10 animate-gradient" />
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" />
@@ -72,15 +72,13 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       {/* Navbar */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          {/* LOGO CORRIGIDO */}
+          {/* LOGO CORRIGIDO - Classe ajustada */}
           <div className="flex items-center gap-3">
-            <div className="h-12 w-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center overflow-hidden">
-              <img 
-                src="/images/logo.png" 
-                alt="Kaivincia Corp Logo" 
-                className="h-10 w-10 object-contain"
-              />
-            </div>
+            <img 
+              src="/images/logo.png" 
+              alt="Kaivincia Corp Logo" 
+              className="h-12 w-auto"
+            />
             <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
@@ -288,18 +286,15 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Footer - CORRIGIDO com LOGO */}
+      {/* Footer - LOGO CORRIGIDO */}
       <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-           {/* LOGO NO FOOTER - CORRIGIDO */}
            <div className="flex items-center gap-3">
-             <div className="h-10 w-10 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center overflow-hidden">
-               <img 
-                 src="/images/logo.png" 
-                 alt="Kaivincia Corp Logo" 
-                 className="h-8 w-8 object-contain"
-               />
-             </div>
+             <img 
+               src="/images/logo.png" 
+               alt="Kaivincia Corp Logo" 
+               className="h-10 w-auto"
+             />
              <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
            </div>
            <div className="flex gap-10">
