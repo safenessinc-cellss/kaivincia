@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { Calendar as CalendarIcon, BookOpen, CheckCircle2, Circle, Clock, Target, TrendingUp, Sparkles, ChevronRight } from 'lucide-react';
+import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { auth, db, storage, handleFirestoreError, OperationType } from '../firebase';
+import { Calendar as CalendarIcon, BookOpen, CheckCircle2, Circle, Clock, Target, TrendingUp, Sparkles, ChevronRight, Edit2, Camera, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,6 +12,56 @@ export default function UserPortal() {
   const { userData } = useOutletContext<{ userData: any }>();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (userData) {
+      setEditName(userData.name || '');
+    }
+  }, [userData]);
+
+  const handleUpdateProfile = async () => {
+    if (!userData?.uid) return;
+    try {
+      const userRef = doc(db, 'users', userData.uid);
+      await updateDoc(userRef, { name: editName });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: editName });
+      }
+      setIsEditingProfile(false);
+    } catch (error) {
+      console.error("Error updating profile", error);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userData?.uid || !auth.currentUser) return;
+
+    if (!storage) {
+      alert("El servicio de almacenamiento no está disponible actualmente.");
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const storageRef = ref(storage, `avatars/${userData.uid}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const photoUrl = await getDownloadURL(storageRef);
+
+      const userRef = doc(db, 'users', userData.uid);
+      await updateDoc(userRef, { avatarUrl: photoUrl });
+      await updateProfile(auth.currentUser, { photoURL: photoUrl });
+    } catch (error) {
+      console.error("Error uploading avatar", error);
+      alert("Error al subir la imagen. Intenta de nuevo.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     if (!userData?.uid) return;
@@ -55,19 +107,31 @@ export default function UserPortal() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
       >
-        <div className="flex items-center gap-4">
-          {/* LOGO AQUI */}
-          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center overflow-hidden">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia Corp Logo" 
-              className="h-12 w-12 object-contain"
-            />
+        <div className="flex items-center gap-6">
+          <div className="relative group">
+             {userData?.avatarUrl ? (
+               <img src={userData.avatarUrl} alt={userData?.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/30" />
+             ) : (
+               <div className="w-20 h-20 bg-gradient-to-br from-emerald-500/20 to-blue-500/20 rounded-2xl flex items-center justify-center text-2xl font-black text-white border-2 border-emerald-500/30 shadow-lg">
+                 {userData?.name?.charAt(0) || 'U'}
+               </div>
+             )}
+             <button 
+               onClick={() => fileInputRef.current?.click()}
+               className="absolute bottom-[-8px] right-[-8px] bg-emerald-500 text-white p-1.5 rounded-lg shadow-lg hover:bg-emerald-400 transition-colors z-10"
+             >
+               {uploadingAvatar ? <motion.div animate={{rotate: 360}} transition={{repeat:Infinity, duration: 1}}><Target className="w-4 h-4"/></motion.div> : <Camera className="w-4 h-4" />}
+             </button>
+             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
           </div>
           <div>
-            <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">Mi Portal <span className="text-emerald-500">Kaivincia</span></h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
+                {userData?.name} <span className="text-emerald-500 text-2xl cursor-pointer hover:text-emerald-400 transition-colors" onClick={() => setIsEditingProfile(true)}><Edit2 className="inline w-5 h-5 mb-1" /></span>
+              </h2>
+            </div>
             <p className="text-gray-400 font-bold uppercase text-[10px] tracking-[0.3em] mt-3 flex items-center gap-2">
-              <Sparkles className="w-3 h-3 text-emerald-400" /> Dashboard de Alto Rendimiento • Nivel 4
+              <Sparkles className="w-3 h-3 text-emerald-400" /> Miembro {userData?.role} • Kaivincia
             </p>
           </div>
         </div>
@@ -83,6 +147,60 @@ export default function UserPortal() {
           </div>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {isEditingProfile && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="relative z-10 bg-white/5 border border-white/10 rounded-2xl p-6 overflow-hidden"
+          >
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-white font-bold uppercase tracking-widest text-sm">Editar Perfil</h3>
+              <button onClick={() => setIsEditingProfile(false)} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex gap-4">
+              <input 
+                type="text" 
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="flex-1 bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                placeholder="Nombre completo"
+              />
+              <button 
+                onClick={handleUpdateProfile}
+                className="bg-emerald-500 text-white font-bold uppercase tracking-widest px-8 rounded-xl hover:bg-emerald-400 transition-colors text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+            <div className="mt-4 pt-4 border-t border-white/5 flex justify-end">
+              <button
+                onClick={async () => {
+                  if (auth.currentUser && userData?.uid) {
+                    const photo = auth.currentUser.photoURL || '';
+                    const name = auth.currentUser.displayName || '';
+                    try {
+                      await updateDoc(doc(db, 'users', userData.uid), {
+                        name: name,
+                        avatarUrl: photo
+                      });
+                      setEditName(name);
+                      alert('Datos sincronizados con Google');
+                    } catch (e) {
+                      console.error(e);
+                    }
+                  }
+                }}
+                className="text-[10px] text-gray-400 font-bold uppercase hover:text-white transition-colors"
+              >
+                Sincronizar datos con Google (Actualizar foto y nombre)
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative z-10">
         
