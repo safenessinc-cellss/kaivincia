@@ -1,14 +1,23 @@
-{
-  "name": "kaivincia",
-  "version": "1.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "vercel-build": "vite build"
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  base: '/',
+  server: {
+    port: 3000,
+    host: '0.0.0.0',
   },
-  "dependencies": {
-    // tus dependencias
-  }
-}
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    copyPublicDir: true,
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+      },
+    },
+  },
+  publicDir: 'public',
+})
