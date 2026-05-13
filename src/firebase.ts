@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
@@ -8,6 +9,18 @@ export const db = (firebaseConfig as any).firestoreDatabaseId
   ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
   : getFirestore(app);
 export const auth = getAuth(app);
+
+// Initialize storage with explicit bucket URL if auto-detection fails
+let storageInstance;
+try {
+  storageInstance = getStorage(app);
+} catch (e) {
+  console.warn("Storage auto-initialization failed, trying with explicit bucket", e);
+  if ((firebaseConfig as any).storageBucket) {
+    storageInstance = getStorage(app, `gs://${(firebaseConfig as any).storageBucket}`);
+  }
+}
+export const storage = storageInstance!;
 
 export enum OperationType {
   CREATE = 'create',
@@ -59,3 +72,4 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+
