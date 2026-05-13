@@ -1,22 +1,25 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
   "routes": [
     {
-      "src": "/images/(.*)",
-      "dest": "/images/$1",
-      "headers": { "Cache-Control": "public, max-age=3600" }
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
     },
     {
-      "src": "/(.*)\\.(jpg|jpeg|png|gif|svg|ico|webp)$",
+      "src": "/images/(.*)",
+      "dest": "/images/$1"
+    },
+    {
+      "src": "/(.*)\\.(js|css|png|jpg|svg|ico|json|woff2?)$",
       "dest": "/$1.$2"
     },
     {
       "src": "/(.*)",
-      "dest": "/",
-      "status": 200
+      "dest": "/index.html"
     }
-  ],
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install"
+  ]
 }
