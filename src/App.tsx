@@ -4,6 +4,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { motion } from 'motion/react';
+import { Zap } from 'lucide-react';
 
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -198,6 +199,45 @@ export default function App() {
     );
   }
 
+  if (userData && userData.status === 'pending') {
+    return (
+      <div className="min-h-screen bg-[#05070a] flex flex-col items-center justify-center p-6 text-center">
+        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
+          <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#00F0FF]/20 via-transparent to-transparent"></div>
+        </div>
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="relative z-10 max-w-lg"
+        >
+          <div className="w-24 h-24 bg-[#00F0FF]/10 rounded-3xl border border-[#00F0FF]/20 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(0,240,255,0.1)]">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+            >
+              <Zap className="w-12 h-12 text-[#00F0FF]" />
+            </motion.div>
+          </div>
+          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-4">Acceso Pendiente</h1>
+          <p className="text-gray-400 font-bold uppercase text-xs tracking-[0.2em] mb-8 leading-relaxed">
+            Hola <span className="text-[#00F0FF]">{userData.name}</span>, tu cuenta ha sido registrada con éxito pero requiere activación manual por parte del equipo de <span className="text-white">Kaivincia Corp</span>. 
+          </p>
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
+            <p className="text-gray-300 text-sm font-medium">
+              Estamos verificando tu perfil para asignarte los permisos correspondientes. Recibirás acceso completo en breve.
+            </p>
+          </div>
+          <button 
+            onClick={() => auth.signOut()}
+            className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+          >
+            Cerrar Sesión
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Routes>
@@ -213,45 +253,47 @@ export default function App() {
         
         {/* CRM Routes */}
         <Route path="/crm" element={user && userData?.status === 'active' ? <CRMLayout userData={userData} /> : <Navigate to="/login" />}>
-          <Route index element={<Navigate to="/crm/dashboard" />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="reports" element={<StrategicReport />} />
-          <Route path="clients" element={<Clients />} />
-          <Route path="pipeline" element={<Pipeline />} />
+          <Route index element={<Navigate to={userData?.role === 'alumno' ? "/crm/academy-internal" : "/crm/dashboard"} />} />
+          <Route path="dashboard" element={userData?.role === 'alumno' ? <Navigate to="/crm/academy-internal" /> : <Dashboard />} />
+          <Route path="reports" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <StrategicReport />} />
+          <Route path="clients" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Clients />} />
+          <Route path="pipeline" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Pipeline />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="chat" element={<Communications />} />
           <Route path="cobranza" element={<Cobranza />} />
           
-          {/* Admin Modules */}
-          <Route path="superadmin" element={<SuperAdmin />} />
-          <Route path="automations" element={<Automations />} />
+          {/* New Modules */}
+          <Route path="superadmin" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SuperAdmin />} />
+          <Route path="automations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Automations />} />
           <Route path="academy-internal" element={<AcademyInternal />} />
           <Route path="academy-external" element={<AcademyExternal />} />
           <Route path="digital-products" element={<DigitalProducts />} />
-          <Route path="calls" element={<CallSystem />} />
+          <Route path="calls" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <CallSystem />} />
           
-          {/* Administrative */}
-          <Route path="recruitment" element={<Recruitment />} />
-          <Route path="team" element={<TeamManagement />} />
-          <Route path="payroll" element={<Payroll />} />
-          <Route path="accounting" element={<Accounting />} />
-          <Route path="client-management" element={<ClientManagement />} />
+          {/* Administrativo */}
+          <Route path="recruitment" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Recruitment />} />
+          <Route path="team" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TeamManagement />} />
+          <Route path="payroll" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Payroll />} />
+          <Route path="accounting" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Accounting />} />
+          <Route path="client-management" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <ClientManagement />} />
           <Route path="billing" element={<Billing />} />
-          <Route path="operations" element={<Operations />} />
-          <Route path="marketing" element={<Marketing />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="commissions" element={<Commissions />} />
-          <Route path="tactical" element={<TacticalDeployment />} />
+          <Route path="operations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Operations />} />
+          <Route path="marketing" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Marketing />} />
+          <Route path="projects" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Projects />} />
+          <Route path="reports" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Reports />} />
+          <Route path="commissions" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Commissions />} />
+          <Route path="tactical" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TacticalDeployment />} />
           <Route path="manuales" element={<SOPManuals />} />
-          <Route path="turs" element={<MasterForms />} />
-          <Route path="helpdesk" element={<Helpdesk />} />
-          <Route path="drive" element={<DocumentDrive />} />
-          <Route path="audits" element={<AuditsSGI />} />
-          <Route path="security" element={<SecurityCenter />} />
-          <Route path="nervous" element={<NervousSystem />} />
+          <Route path="turs" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <MasterForms />} />
+          <Route path="helpdesk" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Helpdesk />} />
+          <Route path="drive" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <DocumentDrive />} />
+          <Route path="audits" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <AuditsSGI />} />
+          <Route path="security" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SecurityCenter />} />
+          <Route path="nervous" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <NervousSystem />} />
+          <Route path="strategy-blog" element={<StrategyBlog />} />
           
-          {/* Portals */}
+          {/* Portales */}
           <Route path="client-portal" element={<ClientPortal />} />
           <Route path="user-portal" element={<UserPortal />} />
         </Route>
