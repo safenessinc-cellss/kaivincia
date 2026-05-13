@@ -232,19 +232,46 @@ export default function Billing() {
 
   const generateAutomaticInvoice = async (clientName: string, amount: number, type: string) => {
     try {
-      const newInv = {
-        client: clientName,
-        amount,
-        status: 'Pendiente',
-        date: new Date().toISOString().split('T')[0],
-        type,
-        createdAt: new Date().toISOString()
-      };
-      await addDoc(collection(db, 'invoices'), newInv);
+   const generateWithAI = async (mode: 'invoice' | 'quote' | 'cost') => {
+  if (!aiPrompt) return;
+  setIsAiLoading(true);
+  
+  // Simular delay de IA
+  setTimeout(() => {
+    try {
+      // Mock response basado en el modo
+      if (mode === 'invoice') {
+        const mockData = {
+          client: "Cliente Demo",
+          amount: 1500,
+          type: "Fijo",
+          description: `Factura generada para: ${aiPrompt.substring(0, 50)}`
+        };
+        setNewInvoice({ ...newInvoice, ...mockData, amount: String(mockData.amount) });
+        alert("✅ Factura sugerida por IA (Demo): Los datos han sido cargados en el formulario.");
+      } 
+      else if (mode === 'quote') {
+        const mockData = {
+          client: "Cliente Demo",
+          items: [{ desc: `Servicio: ${aiPrompt.substring(0, 30)}`, price: "2500" }],
+          total: 2500
+        };
+        setNewQuote({ ...newQuote, ...mockData });
+        alert("✅ Presupuesto sugerido por IA (Demo): Los items han sido cargados.");
+      } 
+      else {
+        alert(`📊 Análisis de Costos (Demo)\n\nPrompt: "${aiPrompt}"\n\nSugerencia: Revisar márgenes operativos y optimizar costos fijos.`);
+      }
+      
+      setAiPrompt('');
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'invoices');
+      console.error("Mock AI Error:", error);
+      alert("Error en el asistente IA (Demo).");
+    } finally {
+      setIsAiLoading(false);
     }
-  };
+  }, 800); // Simular tiempo de respuesta
+};
 
   const generatePDF = (inv: any) => {
     const doc = new jsPDF();
