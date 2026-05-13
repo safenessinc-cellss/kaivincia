@@ -108,6 +108,14 @@ export default function UserPortal() {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
       >
         <div className="flex items-center gap-6">
+          {/* Logo de la empresa */}
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="h-16 w-auto object-contain hover:scale-105 transition-transform duration-300" 
+          />
+          
+          {/* Avatar del usuario */}
           <div className="relative group">
              {userData?.avatarUrl ? (
                <img src={userData.avatarUrl} alt={userData?.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/30" />
@@ -124,6 +132,7 @@ export default function UserPortal() {
              </button>
              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
           </div>
+          
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
