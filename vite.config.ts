@@ -1,4 +1,3 @@
-
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -16,5 +15,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    copyPublicDir: true, // ✅ ESTO ES CRUCIAL - Copia public/ a dist/
+    assetsDir: 'assets',
   },
-});
+  publicDir: 'public', // ✅ Asegura que la carpeta public se use
+  base: '/', // ✅ Para rutas absolutas
+})
