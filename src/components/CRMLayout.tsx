@@ -181,10 +181,14 @@ export default function CRMLayout({ userData }: { userData: any }) {
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
-              src="/logo.png"
+              src="/images/logo.png"
               alt="Kaivincia Logo" 
               className="h-8 object-contain"
               referrerPolicy="no-referrer"
+              onError={(e) => {
+                console.error('Error cargando logo en CRMLayout');
+                e.currentTarget.style.display = 'none';
+              }}
             />
           ) : (
             <div className="w-8 h-8 mx-auto bg-gradient-to-br from-[#00F0FF] to-yellow-700 rounded-lg flex items-center justify-center font-bold text-white uppercase shadow-lg">K</div>
