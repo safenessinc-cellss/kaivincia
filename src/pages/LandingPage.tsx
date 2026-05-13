@@ -92,7 +92,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
           <div className="flex items-center gap-3">
             {/* Logo - Ruta CORREGIDA a /images/logo.png */}
             <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
