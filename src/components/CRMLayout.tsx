@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import { LOGO_FULL, LOGO_ICON } from '../constants/images';
 import CommandBar from './CommandBar';
 import NotificationCenter from './NotificationCenter';
 
@@ -23,11 +24,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const [ceoMode, setCeoMode] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'SISTEMA NERVIOSO': true,
-    'GESTIÓN & OPERACIONES': true,
-    'TALENTO & SGI': false,
-    'FINANZAS & ESTRATEGIA': false,
-    'PORTALES & EXTERNOS': false,
+    'Módulo Core': true,
+    'Módulo de Talento': false,
+    'Módulo Financiero': false,
+    'Módulo de Estrategia': false,
+    'Academia Kaivincia': true,
+    'Portales': false,
     'Configuración': false
   });
 
@@ -66,12 +68,32 @@ export default function CRMLayout({ userData }: { userData: any }) {
   };
 
   const menuGroups = useMemo(() => {
+    if (userRole === 'alumno') {
+      return [
+        {
+          title: 'ACADEMIA KAIVINCIA',
+          items: [
+            { name: 'Cursos & Formación', href: '/crm/academy-internal', icon: GraduationCap, color: 'text-purple-500' },
+            { name: 'Manuales de Élite', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
+          ]
+        },
+        {
+          title: 'PAGOS & PORTAL',
+          items: [
+            { name: 'Mi Portal', href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
+            { name: 'Pagos y Facturas', href: '/crm/billing', icon: Receipt, color: 'text-cyan-600' },
+            { name: 'Academy Store', href: '/crm/digital-products', icon: ShoppingCart, color: 'text-gray-400' },
+          ]
+        }
+      ];
+    }
+
     const groups = [
       {
         title: 'SISTEMA NERVIOSO',
         items: [
           { name: 'Nervous System', href: '/crm/nervous', icon: BrainCircuit, highlight: true, color: 'text-[#22D3EE]' },
-          { name: 'Command Center', href: '/crm/dashboard', icon: LayoutDashboard, highlight: true, color: 'text-cyan-500' },
+          { name: 'Command Center', href: '/crm/dashboard', icon: Home, highlight: true, color: 'text-cyan-500' },
           { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, badge: '9+', color: 'text-[#A855F7]' },
           { name: 'Automatizaciones', href: '/crm/automations', icon: Zap, color: 'text-amber-500' },
         ]
@@ -122,8 +144,9 @@ export default function CRMLayout({ userData }: { userData: any }) {
       groups.push({
         title: 'Configuración',
         items: [
-          { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert, color: 'text-red-500' },
+          { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert },
           { name: 'Security Center', href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
+          { name: 'Automatizaciones', href: '/crm/automations', icon: Zap },
         ]
       } as any);
     }
@@ -175,20 +198,15 @@ export default function CRMLayout({ userData }: { userData: any }) {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img src="/images/portada.jpg" alt="Portada" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-multiply" />
       </div>
-      
       {/* Sidebar */}
       <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
-              src="/images/logo.png"
+              src={LOGO_FULL}
               alt="Kaivincia Logo" 
               className="h-8 object-contain"
               referrerPolicy="no-referrer"
-              onError={(e) => {
-                console.error('Error cargando logo en CRMLayout');
-                e.currentTarget.style.display = 'none';
-              }}
             />
           ) : (
             <div className="w-8 h-8 mx-auto bg-gradient-to-br from-[#00F0FF] to-yellow-700 rounded-lg flex items-center justify-center font-bold text-white uppercase shadow-lg">K</div>
@@ -271,7 +289,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
                               <span className="text-[10px] uppercase font-black tracking-widest">{item.name}</span>
                               {item.badge && (
                                 <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full ${
-                                  item.badge === '9+' ? 'bg-[#A855F7] text-white' : ''
+                                  item.badge === 'LIVE' ? 'bg-cyan-500 text-black animate-pulse' : 'bg-[#A855F7] text-white'
                                 }`}>
                                   {item.badge}
                                 </span>
@@ -472,3 +490,4 @@ export default function CRMLayout({ userData }: { userData: any }) {
     </div>
   );
 }
+
