@@ -10,6 +10,7 @@ import {
   Calculator, PieChart, Sparkles, Loader2, X, Briefcase,
   ArrowRight, Save, Zap, RefreshCw, CreditCard
 } from 'lucide-react';
+import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -51,22 +52,6 @@ export default function Billing() {
     items: [{ desc: '', price: '' }],
     total: 0
   });
-
-  const generateAutomaticInvoice = async (clientName: string, amount: number, type: string) => {
-    try {
-      const newInv = {
-        client: clientName,
-        amount,
-        status: 'Pendiente',
-        date: new Date().toISOString().split('T')[0],
-        type,
-        createdAt: new Date().toISOString()
-      };
-      await addDoc(collection(db, 'invoices'), newInv);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'invoices');
-    }
-  };
 
   const handleSaveManualInvoice = () => {
     const { client, amount, description } = newInvoice;
@@ -128,53 +113,52 @@ export default function Billing() {
   // Cost Structure Data (Calculated)
   const costData = {
     ...costConfig,
-    totalHoursWorked: 1200,
+    totalHoursWorked: 1200, // This should ideally come from time_logs aggregation
     manHourCost: (costConfig.totalMonthlyPayroll + costConfig.overhead) / 1200
   };
 
-  // Función generateWithAI - CORREGIDA (sin Gemini)
   const generateWithAI = async (mode: 'invoice' | 'quote' | 'cost') => {
     if (!aiPrompt) return;
     setIsAiLoading(true);
-    
-    // Simular delay de IA
-    setTimeout(() => {
-      try {
-        if (mode === 'invoice') {
-          const mockData = {
-            client: aiPrompt.includes('para') ? aiPrompt.split('para')[1]?.trim() || "Cliente Demo" : "Cliente Demo",
-            amount: Math.floor(Math.random() * 5000) + 500,
-            type: "Fijo",
-            description: `Factura generada por IA: ${aiPrompt.substring(0, 100)}`
-          };
-          setNewInvoice({ ...newInvoice, ...mockData, amount: String(mockData.amount) });
-          alert(`✅ IA generó una factura sugerida:\nCliente: ${mockData.client}\nMonto: $${mockData.amount}`);
-        } 
-        else if (mode === 'quote') {
-          const mockItems = [
-            { desc: `Consultoría: ${aiPrompt.substring(0, 40)}`, price: "1500" },
-            { desc: "Implementación y Setup", price: "800" }
-          ];
-          const mockData = {
-            client: aiPrompt.includes('para') ? aiPrompt.split('para')[1]?.trim() || "Cliente Demo" : "Cliente Demo",
-            items: mockItems,
-            total: 2300
-          };
-          setNewQuote({ ...newQuote, ...mockData });
-          alert(`✅ IA generó un presupuesto sugerido:\nCliente: ${mockData.client}\nTotal: $${mockData.total}`);
-        } 
-        else {
-          alert(`📊 Análisis de Costos IA (Demo)\n\n📝 Consulta: "${aiPrompt}"\n\n💡 Recomendación: Optimizar estructura de costos operativos para mejorar márgenes en un 15-20%.`);
-        }
-        
-        setAiPrompt('');
-      } catch (error) {
-        console.error("Mock AI Error:", error);
-        alert("Error en el asistente IA. Por favor, intenta nuevamente.");
-      } finally {
-        setIsAiLoading(false);
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error("GEMINI_API_KEY not found");
+      
+      const ai = new GoogleGenAI({ apiKey });
+
+      let prompt = '';
+      if (mode === 'invoice') {
+        prompt = `Genera los detalles de una factura profesional basada en: "${aiPrompt}". Devuelve JSON: {"client": "Nombre", "amount": 100, "type": "Fijo/Variable", "description": "..."}`;
+      } else if (mode === 'quote') {
+        prompt = `Genera un presupuesto detallado basado en: "${aiPrompt}". Devuelve JSON: {"client": "Nombre", "items": [{"desc": "...", "price": 100}], "total": 100}`;
+      } else {
+        prompt = `Analiza la estructura de costos: Nómina $${costData.totalMonthlyPayroll}, Gastos $${costData.overhead}, Horas ${costData.totalHoursWorked}. Basado en: "${aiPrompt}". Devuelve JSON: {"analysis": "...", "recommendation": "...", "targetHourRate": 25}`;
       }
-    }, 800);
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response");
+      const data = JSON.parse(text);
+
+      if (mode === 'invoice') {
+        setNewInvoice({ ...newInvoice, ...data, amount: String(data.amount) });
+      } else if (mode === 'quote') {
+        setNewQuote({ ...newQuote, ...data });
+      } else {
+        alert(`Análisis de IA: ${data.analysis}\n\nRecomendación: ${data.recommendation}\nTarifa Objetivo: $${data.targetHourRate}/h`);
+      }
+      setAiPrompt('');
+    } catch (error) {
+      console.error("AI Error:", error);
+      alert("Error al procesar con IA.");
+    } finally {
+      setIsAiLoading(false);
+    }
   };
 
   const handleBulkGenerateInvoices = async () => {
@@ -211,7 +195,7 @@ export default function Billing() {
         }
 
         if (amount > 0) {
-          await addDoc(collection(db, 'invoices'), {
+          const invoiceRef = await addDoc(collection(db, 'invoices'), {
             clientId: client.id,
             clientName: client.name,
             company: client.company,
@@ -225,8 +209,9 @@ export default function Billing() {
             items: [{ description: `Cierre Mensual - ${client.billingModel}`, amount }]
           });
 
+          // Create Notification for Client
           await addDoc(collection(db, 'notifications'), {
-            userId: client.id,
+            userId: client.id, // Assuming client ID is the user ID for portal
             type: 'invoice',
             title: 'Nueva Factura Generada',
             message: `Se ha generado una nueva factura por $${amount.toLocaleString()} correspondiente al cierre mensual.`,
@@ -243,6 +228,22 @@ export default function Billing() {
       handleFirestoreError(error, OperationType.CREATE, 'bulk_invoices');
     } finally {
       setIsBulkLoading(false);
+    }
+  };
+
+  const generateAutomaticInvoice = async (clientName: string, amount: number, type: string) => {
+    try {
+      const newInv = {
+        client: clientName,
+        amount,
+        status: 'Pendiente',
+        date: new Date().toISOString().split('T')[0],
+        type,
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, 'invoices'), newInv);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'invoices');
     }
   };
 
@@ -271,7 +272,6 @@ export default function Billing() {
 
   return (
     <div className="space-y-6 flex flex-col h-full">
-      {/* Resto del JSX - igual que antes */}
       <div className="flex justify-between items-center mb-2">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Facturación y Cobranza</h2>
@@ -318,12 +318,43 @@ export default function Billing() {
          </div>
       </div>
 
-      {/* El resto del JSX (modales y tabs) se mantiene igual */}
-      {/* ... (mantén el código JSX existente de los modales y tabs) ... */}
-    </div>
-  );
-}
-   </div>
+      {/* Rules Configuration Modal */}
+      {isRulesModalOpen && selectedModel && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className={`h-10 w-10 ${selectedModel.color} rounded-xl flex items-center justify-center text-white shadow-lg`}>
+                  <selectedModel.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-gray-900 leading-none">Configurar Reglas</h3>
+                  <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-bold">{selectedModel.title}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsRulesModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-8 space-y-6">
+              {selectedModel.id === 'fijo' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Fee Mensual Base (USD)</label>
+                    <div className="relative">
+                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input 
+                        type="number"
+                        value={globalRules.fijo.baseAmount}
+                        onChange={e => setGlobalRules({
+                          ...globalRules,
+                          fijo: { ...globalRules.fijo, baseAmount: parseFloat(e.target.value) }
+                        })}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 pl-10 text-sm focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all"
+                      />
+                    </div>
+                  </div>
                   <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
                     <p className="text-[10px] text-blue-700 font-bold uppercase tracking-widest mb-1">Nota Lógica</p>
                     <p className="text-xs text-blue-600 leading-relaxed">Este monto se facturará automáticamente cada mes a los clientes bajo este modelo, independientemente de la actividad operativa.</p>
