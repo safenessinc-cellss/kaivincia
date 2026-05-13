@@ -4,6 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { CheckCircle2, UploadCloud, FileText, Image as ImageIcon, X, Bot, Loader2, Circle } from 'lucide-react';
 import { LOGO_FULL } from '../constants/images';
 import * as pdfjsLib from 'pdfjs-dist';
+import { GoogleGenAI } from '@google/genai';
 import { useSearchParams } from 'react-router-dom';
 
 // Configure PDF.js worker
