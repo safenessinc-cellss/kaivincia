@@ -4,11 +4,13 @@ import {
   ArrowRight, CheckCircle2, BookOpen, MonitorPlay, 
   BarChart3, X, Zap, ShieldCheck, 
   Globe, Cpu, Layers, Sparkles, Navigation,
-  Play, Users, Star, Lock, ChevronRight
+  Play, Users, Star, Lock, ChevronRight, User, Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
-import Logo from '../components/Logo';
 
 interface LandingPageProps {
   onGuestMode: () => void;
@@ -18,6 +20,19 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
   const navigate = useNavigate();
   const [scrolled, setScrolled] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
+  const [userData, setUserData] = useState<any>(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        const snap = await getDoc(doc(db, 'users', currentUser.uid));
+        if (snap.exists()) setUserData(snap.data());
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -64,6 +79,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
     <div className="min-h-screen bg-[#05070a] text-gray-100 font-sans selection:bg-[#00F0FF]/30 overflow-x-hidden">
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+        <img src="/images/portada.jpg" alt="Portada de la web" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-screen" />
         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#05070a]/80 via-black/80 to-[#00F0FF]/10 animate-gradient" />
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px] animate-pulse" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#00F0FF]/10 rounded-full blur-[150px]" />
@@ -73,7 +89,11 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       {/* Navbar */}
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <Logo />
+          <div className="flex items-center gap-3">
+            {/* Logo - Ruta corregida */}
+            <img src="/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
+          </div>
 
           <div className="hidden md:flex items-center gap-8">
             {['Sistemas', 'Academia', 'Resultados'].map((item) => (
@@ -84,9 +104,22 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/login" className="px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md">
-              Acceso Cliente
-            </Link>
+            {user ? (
+              <div className="flex items-center gap-4">
+                {userData?.role === 'superadmin' && (
+                  <Link to="/crm/superadmin" className="hidden lg:flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-500/20 transition-all backdrop-blur-md">
+                    <Settings className="w-3 h-3" /> Panel de Control
+                  </Link>
+                )}
+                <Link to="/crm/dashboard" className="px-6 py-2.5 rounded-full bg-[#00F0FF] text-white text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                  Ir al CRM
+                </Link>
+              </div>
+            ) : (
+              <Link to="/login" className="px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all backdrop-blur-md">
+                Acceso Cliente
+              </Link>
+            )}
           </div>
         </div>
       </nav>
@@ -282,7 +315,10 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       {/* Footer */}
       <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-           <Logo />
+           <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
+              <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
+           </div>
            <div className="flex gap-10">
               <Link to="/guest-academy" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Academia</Link>
               <Link to="/strategy-blog" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Blog Estratégico</Link>
