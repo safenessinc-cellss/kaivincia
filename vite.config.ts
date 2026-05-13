@@ -4,10 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  define: {
-    'process.env.GEMINI_API_KEY': JSON.stringify('AIzaSy...COLE_SUA_CHAVE_AQUI'),
-    'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify('AIzaSy...COLE_SUA_CHAVE_AQUI'),
-  },
+  base: '/', // Importante para rutas absolutas
   server: {
     port: 3000,
     host: '0.0.0.0',
@@ -15,9 +12,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    copyPublicDir: true, // ✅ ESTO ES CRUCIAL - Copia public/ a dist/
-    assetsDir: 'assets',
+    copyPublicDir: true,
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name].js',
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    }
   },
-  publicDir: 'public', // ✅ Asegura que la carpeta public se use
-  base: '/', // ✅ Para rutas absolutas
+  publicDir: 'public',
 })
