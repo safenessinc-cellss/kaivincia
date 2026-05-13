@@ -4,7 +4,7 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/', // Importante para rutas absolutas
+  base: './', // Cambia de '/' a './' para rutas relativas
   server: {
     port: 3000,
     host: '0.0.0.0',
@@ -13,13 +13,20 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     copyPublicDir: true,
+    sourcemap: false,
+    minify: 'esbuild',
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name].[ext]'
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     }
   },
   publicDir: 'public',
+  resolve: {
+    alias: {
+      '@': '/src',
+    },
+  },
 })
