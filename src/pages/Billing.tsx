@@ -10,7 +10,6 @@ import {
   Calculator, PieChart, Sparkles, Loader2, X, Briefcase,
   ArrowRight, Save, Zap, RefreshCw, CreditCard
 } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
