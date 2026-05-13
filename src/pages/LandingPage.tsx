@@ -11,6 +11,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
+import Footer from '../components/Footer';
 
 interface LandingPageProps {
   onGuestMode: () => void;
@@ -90,9 +91,8 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            {/* Logo - Ruta CORREGIDA a /images/logo.png */}
-            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
+            <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
@@ -312,22 +312,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-           <div className="flex items-center gap-3">
-              {/* Logo en footer - Ruta CORREGIDA a /images/logo.png */}
-              <img src="/images/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
-              <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
-           </div>
-           <div className="flex gap-10">
-              <Link to="/guest-academy" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Academia</Link>
-              <Link to="/strategy-blog" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Blog Estratégico</Link>
-              <a href="#" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">Soporte</a>
-           </div>
-           <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest italic">Est. 2026 - Mastered by AI</p>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Course Video Modal */}
       <AnimatePresence>
