@@ -88,7 +88,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
           <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest italic">
-            © 2026 Kaivincia Corp. Todos los derechos reservados. Mastered by AI.
+            © 2026 Kaivincia Corp. Todos los derechos reservados.by Safeness.inc.
           </p>
           <div className="flex gap-8">
             <a href="#" className="text-[10px] font-black text-gray-600 uppercase tracking-widest hover:text-white transition-colors">Privacidad</a>
