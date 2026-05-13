@@ -47,6 +47,7 @@ import DocumentDrive from './pages/DocumentDrive';
 import SecurityCenter from './pages/SecurityCenter';
 import AuditsSGI from './pages/AuditsSGI';
 import NervousSystem from './pages/NervousSystem';
+import FloatingEditButton from './components/FloatingEditButton';
 
 export default function App() {
   const [user, setUser] = useState<any>(null);
@@ -222,7 +223,7 @@ export default function App() {
           <Route path="chat" element={<Communications />} />
           <Route path="cobranza" element={<Cobranza />} />
           
-          {/* New Modules */}
+          {/* Admin Modules */}
           <Route path="superadmin" element={<SuperAdmin />} />
           <Route path="automations" element={<Automations />} />
           <Route path="academy-internal" element={<AcademyInternal />} />
@@ -230,7 +231,7 @@ export default function App() {
           <Route path="digital-products" element={<DigitalProducts />} />
           <Route path="calls" element={<CallSystem />} />
           
-          {/* Administrativo */}
+          {/* Administrative */}
           <Route path="recruitment" element={<Recruitment />} />
           <Route path="team" element={<TeamManagement />} />
           <Route path="payroll" element={<Payroll />} />
@@ -240,7 +241,6 @@ export default function App() {
           <Route path="operations" element={<Operations />} />
           <Route path="marketing" element={<Marketing />} />
           <Route path="projects" element={<Projects />} />
-          <Route path="reports" element={<Reports />} />
           <Route path="commissions" element={<Commissions />} />
           <Route path="tactical" element={<TacticalDeployment />} />
           <Route path="manuales" element={<SOPManuals />} />
@@ -250,13 +250,13 @@ export default function App() {
           <Route path="audits" element={<AuditsSGI />} />
           <Route path="security" element={<SecurityCenter />} />
           <Route path="nervous" element={<NervousSystem />} />
-          <Route path="strategy-blog" element={<StrategyBlog />} />
           
-          {/* Portales */}
+          {/* Portals */}
           <Route path="client-portal" element={<ClientPortal />} />
           <Route path="user-portal" element={<UserPortal />} />
         </Route>
       </Routes>
+      <FloatingEditButton userData={userData} />
     </BrowserRouter>
   );
 }
