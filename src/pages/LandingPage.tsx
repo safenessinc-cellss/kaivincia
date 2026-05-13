@@ -90,8 +90,8 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            {/* Logo - Ruta corregida */}
-            <img src="/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
+            {/* Logo - Ruta CORREGIDA a /images/logo.png */}
+            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
             <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
@@ -316,7 +316,8 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
            <div className="flex items-center gap-3">
-              <img src="/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
+              {/* Logo en footer - Ruta CORREGIDA a /images/logo.png */}
+              <img src="/images/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
               <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
            </div>
            <div className="flex gap-10">
