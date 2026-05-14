@@ -36,26 +36,6 @@ export default function SuperAdmin() {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
-  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
-
-  const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
-
-  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
-    try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user.permissions || {};
-      const newPerms = { ...currentPerms, [module]: hasAccess };
-      
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active' // Auto-activate if we are setting perms
-      });
-      
-      alert(`Permisos actualizados para el módulo: ${module}`);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
-    }
-  };
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
