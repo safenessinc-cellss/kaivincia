@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   BrainCircuit, Activity, Zap, Users2, ShieldAlert, BarChart3, TrendingUp, DollarSign,
   Terminal, AlertTriangle, Cpu, Wifi, MessageSquare, Shield, Clock, Crosshair, CheckCircle2, X,
-  Search, ChevronRight, Fingerprint, Lock, Globe
+  Search, ChevronRight, Fingerprint, Lock, Globe, CheckSquare
 } from 'lucide-react';
 import { useGlobalContext } from '../contexts/GlobalContext';
 
@@ -284,6 +284,29 @@ export default function NervousSystem() {
                 <span className="text-[9px] font-mono uppercase text-slate-500">Nuevos Leads (High Q)</span>
               </div>
             </div>
+          </div>
+        </motion.div>
+
+        {/* V. Tasks Execution */}
+        <motion.div 
+          whileHover={{ scale: 1.01 }} 
+          onClick={() => navigate('/crm/tasks')}
+          className="bg-[#0f172a]/60 backdrop-blur-xl border border-[#00F0FF]/30 rounded-[2rem] p-6 cursor-pointer group"
+        >
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-[#00F0FF]">V. Collaborative Task Execution</h3>
+            <div className="p-2 bg-[#00F0FF]/10 rounded-lg group-hover:bg-[#00F0FF] group-hover:text-black transition-colors">
+               <CheckSquare className="w-5 h-5 text-[#00F0FF] group-hover:text-inherit" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-3 mb-6">
+            <span className="font-mono text-3xl font-black">92%</span>
+            <span className="text-sm font-bold text-[#00F0FF] uppercase">Efficiency Rate</span>
+          </div>
+          <div className="space-y-3 border-t border-white/5 pt-4">
+             <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-center">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white">Gestion de Tareas</span>
+             </div>
           </div>
         </motion.div>
       </div>
@@ -575,3 +598,4 @@ export default function NervousSystem() {
     </div>
   );
 }
+
