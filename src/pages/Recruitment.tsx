@@ -6,7 +6,8 @@ import {
   Edit2, Save, X, Plus, Trash2, Briefcase, UserPlus, Sparkles, UserCheck,
   Clock, Linkedin, ShieldAlert, Zap, History, MessageCircle, Phone, Monitor,
   FileText, Handshake, BookOpen, MapPin, Coffee, FileSearch, Download, Upload,
-  Users, Lock, Info, AlertTriangle, Fingerprint, MousePointer2, ArrowLeft, FileCheck
+  Users, Lock, Info, AlertTriangle, Fingerprint, MousePointer2, ArrowLeft, FileCheck,
+  MonitorPlay
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -280,7 +281,7 @@ export default function Recruitment() {
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
           <button 
-            onClick={() => navigate('/crm/dashboard')}
+            onClick={() => navigate(-1)}
             className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
@@ -589,7 +590,7 @@ export default function Recruitment() {
                             <div className="flex justify-between items-start mb-2">
                                <h4 className={`text-xs font-black ${roleDef.color} uppercase tracking-widest`}>{roleDef.label}</h4>
                                <button 
-                                 onClick={() => navigate('/superadmin')}
+                                 onClick={() => navigate('/crm/superadmin')}
                                  className="text-[8px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 px-2 py-1 rounded-lg transition-colors"
                                >
                                  Asignar
@@ -600,7 +601,7 @@ export default function Recruitment() {
                        ))}
                     </div>
                     <button 
-                      onClick={() => navigate('/superadmin')}
+                      onClick={() => navigate('/crm/superadmin')}
                       className="w-full mt-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all"
                     >
                        Gestionar Permisos Maestros
