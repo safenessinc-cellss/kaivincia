@@ -6,14 +6,14 @@ import {
   CheckCircle2, Clock, 
   BrainCircuit, BarChart3, BookOpen, ChevronRight, 
   History, RefreshCw, FileText,
-  Cpu, Layers, Network, CheckSquare
+  Cpu, Layers, Network, CheckSquare, ArrowLeft
 } from 'lucide-react';
 import { 
   AreaChart, Area, Tooltip, 
   ResponsiveContainer
 } from 'recharts';
 import { collection, query, onSnapshot, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
@@ -29,7 +29,6 @@ interface SystemEvent {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { userData } = useOutletContext<{ userData: any }>();
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
@@ -67,7 +66,7 @@ export default function Dashboard() {
     // Listeners for real database connection test
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
+    });
 
     return () => {
       unsubClients();
@@ -112,6 +111,13 @@ export default function Dashboard() {
       {/* HEADER: DYNAMIC STATUS BAR */}
       <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
         <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate(-1)}
+            className="p-3 bg-white/5 border border-white/10 rounded-2xl text-gray-400 hover:text-white hover:bg-white/10 transition-all active:scale-95 group"
+            title="Volver Atrás"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          </button>
           <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.1)]">
             <Cpu className="w-8 h-8 animate-pulse" />
           </div>
@@ -179,7 +185,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
-        {/* PREDICTIVE INSIGHTS RADAR */}
+        {/* NEW: PREDICTIVE INSIGHTS RADAR (INSIGHTS DE MAÑANA) */}
         <div className="xl:col-span-12">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -350,8 +356,8 @@ export default function Dashboard() {
                 <Wallet className="w-5 h-5" />
               </div>
             </div>
-            <div style={{ width: '100%', height: 192, minHeight: 192 }}>
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-48 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
