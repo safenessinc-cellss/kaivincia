@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc, addDoc, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
   ShieldCheck, XCircle, ShieldAlert, Activity, Users, 
@@ -42,12 +42,19 @@ export default function SuperAdmin() {
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'users');
+      setLoading(false);
+    });
 
     const unsubscribeAudit = onSnapshot(query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)), (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setAuditLogs(logs);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'audit_logs'));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'audit_logs');
+      setLoading(false);
+    });
 
     return () => {
       unsubscribeUsers();
@@ -336,7 +343,13 @@ export default function SuperAdmin() {
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inicios de Sesión (24h)</p>
-                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.filter(l => l.action === 'LOGIN' && new Date(l.timestamp).getTime() > Date.now() - 86400000).length}</p>
+                    <p className="text-2xl font-black text-gray-900 italic">
+                      {auditLogs.filter(l => {
+                        if (l.action !== 'LOGIN' || !l.timestamp) return false;
+                        const date = l.timestamp.toDate ? l.timestamp.toDate() : new Date(l.timestamp);
+                        return date.getTime() > Date.now() - 86400000;
+                      }).length}
+                    </p>
                   </div>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
