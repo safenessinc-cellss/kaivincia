@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
   Edit2, Save, X, Plus, Trash2, Briefcase, UserPlus, Sparkles, UserCheck,
@@ -353,7 +353,7 @@ export default function Recruitment() {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Terminal Gibbor Core v4</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Terminal Kaivincia Core v5</p>
                 </div>
               </div>
 
@@ -396,7 +396,7 @@ export default function Recruitment() {
                    </div>
                    <div>
                       <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación Validada</p>
-                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">Gibbor Virtual Node • VPN Enabled</p>
+                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">Kaivincia Virtual Node • VPN Enabled</p>
                    </div>
                 </div>
               </div>
@@ -428,7 +428,7 @@ export default function Recruitment() {
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Nueva Solicitud</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Protocolo de Ausencia Gibbor</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Protocolo de Ausencia Kaivincia</p>
                 </div>
               </div>
 
@@ -507,15 +507,9 @@ export default function Recruitment() {
 
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
-          <button 
-            onClick={() => navigate(-1)}
-            className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
-          >
-            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-          </button>
           <div>
             <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Reclutamiento y Selección</h2>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Gestión de Talento Gibbor N-Core</p>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Gestión de Talento Kaivincia N-Core</p>
           </div>
         </div>
       </div>
@@ -610,7 +604,7 @@ export default function Recruitment() {
                       <div className="h-4 w-full bg-gray-100 rounded-full" />
                       <div className="h-4 w-5/6 bg-gray-100 rounded-full" />
                       <div className="h-32 w-full bg-white border border-gray-100 rounded-2xl flex items-center justify-center">
-                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic">Cargando plantilla legal Gibbor Center...</span>
+                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic">Cargando plantilla legal Kaivincia Center...</span>
                       </div>
                     </div>
                   </div>
@@ -624,7 +618,7 @@ export default function Recruitment() {
                     </div>
                     <div>
                        <h4 className="text-sm font-black text-gray-900 uppercase tracking-tighter italic">Kit de Bienvenida</h4>
-                       <p className="text-[10px] text-gray-400 font-medium mt-1 leading-tight">Envío automático de manuales de cultura y marca Gibbor.</p>
+                       <p className="text-[10px] text-gray-400 font-medium mt-1 leading-tight">Envío automático de manuales de cultura y marca Kaivincia.</p>
                     </div>
                  </div>
                  <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-lg flex items-center gap-6 group hover:border-emerald-500/30 transition-all">
@@ -679,7 +673,7 @@ export default function Recruitment() {
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Protocolo de Privacidad</h4>
                  </div>
                  <p className="text-[11px] text-gray-500 leading-relaxed italic">
-                   Gibbor Center asegura que todos los documentos de identidad son encriptados en reposo y cumplen con la normativa GDPR. El acceso está restringido a SuperAdmin.
+                   Kaivincia Center asegura que todos los documentos de identidad son encriptados en reposo y cumplen con la normativa GDPR. El acceso está restringido a SuperAdmin.
                  </p>
               </div>
             </div>
@@ -720,7 +714,7 @@ export default function Recruitment() {
                     <div className="flex justify-between items-end mb-10">
                        <div>
                           <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Monitor de Disponibilidad</h3>
-                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sincronización de Red Gibbor Core</p>
+                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sincronización de Red Kaivincia Core</p>
                        </div>
                        <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-xl">
                           <Clock className="w-4 h-4 text-[#00F0FF]" />
@@ -848,7 +842,7 @@ export default function Recruitment() {
                     </h3>
                     <div className="space-y-4">
                        {[
-                         { title: 'Manual de Cultura Gibbor', type: 'PDF • 4.5MB' },
+                         { title: 'Manual de Cultura Kaivincia', type: 'PDF • 4.5MB' },
                          { title: 'Guía de Herramientas AI', type: 'EPUB • 1.2MB' },
                          { title: 'Identidad Visual v4', type: 'ZIP • 42MB' }
                        ].map((doc, i) => (
@@ -899,7 +893,7 @@ export default function Recruitment() {
                      </div>
                   </div>
                   <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Ajuste Cultural</b> basado en los valores de Gibbor Center.
+                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Ajuste Cultural</b> basado en los valores de Kaivincia.
                   </p>
                </div>
                <div className="flex-1 max-w-sm">
