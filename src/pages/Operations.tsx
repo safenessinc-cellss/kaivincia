@@ -178,181 +178,119 @@ export default function Operations() {
   };
 
   return (
-    <div className="space-y-6 flex flex-col h-full">
-      <div className="flex justify-between items-center mb-2">
+    <div className="space-y-4 flex flex-col h-full">
+      <div className="flex justify-between items-end border-b border-gray-100 pb-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Operaciones</h2>
-          <p className="text-sm text-gray-500 mt-1">Centro de control de producción y carga de datos</p>
+          <h2 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Gestión de Operaciones</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-2 h-2 rounded-full bg-[#00F0FF] animate-pulse" />
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Centro de Control Táctico v4.2</p>
+          </div>
         </div>
-      </div>
 
-      {/* Hero Illustration */}
-      <div className="w-full aspect-[21/6] md:aspect-[21/4] rounded-3xl overflow-hidden relative border border-gray-200 group shrink-0">
-         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent z-10" />
-         <img 
-           src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=1600&q=80" 
-           alt="Sala de Control Operativa" 
-           className="w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-1000"
-         />
-         <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-2">
-            <h2 className="text-white text-2xl font-black uppercase italic tracking-tighter drop-shadow-md">Sala de Control y Operaciones</h2>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#22D3EE] shadow-[0_0_10px_#22D3EE] animate-pulse" />
-              <span className="text-[10px] font-mono text-[#22D3EE] uppercase tracking-[0.2em] drop-shadow-md">organized tactical dashboard with floating 3D charts & glass-textured globe</span>
-            </div>
-         </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
-        <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar shrink-0">
+        <div className="flex border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
           {[
-            { id: 'sala-control', label: 'Sala de Control (Productividad)', icon: Activity },
-            { id: 'carga-datos', label: 'Importación Inteligente (ETL)', icon: UploadCloud },
-            { id: 'banco-datos', label: 'Banco de Datos', icon: Database },
+            { id: 'sala-control', label: 'Control', icon: Activity },
+            { id: 'carga-datos', label: 'ETL', icon: UploadCloud },
+            { id: 'banco-datos', label: 'Banco', icon: Database },
           ].map(tab => (
             <button 
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${
                 activeTab === tab.id 
-                  ? 'border-b-2 border-[#00F0FF] text-[#00F0FF] bg-cyan-500/10/50' 
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  ? 'bg-[#00F0FF] text-white shadow-inner' 
+                  : 'text-gray-400 hover:text-gray-900 hover:bg-gray-50 bg-white'
               }`}
             >
-              <tab.icon className="w-4 h-4" />
+              <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
             </button>
           ))}
         </div>
+      </div>
 
-        <div className="p-6 flex-1 overflow-y-auto bg-gray-50/50">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col min-h-0">
+        <div className="p-4 flex-1 overflow-y-auto bg-gray-50/30 custom-scrollbar">
           
           {/* SALA DE CONTROL */}
           {activeTab === 'sala-control' && (
-            <div className="space-y-8 max-w-7xl mx-auto">
-              <IAAdvisor 
-                moduleName="Sala de Control"
-                insights={[
-                  {
-                    type: 'alert',
-                    message: "Baja de Producción Detectada: El termómetro está al 72%. Priorizando automáticamente Leads Calientes en el Pipeline Comercial para compensar.",
-                    action: { label: "Ver Pipeline", onClick: () => navigate('/crm/pipeline') }
-                  },
-                  {
-                    type: 'success',
-                    message: "Sincronización de Setters: Los TOP performers han aumentado su Show Rate un 12% tras la última actualización del Script IA."
-                  }
-                ]}
-              />
+            <div className="space-y-4 max-w-7xl mx-auto">
+              <div className="mb-2">
+                <IAAdvisor 
+                  moduleName="Sala de Control"
+                  insights={[
+                    {
+                      type: 'alert',
+                      message: "Producción al 72%. Priorizando automáticamente Leads Calientes.",
+                      action: { label: "Ver Pipeline", onClick: () => navigate('/crm/pipeline') }
+                    }
+                  ]}
+                />
+              </div>
+
               {/* TOP GRID: ENERGY CENTER */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 
-                {/* TERMÓMETRO DE PRODUCCIÓN (Neon Gauge) */}
-                <div className="lg:col-span-5 bg-[#0B0E14] border border-[#1F2937] rounded-[3rem] p-10 flex flex-col items-center justify-center relative overflow-hidden shadow-2xl group hover:border-[#A855F7]/30 transition-all">
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#A855F7]/5 to-transparent pointer-events-none" />
-                  
-                  <div className="relative w-72 h-72">
-                    {/* Background Ring */}
+                {/* TERMÓMETRO DE PRODUCCIÓN */}
+                <div className="lg:col-span-4 bg-[#0B0E14] border border-[#1F2937] rounded-[2rem] p-6 flex flex-col items-center justify-center relative overflow-hidden shadow-xl">
+                  <div className="relative w-48 h-48">
                     <svg className="w-full h-full transform -rotate-90">
-                      <circle
-                        cx="144"
-                        cy="144"
-                        r="120"
-                        stroke="currentColor"
-                        strokeWidth="12"
-                        fill="transparent"
-                        className="text-gray-900"
-                      />
-                      {/* Dynamic Ring */}
+                      <circle cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-gray-900" />
                       <motion.circle
-                        cx="144"
-                        cy="144"
-                        r="120"
-                        stroke="currentColor"
-                        strokeWidth="12"
-                        strokeDasharray={2 * Math.PI * 120}
-                        initial={{ strokeDashoffset: 2 * Math.PI * 120 }}
-                        animate={{ strokeDashoffset: (2 * Math.PI * 120) * (1 - 0.72) }}
+                        cx="96" cy="96" r="80" stroke="currentColor" strokeWidth="8"
+                        strokeDasharray={2 * Math.PI * 80}
+                        initial={{ strokeDashoffset: 2 * Math.PI * 80 }}
+                        animate={{ strokeDashoffset: (2 * Math.PI * 80) * (1 - 0.72) }}
                         fill="transparent"
                         strokeLinecap="round"
-                        className={`transition-all duration-1000 ${
-                          18 > 20 ? 'text-[#10B981] drop-shadow-[0_0_15px_#10B981]' :
-                          18 > 10 ? 'text-[#F59E0B] drop-shadow-[0_0_15px_#F59E0B]' :
-                          'text-[#EF4444] animate-pulse drop-shadow-[0_0_15px_#EF4444]'
-                        }`}
+                        className="text-[#F59E0B] drop-shadow-[0_0_10px_#F59E0B]"
                       />
                     </svg>
-                    
-                    {/* Central Label */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="font-mono text-6xl font-black text-white italic tracking-tighter">72%</span>
-                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] mt-2">Capacidad Nodo</span>
+                      <span className="font-mono text-4xl font-black text-white italic tracking-tighter">72%</span>
+                      <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-1">Capacidad</span>
                     </div>
                   </div>
-
-                  <div className="mt-8 text-center">
-                    <h3 className="text-xl font-black text-white uppercase italic tracking-widest flex items-center gap-3 justify-center">
-                       <Zap className={`w-5 h-5 ${18 > 20 ? 'text-[#10B981]' : 'text-[#F59E0B]'}`} /> 18 / 25 Citas Hoy
+                  <div className="mt-4 text-center">
+                    <h3 className="text-xs font-black text-white uppercase italic tracking-widest flex items-center gap-2">
+                       <Zap className="w-4 h-4 text-[#F59E0B]" /> 18 / 25 Citas Hoy
                     </h3>
-                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest mt-2">Meta de Producción Operativa</p>
                   </div>
                 </div>
 
-                {/* EMBUDO VISUAL EN VIVO (Liquid Funnel) */}
-                <div className="lg:col-span-7 bg-[#0B0E14] border border-[#1F2937] rounded-[3rem] p-10 shadow-2xl relative overflow-hidden group hover:border-cyan-500/20 transition-all flex flex-col">
-                  <div className="flex justify-between items-center mb-8">
-                     <div>
-                        <h3 className="text-sm font-black text-white uppercase italic tracking-widest">Liquid Funnel System</h3>
-                        <p className="text-[8px] font-black text-cyan-500 uppercase tracking-[0.3em]">Live Conversion Link</p>
-                     </div>
-                     <div className="flex gap-4">
-                        <div className="text-right">
-                           <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Inbound Flow</p>
-                           <p className="text-sm font-black text-white tracking-tighter">145 Calls</p>
-                        </div>
-                     </div>
+                {/* EMBUDO VISUAL EN VIVO */}
+                <div className="lg:col-span-8 bg-[#0B0E14] border border-[#1F2937] rounded-[2rem] p-6 shadow-xl flex flex-col">
+                  <div className="flex justify-between items-center mb-4">
+                     <h3 className="text-[10px] font-black text-white uppercase italic tracking-widest">Liquid Funnel System</h3>
+                     <span className="text-[8px] font-black text-cyan-500 uppercase tracking-widest">145 Calls Today</span>
                   </div>
 
-                  <div className="flex-1 flex flex-col gap-3 relative">
+                  <div className="flex-1 flex flex-col gap-2 relative">
                      {[
                        { label: 'Nuevos', value: 120, total: 150, color: 'bg-blue-500', icon: Users },
-                       { label: 'Contactados', value: 65, total: 120, color: 'bg-indigo-500', icon: PhoneCall },
-                       { label: 'Interesados', value: 30, total: 65, color: 'bg-violet-500', icon: Target },
+                       { label: 'Contact', value: 65, total: 120, color: 'bg-indigo-500', icon: PhoneCall },
+                       { label: 'Interés', value: 30, total: 65, color: 'bg-violet-500', icon: Target },
                        { label: 'Citas', value: 18, total: 30, color: 'bg-[#00F0FF]', icon: Calendar },
-                       { label: 'Confirmadas', value: 15, total: 18, color: 'bg-emerald-500', icon: CheckCircle2 }
+                       { label: 'OK', value: 15, total: 18, color: 'bg-emerald-500', icon: CheckCircle2 }
                      ].map((stage, idx) => (
-                       <div key={idx} className="flex items-center gap-6 group/stage relative">
-                          {/* Connector Line */}
-                          {idx < 4 && (
-                            <div className="absolute left-[20px] top-full h-3 w-[1px] bg-white/10 z-0" />
-                          )}
-                          
-                          <div className={`h-10 w-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 group-hover/stage:text-white transition-colors z-10`}>
-                             <stage.icon className="w-4 h-4" />
+                       <div key={idx} className="flex items-center gap-4 group/stage">
+                          <div className="h-8 w-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-gray-500 shrink-0">
+                             <stage.icon className="w-3.5 h-3.5" />
                           </div>
-
-                          <div className="flex-1 h-12 bg-[#161B22]/50 backdrop-blur-md rounded-2xl border border-white/5 flex items-center px-6 relative overflow-hidden group-hover/stage:border-white/10 transition-all">
-                             {/* Liquid Fill */}
+                          <div className="flex-1 h-8 bg-black/40 rounded-xl border border-white/5 flex items-center px-4 relative overflow-hidden">
                              <motion.div 
                                initial={{ width: 0 }}
                                animate={{ width: `${(stage.value / stage.total) * 100}%` }}
                                className={`absolute left-0 top-0 bottom-0 ${stage.color} opacity-20`}
                              />
                              <div className="flex-1 flex justify-between items-center relative z-10">
-                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{stage.label}</span>
-                                <div className="flex items-center gap-3">
-                                   <span className="text-sm font-black text-white italic tracking-tighter">{stage.value}</span>
-                                   <span className="text-[9px] font-black text-gray-600 uppercase">/ {stage.total}</span>
+                                <span className="text-[9px] font-black text-white uppercase tracking-widest">{stage.label}</span>
+                                <div className="flex items-center gap-2">
+                                   <span className="text-xs font-black text-white italic">{stage.value}</span>
+                                   <span className="text-[8px] font-black text-gray-600 uppercase">/ {stage.total}</span>
                                 </div>
                              </div>
-                             
-                             {/* Liquid Glow Line */}
-                             <motion.div 
-                               initial={{ x: '-100%' }}
-                               animate={{ x: '100%' }}
-                               transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
-                               className="absolute bottom-0 h-[1px] w-full bg-gradient-to-r from-transparent via-white/30 to-transparent"
-                             />
                           </div>
                        </div>
                      ))}
@@ -360,65 +298,48 @@ export default function Operations() {
                 </div>
               </div>
 
-              {/* BOTTOM GRID: LEADERBOARD & KPIS */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Ranking En Vivo (Top Setters) */}
-                <div className="lg:col-span-8 bg-[#0B0E14] border border-[#1F2937] rounded-[3rem] p-10">
-                   <div className="flex justify-between items-center mb-8">
-                      <h3 className="text-sm font-black text-white uppercase italic tracking-widest flex items-center gap-3">
-                         <TrendingUp className="w-5 h-5 text-[#A855F7]" /> Top Output Setters
+              {/* BOTTOM GRID */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="lg:col-span-8 bg-[#0B0E14] border border-[#1F2937] rounded-[2rem] p-6">
+                   <div className="flex justify-between items-center mb-6">
+                      <h3 className="text-[10px] font-black text-white uppercase italic tracking-widest flex items-center gap-2">
+                         <TrendingUp className="w-4 h-4 text-[#A855F7]" /> Top Output Setters
                       </h3>
-                      <button className="text-[9px] font-black text-gray-500 uppercase tracking-widest hover:text-white transition-colors">Ver Escalafón Completo</button>
                    </div>
 
-                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {[
                         { name: 'Ana Silva', citas: 6, rate: 75, trend: 'up' },
                         { name: 'Carlos Ruiz', citas: 5, rate: 80, trend: 'up' },
                         { name: 'Maria Gomez', citas: 4, rate: 65, trend: 'down' },
                       ].map((setter, i) => (
-                        <div key={i} className="bg-white/5 border border-white/5 rounded-3xl p-6 hover:bg-white/10 transition-all group relative overflow-hidden">
-                           <div className="absolute top-4 right-4">
-                              <div className={`p-1.5 rounded-lg ${setter.trend === 'up' ? 'bg-emerald-500/10 text-emerald-500 shadow-[0_0_10px_#10B98133]' : 'bg-red-500/10 text-red-500 shadow-[0_0_10px_#EF444433]'}`}>
+                        <div key={i} className="bg-white/5 border border-white/5 rounded-2xl p-4 hover:bg-white/10 transition-all group">
+                           <div className="flex items-center gap-3 mb-4">
+                              <div className="h-10 w-10 rounded-lg bg-black border border-white/10 flex items-center justify-center text-sm font-black text-white italic">
+                                 {setter.name.charAt(0)}
+                              </div>
+                              <div className="flex-1">
+                                 <h4 className="text-[10px] font-black text-white uppercase italic truncate">{setter.name}</h4>
+                                 <p className="text-[8px] font-black text-[#A855F7] uppercase tracking-widest mt-0.5">#{i+1} Leader</p>
+                              </div>
+                              <div className={`p-1 rounded-md ${setter.trend === 'up' ? 'text-emerald-500' : 'text-red-500'}`}>
                                  {setter.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                               </div>
                            </div>
-                           
-                           <div className="flex flex-col items-center mb-6">
-                              <div className="relative mb-4">
-                                 <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-[#222] to-black border border-white/10 flex items-center justify-center text-xl font-black text-white italic group-hover:rotate-6 transition-transform">
-                                    {setter.name.charAt(0)}
-                                 </div>
-                                 <div className="absolute -bottom-2 -right-2 h-6 w-6 bg-[#A855F7] rounded-full border-4 border-[#0B0E14] flex items-center justify-center text-[9px] font-black text-white">
-                                    {i + 1}
-                                 </div>
-                              </div>
-                              <h4 className="text-xs font-black text-white uppercase tracking-tighter italic">{setter.name}</h4>
-                              <p className="text-[9px] font-black text-[#A855F7] uppercase tracking-widest mt-1">Lead Setter</p>
-                           </div>
 
-                           <div className="space-y-4">
-                              <div className="flex justify-between items-center px-1">
-                                 <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Show Rate</span>
-                                 <span className="text-[10px] font-black text-emerald-500 italic">{setter.rate}%</span>
+                           <div className="space-y-2">
+                              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                                 <div className="h-full bg-emerald-500" style={{ width: `${setter.rate}%` }} />
                               </div>
-                              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                                 <motion.div 
-                                   initial={{ width: 0 }}
-                                   animate={{ width: `${setter.rate}%` }}
-                                   className="h-full bg-emerald-500 shadow-[0_0_10px_#10B981]"
-                                 />
+                              <div className="flex justify-between text-[9px] font-black italic">
+                                 <span className="text-gray-500 uppercase tracking-widest">Rate</span>
+                                 <span className="text-white">{setter.rate}%</span>
                               </div>
-                              <div className="flex justify-between items-center text-center p-3 bg-black/40 rounded-xl">
-                                 <div className="flex-1">
-                                    <p className="text-[8px] font-black text-gray-500 uppercase mb-0.5">Citas</p>
-                                    <p className="text-sm font-black text-white italic tracking-tighter">{setter.citas}</p>
-                                 </div>
-                                 <div className="w-[1px] h-4 bg-white/5" />
-                                 <div className="flex-1">
-                                    <p className="text-[8px] font-black text-gray-500 uppercase mb-0.5">Ranking</p>
-                                    <p className="text-sm font-black text-white italic tracking-tighter">#{i + 1}</p>
-                                 </div>
+                              <div className="flex justify-between bg-black/60 rounded-lg p-2">
+                                <div className="text-center flex-1">
+                                  <p className="text-[7px] text-gray-500 uppercase">Citas</p>
+                                  <p className="text-xs text-white font-black">{setter.citas}</p>
+                                </div>
                               </div>
                            </div>
                         </div>
@@ -426,39 +347,29 @@ export default function Operations() {
                    </div>
                 </div>
 
-                {/* Micro KPIs Column */}
-                <div className="lg:col-span-4 space-y-6">
-                   <div className="bg-[#0B0E14] border border-[#1F2937] rounded-[3rem] p-8 group hover:border-[#00F0FF]/30 transition-all">
-                      <div className="flex items-center gap-4 mb-6">
-                         <div className="h-10 w-10 bg-[#00F0FF]/10 rounded-xl flex items-center justify-center text-[#00F0FF]">
-                            <History className="w-5 h-5" />
-                         </div>
-                         <div>
-                            <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Uptime Operativo</h4>
-                            <p className="text-sm font-black text-white italic tracking-tighter uppercase">99.9% Node Ready</p>
-                         </div>
+                {/* Metrics */}
+                <div className="lg:col-span-4 space-y-4">
+                   <div className="bg-[#0B0E14] border border-[#1F2937] rounded-[2.5rem] p-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Uptime Operativo</span>
+                        <span className="text-[10px] font-black text-[#00F0FF] italic">99.9%</span>
                       </div>
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                          {[
-                           { label: 'Efectividad CRM', value: '42%', color: 'text-blue-500' },
-                           { label: 'Latencia IA', value: '142ms', color: 'text-amber-500' }
+                           { label: 'Efectividad CRM', value: '42%' },
+                           { label: 'Latencia IA', value: '142ms' }
                          ].map(kpi => (
-                           <div key={kpi.label} className="p-4 bg-white/5 rounded-2xl flex justify-between items-center">
-                              <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">{kpi.label}</span>
-                              <span className={`text-xs font-black ${kpi.color} italic tracking-tighter`}>{kpi.value}</span>
+                           <div key={kpi.label} className="p-3 bg-white/5 rounded-xl flex justify-between items-center border border-white/5">
+                              <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{kpi.label}</span>
+                              <span className="text-[10px] font-black text-white italic">{kpi.value}</span>
                            </div>
                          ))}
                       </div>
                    </div>
 
-                   <div className="bg-gradient-to-br from-[#A855F7]/20 to-transparent border border-[#A855F7]/30 rounded-[3rem] p-8 text-center shadow-2xl relative overflow-hidden group">
-                      <div className="relative z-10">
-                         <Sparkles className="w-8 h-8 text-[#A855F7] mx-auto mb-4 animate-pulse" />
-                         <h4 className="text-xs font-black text-white uppercase italic tracking-tighter">Insights de IA Kaivincia</h4>
-                         <p className="text-[10px] text-gray-400 mt-2 leading-relaxed">
-                            "Aumentando el ritmo de llamadas a leads de LinkedIn, podríamos cerrar la brecha de la meta diaria en 45 minutos."
-                         </p>
-                      </div>
+                   <div className="bg-gradient-to-br from-[#A855F7]/10 to-transparent border border-[#A855F7]/30 rounded-[2.5rem] p-5 text-center">
+                      <h4 className="text-[8px] font-black text-white uppercase italic tracking-widest mb-1">IA Kaivincia Insights</h4>
+                      <p className="text-[9px] text-gray-400 leading-tight">Optimización sugerida: Mover 3 personas a Node LinkedIn.</p>
                    </div>
                 </div>
               </div>
