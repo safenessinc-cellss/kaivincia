@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth } from '../firebase';
+import { LOGO_FULL } from '../constants/images';
+import Logo from '../components/Logo';
 
 export default function LoginPage() {
   const [error, setError] = useState('');
@@ -18,12 +20,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="flex justify-center">
-          {/* Logo - Usando ruta directa en lugar de import */}
-          <img 
-            src="/images/logo.png" 
-            alt="Kaivincia Logo" 
-            className="h-16 w-auto object-contain"
-          />
+          <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain scale-125" />
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 font-serif">
           Ingresa a Kaivincia Corp
