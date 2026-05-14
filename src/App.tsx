@@ -1,9 +1,8 @@
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { motion } from 'motion/react';
 import { Zap } from 'lucide-react';
 
@@ -76,20 +75,53 @@ export default function App() {
         
         if (!userSnap.exists()) {
           const isSuperAdmin = currentUser.email === 'safeness.c.a@gmail.com';
-          await setDoc(userRef, {
+          const newUser = {
             uid: currentUser.uid,
             name: currentUser.displayName || 'Usuario',
             email: currentUser.email,
             role: isSuperAdmin ? 'superadmin' : 'none',
             status: isSuperAdmin ? 'active' : 'pending',
             avatarUrl: currentUser.photoURL || '',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString()
+          };
+          await setDoc(userRef, newUser);
+          
+          // Log initial record creation
+          await setDoc(doc(db, 'audit_logs', `create_${currentUser.uid}`), {
+            userId: currentUser.uid,
+            userEmail: currentUser.email,
+            action: 'USER_REGISTER',
+            resourceType: 'User',
+            resourceId: currentUser.uid,
+            timestamp: new Date().toISOString(),
+            details: 'Nuevo registro de usuario'
+          });
+        } else {
+          // Update last login
+          await setDoc(userRef, { 
+            lastLogin: new Date().toISOString(),
+            lastLoginIp: 'Client-Detected' // In a real app we'd get this from a middle tier
+          }, { merge: true });
+          
+          // Log login event
+          const logId = `login_${currentUser.uid}_${Date.now()}`;
+          await setDoc(doc(db, 'audit_logs', logId), {
+            userId: currentUser.uid,
+            userEmail: currentUser.email,
+            action: 'LOGIN',
+            timestamp: serverTimestamp(),
+            ip: '190.168.1.1', // Placeholder
+            location: 'Bogotá, CO',
+            browser: navigator.userAgent
           });
         }
 
         // Listen to user data changes (for status updates)
         unsubUserDoc = onSnapshot(userRef, (doc) => {
           setUserData(doc.data());
+        }, (error) => {
+          console.error("Error listening to user data:", error);
         });
 
         setUser(currentUser);
@@ -284,3 +316,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+
