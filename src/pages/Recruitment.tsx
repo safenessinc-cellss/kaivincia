@@ -4,15 +4,17 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
   Edit2, Save, X, Plus, Trash2, Briefcase, UserPlus, Sparkles, UserCheck,
-  Clock, Linkedin, ShieldAlert, Zap, History, MessageCircle, Phone, Monitor
+  Clock, Linkedin, ShieldAlert, Zap, History, MessageCircle, Phone, Monitor,
+  FileText, Handshake, BookOpen, MapPin, Coffee, FileSearch, Download, Upload,
+  Users, Lock, Info, AlertTriangle, Fingerprint, MousePointer2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Prueba Técnica", "Oferta"];
+const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Contratado"];
 
 export default function Recruitment() {
-  const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
   const navigate = useNavigate();
   
   // Candidates State
@@ -202,36 +204,381 @@ export default function Recruitment() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar">
         <button
           onClick={() => setActiveTab('candidates')}
-          className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Candidatos (Pipeline)
+          Pipeline
         </button>
         <button
           onClick={() => setActiveTab('jobs')}
-          className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
+            activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          Vacantes (Job Board)
+          Vacantes
+        </button>
+        <button
+          onClick={() => setActiveTab('docs')}
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'docs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <FileText className="w-4 h-4" /> Gestión Documental
+        </button>
+        <button
+          onClick={() => setActiveTab('employee-portal')}
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'employee-portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Users className="w-4 h-4" /> Portal de Equipo
         </button>
         <button
           onClick={() => setActiveTab('portal')}
-          className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF]' : 'border-transparent text-gray-500 hover:text-gray-700'
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
+            activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
           }`}
         >
-          <Globe className="w-4 h-4" /> Ver Portal Público
+          <Globe className="w-4 h-4" /> Portal Público
         </button>
       </div>
       
-      {/* Candidates Tab */}
+      {/* Gestión Documental Tab */}
+      {activeTab === 'docs' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Document Creation Center */}
+            <div className="lg:col-span-8 space-y-6">
+              <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl relative overflow-hidden">
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Nucleus Document Studio</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Generación Legal y Contractual</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="p-3 bg-gray-50 text-gray-400 hover:text-[#00F0FF] rounded-2xl transition-all">
+                      <Save className="w-5 h-5" />
+                    </button>
+                    <button className="p-3 bg-gray-50 text-gray-400 hover:text-[#00F0FF] rounded-2xl transition-all">
+                      <Download className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <button className="flex flex-col items-start p-6 bg-gray-900 text-white rounded-3xl group hover:scale-[1.02] transition-all shadow-xl">
+                      <Handshake className="w-6 h-6 text-[#00F0FF] mb-4 group-hover:rotate-12 transition-transform" />
+                      <span className="text-xs font-black uppercase tracking-widest">Contrato de Trabajo</span>
+                      <span className="text-[9px] text-gray-400 mt-1 uppercase">Términos y Condiciones G-Center</span>
+                    </button>
+                    <button className="flex flex-col items-start p-6 bg-white border border-gray-100 rounded-3xl group hover:scale-[1.02] transition-all hover:shadow-xl">
+                      <Lock className="w-6 h-6 text-indigo-500 mb-4 group-hover:rotate-12 transition-transform" />
+                      <span className="text-xs font-black text-gray-900 uppercase tracking-widest">Acuerdo NDA</span>
+                      <span className="text-[9px] text-gray-400 mt-1 uppercase">Confidencialidad Nucleus</span>
+                    </button>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-3xl p-8 border border-gray-100">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="h-2 w-2 rounded-full bg-[#00F0FF] animate-pulse" />
+                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Editor de Clausulado Smart</span>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="h-4 w-3/4 bg-gray-200 rounded-full animate-pulse" />
+                      <div className="h-4 w-full bg-gray-100 rounded-full" />
+                      <div className="h-4 w-5/6 bg-gray-100 rounded-full" />
+                      <div className="h-32 w-full bg-white border border-gray-100 rounded-2xl flex items-center justify-center">
+                        <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest italic">Cargando plantilla legal Gibbor Center...</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                 <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-lg flex items-center gap-6 group hover:border-[#00F0FF]/30 transition-all">
+                    <div className="h-16 w-16 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                       <CheckCircle className="w-8 h-8" />
+                    </div>
+                    <div>
+                       <h4 className="text-sm font-black text-gray-900 uppercase tracking-tighter italic">Kit de Bienvenida</h4>
+                       <p className="text-[10px] text-gray-400 font-medium mt-1 leading-tight">Envío automático de manuales de cultura y marca Gibbor.</p>
+                    </div>
+                 </div>
+                 <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-lg flex items-center gap-6 group hover:border-emerald-500/30 transition-all">
+                    <div className="h-16 w-16 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">
+                       <Download className="w-8 h-8" />
+                    </div>
+                    <div>
+                       <h4 className="text-sm font-black text-gray-900 uppercase tracking-tighter italic">Exportar Batch</h4>
+                       <p className="text-[10px] text-gray-400 font-medium mt-1 leading-tight">Descarga masiva de documentos para auditoría externa.</p>
+                    </div>
+                 </div>
+              </div>
+            </div>
+
+            {/* ID & Vault Section */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-[#0B0E14] rounded-[3rem] p-10 border border-gray-800 shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-8">
+                  <Fingerprint className="w-12 h-12 text-[#00F0FF]/10 group-hover:text-[#00F0FF]/20 transition-colors" />
+                </div>
+                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter mb-8">Bóveda de Identidad</h3>
+                
+                <div className="space-y-6">
+                  <div className="border-2 border-dashed border-gray-800 rounded-3xl p-10 text-center hover:border-[#00F0FF]/30 transition-all cursor-pointer bg-black/20 group/upload">
+                    <Upload className="w-10 h-10 text-gray-600 mx-auto mb-4 group-hover/upload:text-[#00F0FF] group-hover/upload:scale-110 transition-all" />
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Arrastra Documento</p>
+                    <p className="text-[8px] text-gray-700 mt-2">DNI, Pasaporte o Licencia</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Documentos Recientes</span>
+                    {[
+                      { name: 'ID_CARLOS_RUIZ.pdf', size: '1.2MB', type: 'DNI' },
+                      { name: 'CONTRACT_SILVA_signed.pdf', size: '2.4MB', type: 'Contrato' }
+                    ].map((file, i) => (
+                      <div key={i} className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
+                        <FileText className="w-4 h-4 text-gray-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-black text-white uppercase truncate">{file.name}</p>
+                          <p className="text-[8px] text-gray-500 mt-1 uppercase">{file.type} • {file.size}</p>
+                        </div>
+                        <Download className="w-3 h-3 text-gray-600 hover:text-white cursor-pointer" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-xl">
+                 <div className="flex items-center gap-3 mb-6">
+                    <ShieldAlert className="w-5 h-5 text-red-500" />
+                    <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Protocolo de Privacidad</h4>
+                 </div>
+                 <p className="text-[11px] text-gray-500 leading-relaxed italic">
+                   Gibbor Center asegura que todos los documentos de identidad son encriptados en reposo y cumplen con la normativa GDPR. El acceso está restringido a SuperAdmin.
+                 </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Portal de Equipo Tab */}
+      {activeTab === 'employee-portal' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+           {/* Top Stats: Attendance & Real-time Status */}
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { label: 'En Línea Ahora', val: '42/50', icon: Zap, color: 'text-green-500', bg: 'bg-green-50' },
+                { label: 'En Break', val: '5', icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Fuera de Línea', val: '3', icon: UserPlus, color: 'text-gray-400', bg: 'bg-gray-50' },
+                { label: 'Solicitudes Pend.', val: '2', icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' }
+              ].map(stat => (
+                <div key={stat.label} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl flex items-center gap-4">
+                   <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
+                      <stat.icon className="w-6 h-6" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{stat.label}</p>
+                      <p className="text-xl font-black text-gray-900 italic">{stat.val}</p>
+                   </div>
+                </div>
+              ))}
+           </div>
+
+           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Attendance & Control Center */}
+              <div className="lg:col-span-8 space-y-6">
+                 <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-8">
+                       <MapPin className="w-8 h-8 text-gray-100 animate-bounce" />
+                    </div>
+                    <div className="flex justify-between items-end mb-10">
+                       <div>
+                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Monitor de Disponibilidad</h3>
+                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sincronización de Red Gibbor Core</p>
+                       </div>
+                       <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-xl">
+                          <Clock className="w-4 h-4 text-[#00F0FF]" />
+                          <span className="text-xs font-mono font-black italic">14:41:22 UTC-5</span>
+                       </div>
+                    </div>
+
+                    <div className="space-y-4">
+                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                          {[
+                            { name: 'Ana S.', role: 'Setter', status: 'active', ip: '192.168.1.45' },
+                            { name: 'Carlos R.', role: 'Aprendiz', status: 'break', ip: '192.168.1.12' },
+                            { name: 'Elena M.', role: 'Gestor', status: 'active', ip: '187.12.4.99' },
+                            { name: 'Luis P.', role: 'Setter', status: 'offline', ip: 'Unknown' },
+                          ].map((emp, i) => (
+                            <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group overflow-hidden">
+                               <div className="flex justify-between items-start mb-4">
+                                  <div className="h-8 w-8 bg-white border border-gray-100 rounded-xl flex items-center justify-center text-[10px] font-black italic">
+                                     {emp.name.split(' ')[0][0]}
+                                  </div>
+                                  <div className={`h-2 w-2 rounded-full ${emp.status === 'active' ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : emp.status === 'break' ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                               </div>
+                               <h4 className="text-[11px] font-black text-gray-900 uppercase italic truncate">{emp.name}</h4>
+                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
+                               <div className="mt-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <MousePointer2 className="w-3 h-3 text-[#00F0FF]" />
+                                  <span className="text-[8px] font-mono text-gray-400">{emp.ip}</span>
+                               </div>
+                            </div>
+                          ))}
+                       </div>
+                       
+                       <button className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic">
+                          Acceder al Panel de Control de Jornada (Fichaje)
+                       </button>
+                    </div>
+                 </div>
+
+                 {/* Leave Requests & Absence Protocol */}
+                 <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl relative overflow-hidden">
+                    <div className="flex justify-between items-center mb-8">
+                       <div>
+                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Solicitudes de Ausencia</h3>
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Flujo de Aprobación Centralizado</p>
+                       </div>
+                       <button className="p-4 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all shadow-lg active:scale-90">
+                          <Plus className="w-5 h-5" />
+                       </button>
+                    </div>
+
+                    <div className="space-y-4">
+                       {[
+                         { user: 'Marcos Gil', type: 'Día Libre', date: '15 May - 16 May', status: 'pending', reason: 'Asuntos familiares' },
+                         { user: 'Sofia Lopez', type: 'Cambio Turno', date: 'Hoy (Tarde)', status: 'approved', reason: 'Cita médica dental' }
+                       ].map((req, i) => (
+                         <div key={i} className="flex items-center gap-6 p-6 bg-gray-50/50 border border-gray-100 rounded-3xl group hover:border-blue-200 transition-all">
+                            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${req.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                               <Calendar className="w-6 h-6" />
+                            </div>
+                            <div className="flex-1">
+                               <div className="flex items-center gap-3">
+                                  <h4 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">{req.user}</h4>
+                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${req.status === 'approved' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                     {req.status === 'approved' ? 'Aprobado' : 'Pendiente'}
+                                  </span>
+                               </div>
+                               <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type} • {req.date}</p>
+                               <p className="text-xs text-gray-500 mt-2 italic">"{req.reason}"</p>
+                            </div>
+                            <div className="flex gap-2">
+                               <button className="p-3 bg-white border border-gray-100 text-emerald-500 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
+                               <button className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
+                            </div>
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+
+              {/* Sidebar: Role Config & Training */}
+              <div className="lg:col-span-4 space-y-6">
+                 {/* Roles Basados en Experiencia */}
+                 <div className="bg-[#0B0E14] rounded-[3rem] p-10 border border-gray-800 shadow-2xl text-white">
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter mb-8 flex items-center gap-3">
+                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Config de Roles
+                    </h3>
+                    <div className="space-y-6">
+                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-[#00F0FF]/30 transition-all">
+                          <h4 className="text-xs font-black text-[#00F0FF] uppercase tracking-widest mb-2">Setters</h4>
+                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Acceso ilimitado a CRM, Sales Pipeline y Nodos de Conversión.</p>
+                       </div>
+                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-amber-500/30 transition-all">
+                          <h4 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-2">Aprendices</h4>
+                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Limitado a Academia y Simuladores. Bloqueo de CRM hasta Graduación.</p>
+                       </div>
+                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-emerald-500/30 transition-all">
+                          <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">Gestores</h4>
+                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Estructura operativa total y monitor de disponibilidad de equipo.</p>
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* Welcome Kit Library */}
+                 <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl">
+                    <h3 className="text-sm font-black text-gray-900 uppercase italic tracking-widest mb-6 flex items-center gap-3">
+                       <BookOpen className="w-5 h-5 text-indigo-500" /> Kit de Bienvenida
+                    </h3>
+                    <div className="space-y-4">
+                       {[
+                         { title: 'Manual de Cultura Gibbor', type: 'PDF • 4.5MB' },
+                         { title: 'Guía de Herramientas AI', type: 'EPUB • 1.2MB' },
+                         { title: 'Identidad Visual v4', type: 'ZIP • 42MB' }
+                       ].map((doc, i) => (
+                         <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-gray-100 cursor-pointer group">
+                           <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center text-gray-400 group-hover:text-indigo-500">
+                             <FileText className="w-4 h-4" />
+                           </div>
+                           <div className="flex-1">
+                              <p className="text-[10px] font-black text-gray-900 uppercase truncate">{doc.title}</p>
+                              <p className="text-[8px] text-gray-400 uppercase">{doc.type}</p>
+                           </div>
+                           <Download className="w-3 h-3 text-gray-300 group-hover:text-gray-900" />
+                         </div>
+                       ))}
+                    </div>
+                 </div>
+
+                 {/* Protocolo de Faltas */}
+                 <div className="bg-red-50 rounded-[2.5rem] p-8 border border-red-100">
+                    <div className="flex items-center gap-3 mb-4 text-red-600">
+                       <AlertTriangle className="w-5 h-5" />
+                       <h4 className="text-[10px] font-black uppercase tracking-widest">Protocolo S.O.P. Ausencias</h4>
+                    </div>
+                    <p className="text-[10px] text-red-900/60 leading-relaxed italic">
+                      Las ausencias injustificadas activan automáticamente un strike en el expediente del colaborador. 3 strikes resultan en auditoría disciplinaria obligatoria.
+                    </p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
       {activeTab === 'candidates' && (
-        <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
+        <div className="space-y-6 flex-1 flex flex-col overflow-hidden">
+          {/* AI Intake Board */}
+          <div className="bg-white rounded-[3.5rem] p-10 border border-gray-100 shadow-2xl relative overflow-hidden group mb-4 shrink-0 transition-all hover:shadow-[#00F0FF]/5">
+            <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity">
+               <Bot className="w-32 h-32 text-[#00F0FF]" />
+            </div>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10 relative z-10">
+               <div className="max-w-2xl">
+                  <div className="flex items-center gap-4 mb-6">
+                     <div className="h-14 w-14 bg-gray-900 rounded-[1.5rem] flex items-center justify-center shadow-2xl group-hover:rotate-6 transition-transform">
+                        <Sparkles className="w-7 h-7 text-[#00F0FF] animate-pulse" />
+                     </div>
+                     <div>
+                        <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">Nucleus Talent Classifier</h3>
+                        <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Extracción y Catalogación IA Multi-Factor</p>
+                     </div>
+                  </div>
+                  <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pr-8">
+                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Culture Fit Score</b> basado en los valores de Gibbor Center, vinculando el perfil al nodo operativo correcto.
+                  </p>
+               </div>
+               <div className="flex-1 max-w-sm">
+                  <div className="border-4 border-dashed border-gray-100 rounded-[2.5rem] p-10 bg-gray-50/50 hover:bg-white hover:border-[#00F0FF]/50 transition-all cursor-pointer text-center group/uploader relative overflow-hidden shadow-inner">
+                     <div className="absolute top-0 left-0 w-full h-1 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
+                     <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4 group-hover/uploader:text-[#00F0FF] group-hover/uploader:scale-110 transition-all" />
+                     <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Importar Batch CVs</p>
+                     <p className="text-[9px] font-black text-gray-300 mt-2 uppercase tracking-tight">PDF • WORD • LINKEDIN • AI DRIVEN</p>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+          <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
           {STAGES.map(stage => {
             const stageCandidates = candidates.filter(c => (c.status || 'Nuevo') === stage);
             
@@ -302,6 +649,7 @@ export default function Recruitment() {
               </div>
             );
           })}
+          </div>
         </div>
       )}
 
