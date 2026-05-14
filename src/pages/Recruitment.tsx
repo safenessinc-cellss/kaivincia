@@ -78,7 +78,60 @@ export default function Recruitment() {
   useEffect(() => {
     const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      if (data.length === 0) {
+        // Seed with suggested jobs
+        const initialJobs = [
+          {
+            title: 'Appointment Setter Senior',
+            department: 'Ventas Nivel 1',
+            location: 'Remoto / Global',
+            type: 'Tiempo Completo',
+            description: 'Buscamos setters con experiencia en High Ticket Sales para calificar leads y agendar llamadas para nuestro equipo de closers.',
+            isUrgent: true,
+            status: 'active',
+            candidatesCount: 5,
+            daysActive: 3,
+            acquisitionCost: 15.5,
+            createdAt: new Date().toISOString()
+          },
+          {
+            title: 'Growth Specialist AI',
+            department: 'Growth & Ops',
+            location: 'Remoto',
+            type: 'Tiempo Completo',
+            description: 'Responsable de optimizar los flujos de automatización y el entrenamiento de modelos de IA locales.',
+            isUrgent: false,
+            status: 'active',
+            candidatesCount: 12,
+            daysActive: 8,
+            acquisitionCost: 45.2,
+            createdAt: new Date().toISOString()
+          },
+          {
+            title: 'Project Manager Operativo',
+            department: 'Gestión',
+            location: 'Híbrido / Madrid',
+            type: 'Tiempo Completo',
+            description: 'Liderar la implementación de sistemas Kaivincia en nuevos clientes corporativos.',
+            isUrgent: false,
+            status: 'active',
+            candidatesCount: 3,
+            daysActive: 1,
+            acquisitionCost: 0,
+            createdAt: new Date().toISOString()
+          }
+        ];
+        initialJobs.forEach(async job => {
+          try {
+            await addDoc(collection(db, 'jobs'), job);
+          } catch (e) {
+            console.error("Error seeding job", e);
+          }
+        });
+      } else {
+        setJobs(data);
+      }
       setLoadingJobs(false);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'jobs'));
 
@@ -965,25 +1018,70 @@ export default function Recruitment() {
 
       {/* Portal Público Tab */}
       {activeTab === 'portal' && (
-        <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-          <div className="bg-gray-100 border-b border-gray-200 p-2 flex items-center gap-2">
-            <div className="flex gap-1.5 ml-2">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <div className="w-3 h-3 rounded-full bg-green-400"></div>
+        <div className="flex-1 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-2xl flex flex-col lg:flex-row items-center gap-10">
+            <div className="flex-1 space-y-6">
+              <div className="h-14 w-14 bg-gray-900 rounded-3xl flex items-center justify-center shadow-2xl rotate-3 group-hover:rotate-6 transition-transform">
+                <Globe className="w-7 h-7 text-[#00F0FF] animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">Portal de Carreras Kaivincia</h3>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Sincronización Web Externa Automática</p>
+              </div>
+              <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pr-8">
+                Este portal es la cara pública de tu empresa. Todas las vacantes marcadas como <b className="text-gray-900 uppercase">ONLINE</b> en la pestaña anterior se publicarán automáticamente aquí. Los candidatos podrán postularse y sus perfiles entrarán directamente a tu Pipeline de IA.
+              </p>
+              <div className="flex gap-4">
+                <a 
+                  href="/careers" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="px-8 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] transition-all shadow-xl flex items-center gap-3"
+                >
+                  <ExternalLink className="w-5 h-5 text-[#00F0FF]" /> Abrir en Nueva Ventana
+                </a>
+                <button className="px-8 py-4 bg-white border border-gray-200 text-gray-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:border-gray-900 hover:text-gray-900 transition-all">
+                  Personalizar Diseño
+                </button>
+              </div>
             </div>
-            <div className="mx-auto bg-white px-4 py-1 rounded-md text-xs text-gray-500 border border-gray-200 shadow-sm flex items-center gap-2">
-              <Globe className="w-3 h-3" /> kaivincia.com/careers
+            
+            <div className="lg:w-1/3 bg-gray-50 rounded-[2rem] p-6 border border-gray-100 space-y-4">
+              <div className="flex items-center gap-3 mb-4">
+                <MonitorPlay className="w-5 h-5 text-indigo-500" />
+                <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Vista Previa Móvil</h4>
+              </div>
+              <div className="aspect-[9/16] bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden relative group/mock">
+                <div className="absolute inset-0 bg-gray-900/5 transition-opacity group-hover/mock:opacity-0" />
+                <iframe 
+                  src="/careers" 
+                  className="w-full h-full border-none pointer-events-none scale-90" 
+                  title="Mobile Preview"
+                />
+              </div>
             </div>
-            <a href="/careers" target="_blank" rel="noreferrer" className="mr-2 text-gray-500 hover:text-gray-700" title="Abrir en nueva pestaña">
-              <ExternalLink className="w-4 h-4" />
-            </a>
           </div>
-          <iframe 
-            src="/careers" 
-            className="w-full flex-1 border-none" 
-            title="Portal Público de Vacantes"
-          />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6">
+            <div className="bg-[#0B0E14] p-8 rounded-[2.5rem] border border-gray-800 flex items-center gap-6 group">
+               <div className="h-16 w-16 bg-white/5 rounded-2xl flex items-center justify-center text-[#00F0FF] group-hover:scale-110 transition-transform">
+                  <UserPlus className="w-8 h-8" />
+               </div>
+               <div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-tighter italic">Formulario de Aplicación</h4>
+                  <p className="text-[10px] text-gray-500 font-medium mt-1 leading-tight">Configura las preguntas personalizadas que los candidatos deben responder.</p>
+               </div>
+            </div>
+            <div className="bg-[#0B0E14] p-8 rounded-[2.5rem] border border-gray-800 flex items-center gap-6 group">
+               <div className="h-16 w-16 bg-white/5 rounded-2xl flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                  <Zap className="w-8 h-8" />
+               </div>
+               <div>
+                  <h4 className="text-sm font-black text-white uppercase tracking-tighter italic">Tracking de Conversión</h4>
+                  <p className="text-[10px] text-gray-500 font-medium mt-1 leading-tight">Analiza cuántos visitantes del portal terminan convirtiéndose en aplicantes.</p>
+               </div>
+            </div>
+          </div>
         </div>
       )}
 
