@@ -1,14 +1,28 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { collection, onSnapshot, addDoc, updateDoc, doc, query, orderBy, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage, handleFirestoreError, OperationType } from '../firebase';
 import { differenceInDays, parseISO } from 'date-fns';
-import { Search, Plus, Phone, MessageCircle, Download } from 'lucide-react';
+import { Search, Plus, Phone, MessageCircle, Download, MapPin, Camera, CheckCircle2, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Cobranza() {
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
   const [newClient, setNewClient] = useState({ name: '', phone: '', product: '', amount: 0, contactDate: new Date().toISOString().split('T')[0] });
+  
+  // Visit state
+  const [visitData, setVisitData] = useState({
+    location: null as { lat: number, lng: number } | null,
+    photoUrl: '',
+    authorized: false,
+    notes: '',
+    isCapturingLocation: false,
+    isUploading: false
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
@@ -71,6 +85,102 @@ export default function Cobranza() {
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'clients');
     }
+  };
+
+  const captureLocation = () => {
+    setVisitData(prev => ({ ...prev, isCapturingLocation: true }));
+    if (!navigator.geolocation) {
+      alert("Geolocalización no soportada por el navegador");
+      setVisitData(prev => ({ ...prev, isCapturingLocation: false }));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setVisitData(prev => ({
+          ...prev,
+          location: {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          },
+          isCapturingLocation: false
+        }));
+      },
+      (error) => {
+        console.error("Error capturing location:", error);
+        alert("Error al capturar ubicación. Por favor permite el acceso al GPS.");
+        setVisitData(prev => ({ ...prev, isCapturingLocation: false }));
+      }
+    );
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setVisitData(prev => ({ ...prev, isUploading: true }));
+    try {
+      const storageRef = ref(storage, `cobranza/visits/${selectedClient.id}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setVisitData(prev => ({ ...prev, photoUrl: url, isUploading: false }));
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      alert("Error al subir la foto");
+      setVisitData(prev => ({ ...prev, isUploading: false }));
+    }
+  };
+
+  const handleSaveVisit = async () => {
+    if (!selectedClient) return;
+    setIsUpdating(true);
+    try {
+      // Guardar visita en una subcolección
+      const visitRef = doc(collection(db, `clients/${selectedClient.id}/visits`));
+      const visitPayload = {
+        location: visitData.location,
+        photoUrl: visitData.photoUrl,
+        authorized: visitData.authorized,
+        notes: visitData.notes,
+        visitedAt: new Date().toISOString(),
+        visitedBy: auth.currentUser?.uid,
+        userName: auth.currentUser?.displayName || 'Agente'
+      };
+      
+      await setDoc(visitRef, visitPayload);
+
+      // Actualizar estado del cliente
+      await updateDoc(doc(db, 'clients', selectedClient.id), {
+        lastVisit: new Date().toISOString(),
+        status: visitData.authorized ? 'Autorizado' : 'No Autorizado',
+        lastResult: visitData.authorized ? 'Pago Autorizado/Acordado' : 'Visita sin autorización',
+        updatedAt: new Date().toISOString()
+      });
+
+      setIsVisitModalOpen(false);
+      resetVisitForm();
+      alert("Gestión guardada exitosamente");
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `clients/${selectedClient.id}/visits`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const resetVisitForm = () => {
+    setVisitData({
+      location: null,
+      photoUrl: '',
+      authorized: false,
+      notes: '',
+      isCapturingLocation: false,
+      isUploading: false
+    });
+  };
+
+  const openVisitModal = (client: any) => {
+    setSelectedClient(client);
+    setIsVisitModalOpen(true);
   };
 
   const updateStatus = async (id: string, newStatus: string) => {
@@ -189,9 +299,16 @@ export default function Cobranza() {
                     <a href={`https://wa.me/${client.phone}`} target="_blank" rel="noreferrer" className="text-green-600 hover:text-green-900 bg-green-50 p-2 rounded-full">
                       <MessageCircle className="h-4 w-4" />
                     </a>
-                    <a href={`tel:${client.phone}`} className="text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-full">
+                    <a href={`tel:${client.phone}`} className="text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-full" title="Llamar">
                       <Phone className="h-4 w-4" />
                     </a>
+                    <button 
+                      onClick={() => openVisitModal(client)}
+                      className="text-purple-600 hover:text-purple-900 bg-purple-50 p-2 rounded-full"
+                      title="Registrar Visita GPS"
+                    >
+                      <MapPin className="h-4 w-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -227,6 +344,158 @@ export default function Cobranza() {
                 <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">Guardar</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Registro de Visita GPS */}
+      {isVisitModalOpen && selectedClient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-8 w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Gestión de Cobranza GPS</h3>
+                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Cliente: {selectedClient.name}</p>
+              </div>
+              <button 
+                onClick={() => { setIsVisitModalOpen(false); resetVisitForm(); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* GPS Tracking */}
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Geolocalización Satelital</label>
+                <button 
+                  onClick={captureLocation}
+                  disabled={visitData.isCapturingLocation}
+                  className={`w-full py-4 rounded-xl border-2 flex items-center justify-center gap-3 transition-all ${
+                    visitData.location 
+                      ? 'bg-emerald-50 border-emerald-500 text-emerald-700' 
+                      : 'bg-gray-50 border-dashed border-gray-300 text-gray-500 hover:border-gray-400'
+                  }`}
+                >
+                  {visitData.isCapturingLocation ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : visitData.location ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      <span className="text-sm font-bold uppercase tracking-widest">Coordenadas Capturadas</span>
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-5 h-5" />
+                      <span className="text-sm font-bold uppercase tracking-widest">Capturar Ubicación Actual</span>
+                    </>
+                  )}
+                </button>
+                {visitData.location && (
+                  <p className="text-[10px] text-gray-400 mt-2 font-mono text-center">
+                    LAT: {visitData.location.lat.toFixed(6)} | LNG: {visitData.location.lng.toFixed(6)}
+                  </p>
+                )}
+              </div>
+
+              {/* Photo Evidence */}
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Evidencia Fotográfica</label>
+                <div className="grid grid-cols-1 gap-4">
+                  {!visitData.photoUrl ? (
+                    <label className="w-full aspect-video bg-gray-50 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-colors">
+                      {visitData.isUploading ? (
+                        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                      ) : (
+                        <>
+                          <Camera className="w-8 h-8 text-gray-400 mb-2" />
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Subir Foto de Visita</span>
+                        </>
+                      )}
+                      <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} disabled={visitData.isUploading} />
+                    </label>
+                  ) : (
+                    <div className="relative aspect-video rounded-xl overflow-hidden border border-gray-200">
+                      <img src={visitData.photoUrl} alt="Visit evidence" className="w-full h-full object-cover" />
+                      <button 
+                        onClick={() => setVisitData(prev => ({ ...prev, photoUrl: '' }))}
+                        className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-full hover:bg-black/70"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Authorization status */}
+              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100">
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Estado de Autorización</label>
+                <div className="flex items-center gap-6">
+                  <button 
+                    onClick={() => setVisitData(prev => ({ ...prev, authorized: true }))}
+                    className={`flex-1 py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all ${
+                      visitData.authorized 
+                        ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-200 ring-4 ring-emerald-500/20' 
+                        : 'bg-white text-gray-400 border border-gray-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-sm font-black uppercase tracking-widest">¿Autorizado? SÍ</span>
+                  </button>
+                  <button 
+                    onClick={() => setVisitData(prev => ({ ...prev, authorized: false }))}
+                    className={`flex-1 py-4 px-6 rounded-xl flex items-center justify-center gap-3 transition-all ${
+                      !visitData.authorized 
+                        ? 'bg-red-500 text-white shadow-lg shadow-red-200 ring-4 ring-red-500/20' 
+                        : 'bg-white text-gray-400 border border-gray-200 hover:border-red-300'
+                    }`}
+                  >
+                    <XCircle className="w-5 h-5" />
+                    <span className="text-sm font-black uppercase tracking-widest">¿Autorizado? NO</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Observaciones de Visita</label>
+                <textarea 
+                  value={visitData.notes}
+                  onChange={e => setVisitData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Escribe detalles sobre la gestión realizada..."
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  rows={3}
+                />
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                <button 
+                  onClick={() => { setIsVisitModalOpen(false); resetVisitForm(); }}
+                  className="flex-1 py-4 text-sm font-black uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 rounded-xl"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleSaveVisit}
+                  disabled={!visitData.location || !visitData.photoUrl || isUpdating}
+                  className={`flex-[2] py-4 rounded-xl text-white font-black uppercase tracking-widest transition-all ${
+                    visitData.location && visitData.photoUrl 
+                      ? 'bg-black hover:bg-gray-800 shadow-xl' 
+                      : 'bg-gray-200 cursor-not-allowed text-gray-400'
+                  }`}
+                >
+                  {isUpdating ? 'Procesando...' : 'Finalizar Gestión & Guardar GPS'}
+                </button>
+              </div>
+              
+              {!visitData.location && (
+                <p className="text-[10px] text-red-500 font-bold uppercase tracking-widest text-center flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> Se requiere ubicación GPS
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
