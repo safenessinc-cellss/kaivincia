@@ -244,7 +244,7 @@ export default function ClientPortal() {
                   <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest absolute top-6 left-6">Horas Consumidas</h3>
                   
                   <div className="w-48 h-48 mt-4 relative">
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                       <PieChart>
                         <Pie
                           data={hoursData}
