@@ -13,7 +13,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { collection, query, onSnapshot, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
@@ -29,6 +29,7 @@ interface SystemEvent {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { userData } = useOutletContext<{ userData: any }>();
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
@@ -66,7 +67,7 @@ export default function Dashboard() {
     // Listeners for real database connection test
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     return () => {
       unsubClients();
@@ -178,7 +179,7 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
-        {/* NEW: PREDICTIVE INSIGHTS RADAR (INSIGHTS DE MAÑANA) */}
+        {/* PREDICTIVE INSIGHTS RADAR */}
         <div className="xl:col-span-12">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -349,8 +350,8 @@ export default function Dashboard() {
                 <Wallet className="w-5 h-5" />
               </div>
             </div>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <div style={{ width: '100%', height: 192, minHeight: 192 }}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
