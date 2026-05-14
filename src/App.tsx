@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -79,7 +80,7 @@ export default function App() {
             uid: currentUser.uid,
             name: currentUser.displayName || 'Usuario',
             email: currentUser.email,
-            role: isSuperAdmin ? 'superadmin' : 'user',
+            role: isSuperAdmin ? 'superadmin' : 'none',
             status: isSuperAdmin ? 'active' : 'pending',
             avatarUrl: currentUser.photoURL || '',
             createdAt: new Date().toISOString()
@@ -179,27 +180,8 @@ export default function App() {
     );
   }
 
-  // If user is logged in but pending authorization
-  if (user && userData && userData.status === 'pending') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4 text-center">
-        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-md w-full">
-          <div className="h-16 w-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Cuenta en Revisión</h2>
-          <p className="text-gray-600 mb-6">
-            Tu cuenta ha sido registrada exitosamente. Un Super Administrador debe autorizar tu acceso antes de que puedas entrar al sistema.
-          </p>
-          <button onClick={() => auth.signOut()} className="text-blue-600 font-medium hover:underline">
-            Cerrar Sesión
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (userData && userData.status === 'pending') {
+  // If user is logged in but pending authorization or role assignment
+  if (user && userData && (userData.status === 'pending' || !userData.role || userData.role === 'none')) {
     return (
       <div className="min-h-screen bg-[#05070a] flex flex-col items-center justify-center p-6 text-center">
         <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
@@ -220,11 +202,11 @@ export default function App() {
           </div>
           <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-4">Acceso Pendiente</h1>
           <p className="text-gray-400 font-bold uppercase text-xs tracking-[0.2em] mb-8 leading-relaxed">
-            Hola <span className="text-[#00F0FF]">{userData.name}</span>, tu cuenta ha sido registrada con éxito pero requiere activación manual por parte del equipo de <span className="text-white">Kaivincia Corp</span>. 
+            Hola <span className="text-[#00F0FF]">{userData.name}</span>, tu cuenta ha sido registrada con éxito pero requiere activación manual y asignación de rol por parte del equipo de <span className="text-white">Kaivincia Corp</span>. 
           </p>
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8">
             <p className="text-gray-300 text-sm font-medium">
-              Estamos verificando tu perfil para asignarte los permisos correspondientes. Recibirás acceso completo en breve.
+              Estamos verificando tu perfil para asignarte los permisos correspondientes (Colaborador, Alumno, Gestor, etc.) según tu función.
             </p>
           </div>
           <button 
