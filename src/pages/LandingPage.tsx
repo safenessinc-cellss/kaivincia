@@ -4,7 +4,7 @@ import {
   ArrowRight, CheckCircle2, BookOpen, MonitorPlay, 
   BarChart3, X, Zap, ShieldCheck, 
   Globe, Cpu, Layers, Sparkles, Navigation,
-  Play, Users, Star, Lock, ChevronRight, User, Settings
+  Play, Users, Star, Lock, ChevronRight, User, Settings, UserPlus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -325,6 +325,42 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                 </div>
              </motion.div>
            ))}
+        </div>
+      </section>
+
+      {/* Careers CTA Section */}
+      <section className="relative py-32 px-6 z-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-gradient-to-br from-[#00F0FF]/20 via-blue-500/10 to-transparent border border-[#00F0FF]/30 rounded-[4rem] p-12 lg:p-20 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:opacity-10 transition-opacity">
+               <UserPlus className="w-64 h-64 text-[#00F0FF]" />
+            </div>
+            
+            <div className="max-w-3xl relative z-10">
+              <h3 className="text-xs font-black text-[#00F0FF] uppercase tracking-[0.4em] mb-6 animate-pulse">Join the Revolution</h3>
+              <h4 className="text-5xl lg:text-7xl font-serif font-bold text-white mb-8 leading-[0.9]">
+                ¿Quieres ser parte de <br />
+                <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Kaivincia?</span>
+              </h4>
+              <p className="text-xl text-gray-400 font-medium leading-relaxed mb-12">
+                Buscamos a los mejores setters, closers y arquitectos de sistemas para dominar el mercado hispano. Si tienes el hambre de ganar y la disciplina de un ejecutor, tenemos un lugar para ti.
+              </p>
+              <Link 
+                to="/careers" 
+                className="inline-flex items-center gap-4 bg-white text-black px-12 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-[#00F0FF] hover:text-white transition-all shadow-[0_0_50px_rgba(255,255,255,0.1)] group/btn"
+              >
+                Trabaje con Nosotros <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
+              </Link>
+            </div>
+
+            <div className="flex gap-8 mt-16 opacity-30">
+               {['Sistemas IA', 'Ventas High Ticket', 'Operations Management', 'Customer Success'].map(tag => (
+                 <span key={tag} className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] border border-[#00F0FF]/20 px-4 py-2 rounded-full">
+                   {tag}
+                 </span>
+               ))}
+            </div>
+          </div>
         </div>
       </section>
 
