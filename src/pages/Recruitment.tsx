@@ -227,7 +227,7 @@ export default function Recruitment() {
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/crm/dashboard')}
             className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
           >
             <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
