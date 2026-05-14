@@ -10,6 +10,16 @@ interface LogoProps {
 export default function Logo({ className = "", iconOnly = false }: LogoProps) {
   const [imageError, setImageError] = useState(false);
 
+  if (!iconOnly) {
+    return (
+      <img 
+        src="/images/logo.png" 
+        alt="Kaivincia Logo" 
+        className={`h-10 w-auto object-contain ${className}`} 
+      />
+    );
+  }
+
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       <motion.div 
@@ -25,10 +35,7 @@ export default function Logo({ className = "", iconOnly = false }: LogoProps) {
               src="/images/logo.png" 
               alt="Logo" 
               className="w-full h-full object-contain p-1"
-              onError={(e) => {
-                console.log('Logo image failed to load');
-                setImageError(true);
-              }}
+              onError={() => setImageError(true)}
               referrerPolicy="no-referrer"
             />
           ) : (
