@@ -526,20 +526,32 @@ export default function Recruitment() {
                     <h3 className="text-lg font-black uppercase italic tracking-tighter mb-8 flex items-center gap-3">
                        <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Config de Roles
                     </h3>
-                    <div className="space-y-6">
-                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-[#00F0FF]/30 transition-all">
-                          <h4 className="text-xs font-black text-[#00F0FF] uppercase tracking-widest mb-2">Setters</h4>
-                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Acceso ilimitado a CRM, Sales Pipeline y Nodos de Conversión.</p>
-                       </div>
-                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-amber-500/30 transition-all">
-                          <h4 className="text-xs font-black text-amber-500 uppercase tracking-widest mb-2">Aprendices</h4>
-                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Limitado a Academia y Simuladores. Bloqueo de CRM hasta Graduación.</p>
-                       </div>
-                       <div className="p-5 border border-white/5 bg-white/5 rounded-2xl group hover:border-emerald-500/30 transition-all">
-                          <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-2">Gestores</h4>
-                          <p className="text-[10px] text-gray-400 leading-relaxed italic">Estructura operativa total y monitor de disponibilidad de equipo.</p>
-                       </div>
+                    <div className="space-y-4">
+                       {[
+                         { id: 'sales', label: 'Setters', color: 'text-[#00F0FF]', border: 'group-hover:border-[#00F0FF]/30', desc: 'Acceso ilimitado a CRM y Pipeline.' },
+                         { id: 'alumno', label: 'Aprendices', color: 'text-amber-500', border: 'group-hover:border-amber-500/30', desc: 'Limitado a Academia y Simuladores.' },
+                         { id: 'gestor', label: 'Gestores', color: 'text-emerald-500', border: 'group-hover:border-emerald-500/30', desc: 'Monitor de disponibilidad y operativa total.' }
+                       ].map(roleDef => (
+                         <div key={roleDef.id} className={`p-4 border border-white/5 bg-white/5 rounded-2xl group transition-all ${roleDef.border}`}>
+                            <div className="flex justify-between items-start mb-2">
+                               <h4 className={`text-xs font-black ${roleDef.color} uppercase tracking-widest`}>{roleDef.label}</h4>
+                               <button 
+                                 onClick={() => navigate('/superadmin')}
+                                 className="text-[8px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 px-2 py-1 rounded-lg transition-colors"
+                               >
+                                 Asignar
+                               </button>
+                            </div>
+                            <p className="text-[9px] text-gray-400 leading-relaxed italic">{roleDef.desc}</p>
+                         </div>
+                       ))}
                     </div>
+                    <button 
+                      onClick={() => navigate('/superadmin')}
+                      className="w-full mt-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all"
+                    >
+                       Gestionar Permisos Maestros
+                    </button>
                  </div>
 
                  {/* Welcome Kit Library */}
