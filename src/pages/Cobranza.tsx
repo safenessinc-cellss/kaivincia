@@ -283,20 +283,31 @@ export default function Cobranza() {
                     ${client.amount}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select
-                      value={client.status}
-                      onChange={(e) => updateStatus(client.id, e.target.value)}
-                      className="text-sm border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="Contactado">Contactado</option>
-                      <option value="No responde">No responde</option>
-                      <option value="Pagó">Pagó</option>
-                      <option value="No interesado">No interesado</option>
-                    </select>
+                    <div className="flex flex-col gap-1">
+                      <select
+                        value={client.status}
+                        onChange={(e) => updateStatus(client.id, e.target.value)}
+                        className="text-xs border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Contactado">Contactado</option>
+                        <option value="No responde">No responde</option>
+                        <option value="Pagó">Pagó</option>
+                        <option value="No interesado">No interesado</option>
+                        <option value="Autorizado">Autorizado</option>
+                        <option value="No Autorizado">No Autorizado</option>
+                      </select>
+                      {client.lastResult && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                          client.status === 'Autorizado' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'
+                        }`}>
+                          {client.lastResult}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                    <a href={`https://wa.me/${client.phone}`} target="_blank" rel="noreferrer" className="text-green-600 hover:text-green-900 bg-green-50 p-2 rounded-full">
+                    <a href={`https://wa.me/${client.phone}`} target="_blank" rel="noreferrer" className="text-green-600 hover:text-green-900 bg-green-50 p-2 rounded-full" title="WhatsApp">
                       <MessageCircle className="h-4 w-4" />
                     </a>
                     <a href={`tel:${client.phone}`} className="text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-full" title="Llamar">
@@ -304,10 +315,11 @@ export default function Cobranza() {
                     </a>
                     <button 
                       onClick={() => openVisitModal(client)}
-                      className="text-purple-600 hover:text-purple-900 bg-purple-50 p-2 rounded-full"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all text-xs font-bold"
                       title="Registrar Visita GPS"
                     >
                       <MapPin className="h-4 w-4" />
+                      Visitar
                     </button>
                   </td>
                 </tr>
