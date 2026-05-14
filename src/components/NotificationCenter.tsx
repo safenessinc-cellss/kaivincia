@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { Bell, Clock, AlertTriangle, MessageSquare, CheckCircle2, X } from 'lucide-react';
 import { format, isSameDay, parseISO, isBefore } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
@@ -62,7 +62,7 @@ export default function NotificationCenter() {
       }).filter(Boolean);
 
       updateNotifications('task', taskNotifications as any[]);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
 
     // Listen to Messages (Last 10 messages)
     const qMessages = query(
@@ -94,7 +94,7 @@ export default function NotificationCenter() {
         });
       
       updateNotifications('message', messageNotifications);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'chat_messages'));
 
     const updateNotifications = (type: string, newNotifs: any[]) => {
       setNotifications(prev => {
