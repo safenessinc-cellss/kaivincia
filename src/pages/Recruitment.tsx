@@ -17,9 +17,21 @@ const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Co
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
   const [isUploading, setIsUploading] = useState(false);
+  const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
+  const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
   
-  // Candidates State
+  // Attendance State
+  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [attendanceLog, setAttendanceLog] = useState<any[]>([]);
+
+  // Absence Form State
+  const [absenceForm, setAbsenceForm] = useState({
+    type: 'Día Libre',
+    startDate: '',
+    endDate: '',
+    reason: ''
+  });
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
@@ -274,10 +286,225 @@ export default function Recruitment() {
     }, 2500);
   };
 
+  const handleAttendance = async (type: 'in' | 'out') => {
+    try {
+      const log = {
+        userId: auth.currentUser?.uid || 'guest',
+        userName: auth.currentUser?.displayName || 'Colaborador',
+        type,
+        timestamp: new Date().toISOString(),
+        ip: '192.168.1.' + Math.floor(Math.random() * 255) // Simulated IP
+      };
+      await addDoc(collection(db, 'attendance_logs'), log);
+      setIsCheckedIn(type === 'in');
+      alert(`Fichaje ${type === 'in' ? 'de entrada' : 'de salida'} registrado correctamente.`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'attendance_logs');
+    }
+  };
+
+  const handleAbsenceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const request = {
+        ...absenceForm,
+        userId: auth.currentUser?.uid || 'guest',
+        userName: auth.currentUser?.displayName || 'Colaborador',
+        status: 'pending',
+        createdAt: new Date().toISOString()
+      };
+      await addDoc(collection(db, 'absence_requests'), request);
+      alert('Solicitud enviada a RRHH y a su superior para aprobación.');
+      setIsAbsenceModalOpen(false);
+      setAbsenceForm({ type: 'Día Libre', startDate: '', endDate: '', reason: '' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'absence_requests');
+    }
+  };
+
   if (loadingCandidates || loadingJobs) return <div>Cargando...</div>;
 
   return (
     <div className="space-y-4 flex flex-col h-full relative">
+      {/* Attendance Modal */}
+      <AnimatePresence>
+        {isAttendanceModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAttendanceModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative bg-white w-full max-w-lg rounded-[3rem] p-10 border border-gray-100 shadow-2xl overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 p-8">
+                <Clock className="w-12 h-12 text-gray-50 opacity-50" />
+              </div>
+
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-12 w-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Fingerprint className="w-6 h-6 text-[#00F0FF]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Terminal Gibbor Core v4</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-gray-100">
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Tiempo de Sesión</p>
+                  <p className="text-5xl font-black text-gray-900 italic tracking-tighter">00:00:00</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => handleAttendance('in')}
+                    disabled={isCheckedIn}
+                    className={`py-6 rounded-3xl flex flex-col items-center gap-3 transition-all ${
+                      isCheckedIn 
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50' 
+                        : 'bg-emerald-500 text-white shadow-xl hover:scale-[1.02] active:scale-95'
+                    }`}
+                  >
+                    <Zap className="w-6 h-6" />
+                    <span className="text-xs font-black uppercase tracking-widest">Check-In</span>
+                  </button>
+                  <button 
+                    onClick={() => handleAttendance('out')}
+                    disabled={!isCheckedIn}
+                    className={`py-6 rounded-3xl flex flex-col items-center gap-3 transition-all ${
+                      !isCheckedIn 
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-50' 
+                        : 'bg-red-500 text-white shadow-xl hover:scale-[1.02] active:scale-95'
+                    }`}
+                  >
+                    <MousePointer2 className="w-6 h-6" />
+                    <span className="text-xs font-black uppercase tracking-widest">Check-Out</span>
+                  </button>
+                </div>
+
+                <div className="p-6 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-4">
+                   <div className="h-10 w-10 bg-blue-100 rounded-xl flex items-center justify-center text-blue-500">
+                      <MapPin className="w-5 h-5" />
+                   </div>
+                   <div>
+                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación Validada</p>
+                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">Gibbor Virtual Node • VPN Enabled</p>
+                   </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Absence Request Modal */}
+      <AnimatePresence>
+        {isAbsenceModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAbsenceModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, x: 20 }}
+              animate={{ scale: 1, opacity: 1, x: 0 }}
+              exit={{ scale: 0.9, opacity: 0, x: 20 }}
+              className="relative bg-white w-full max-w-xl rounded-[3rem] p-10 border border-gray-100 shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center gap-4 mb-8">
+                <div className="h-12 w-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Calendar className="w-6 h-6 text-[#00F0FF]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Nueva Solicitud</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Protocolo de Ausencia Gibbor</p>
+                </div>
+              </div>
+
+              <form onSubmit={handleAbsenceSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Tipo de Ausencia</label>
+                    <select 
+                      value={absenceForm.type}
+                      onChange={(e) => setAbsenceForm({...absenceForm, type: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all"
+                    >
+                      <option>Día Libre</option>
+                      <option>Cita Médica</option>
+                      <option>Vacaciones</option>
+                      <option>Asuntos Personales</option>
+                      <option>Baja Laboral</option>
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Desde</label>
+                      <input 
+                        type="date"
+                        required
+                        value={absenceForm.startDate}
+                        onChange={(e) => setAbsenceForm({...absenceForm, startDate: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Hasta</label>
+                      <input 
+                        type="date"
+                        required
+                        value={absenceForm.endDate}
+                        onChange={(e) => setAbsenceForm({...absenceForm, endDate: e.target.value})}
+                        className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Motivo Justificado</label>
+                    <textarea 
+                      required
+                      placeholder="Describe el motivo de la ausencia..."
+                      value={absenceForm.reason}
+                      onChange={(e) => setAbsenceForm({...absenceForm, reason: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl text-xs font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all min-h-[120px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button 
+                    type="button"
+                    onClick={() => setIsAbsenceModalOpen(false)}
+                    className="flex-1 py-4 bg-gray-50 text-gray-500 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all shadow-xl"
+                  >
+                    Enviar Solicitud
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
           <button 
@@ -526,7 +753,10 @@ export default function Recruitment() {
                           ))}
                        </div>
                        
-                       <button className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic">
+                       <button 
+                          onClick={() => setIsAttendanceModalOpen(true)}
+                          className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic"
+                       >
                           Acceder al Panel de Control de Jornada (Fichaje)
                        </button>
                     </div>
@@ -539,7 +769,10 @@ export default function Recruitment() {
                           <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Solicitudes de Ausencia</h3>
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Flujo de Aprobación Centralizado</p>
                        </div>
-                       <button className="p-4 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all shadow-lg active:scale-90">
+                       <button 
+                          onClick={() => setIsAbsenceModalOpen(true)}
+                          className="p-4 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all shadow-lg active:scale-90"
+                       >
                           <Plus className="w-5 h-5" />
                        </button>
                     </div>
