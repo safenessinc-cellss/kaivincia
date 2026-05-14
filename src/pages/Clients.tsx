@@ -170,7 +170,11 @@ export default function Clients() {
     const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'clients');
+      setLoading(false);
+    });
 
     const unsubCollabs = onSnapshot(collection(db, 'collaborators'), (snapshot) => {
       setCollaborators(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
