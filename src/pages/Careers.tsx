@@ -12,14 +12,16 @@ export default function Careers() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
+    // Basic query to avoid index requirements during development
     const q = query(
       collection(db, 'jobs'),
-      where('status', '==', 'active'),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const allJobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Filter active jobs client-side to be safe
+      setJobs(allJobs.filter((job: any) => job.status === 'active'));
       setLoading(false);
     }, (error) => {
       console.error("Error fetching jobs:", error);
