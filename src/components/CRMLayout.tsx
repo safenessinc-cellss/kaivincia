@@ -12,7 +12,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { LOGO_FULL, LOGO_ICON } from '../constants/images';
 import CommandBar from './CommandBar';
 import NotificationCenter from './NotificationCenter';
 
@@ -24,12 +23,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const [ceoMode, setCeoMode] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'Módulo Core': true,
-    'Módulo de Talento': false,
-    'Módulo Financiero': false,
-    'Módulo de Estrategia': false,
-    'Academia Kaivincia': true,
-    'Portales': false,
+    'SISTEMA NERVIOSO': true,
+    'ECOSISTEMA DE CLIENTES': false,
+    'OPERACIONES & PROYECTOS': false,
+    'MÓDULO DE TALENTO': false,
+    'ESTRATEGIA & KPIS': false,
+    'ACADEMIA KAIVINCIA': true,
+    'PORTAL PERSONAL': false,
     'Configuración': false
   });
 
@@ -81,7 +81,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
       title: 'SISTEMA NERVIOSO',
       items: [
         { name: 'Nervous System', href: '/crm/nervous', icon: BrainCircuit, highlight: true, color: 'text-[#22D3EE]' },
-        { name: 'Panel Maestro', href: '/crm/dashboard', icon: Home, highlight: true, color: 'text-cyan-500' },
+        { name: 'Panel Maestro', href: '/crm/dashboard', icon: LayoutDashboard, highlight: true, color: 'text-cyan-500' },
         { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, badge: '9+', color: 'text-[#A855F7]' },
       ]
     };
@@ -149,7 +149,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
         {
           title: 'MI TRABAJO',
           items: [
-            { name: 'Panel Operativo', href: '/crm/dashboard', icon: Home, color: 'text-cyan-500' },
+            { name: 'Panel Operativo', href: '/crm/dashboard', icon: LayoutDashboard, color: 'text-cyan-500' },
             { name: 'Tareas Asignadas', href: '/crm/tasks', icon: ClipboardCheck, color: 'text-blue-400' },
             { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, color: 'text-[#A855F7]' },
             { name: 'Manuales SOP', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
@@ -182,9 +182,9 @@ export default function CRMLayout({ userData }: { userData: any }) {
         groups.push({
           title: 'Configuración',
           items: [
-            { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert },
+            { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert, color: 'text-red-500' },
             { name: 'Security Center', href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
-            { name: 'Automatizaciones', href: '/crm/automations', icon: Zap },
+            { name: 'Automatizaciones', href: '/crm/automations', icon: Zap, color: 'text-amber-500' },
           ]
         } as any);
       }
@@ -247,12 +247,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img src="/images/portada.jpg" alt="Portada" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-multiply" />
       </div>
+      
       {/* Sidebar */}
       <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
-              src={LOGO_FULL}
+              src="/images/logo.png"
               alt="Kaivincia Logo" 
               className="h-8 object-contain"
               referrerPolicy="no-referrer"
@@ -338,7 +339,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
                               <span className="text-[10px] uppercase font-black tracking-widest">{item.name}</span>
                               {item.badge && (
                                 <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full ${
-                                  item.badge === 'LIVE' ? 'bg-cyan-500 text-black animate-pulse' : 'bg-[#A855F7] text-white'
+                                  item.badge === '9+' ? 'bg-[#A855F7] text-white' : ''
                                 }`}>
                                   {item.badge}
                                 </span>
