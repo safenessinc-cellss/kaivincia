@@ -13,7 +13,7 @@ export default function Footer() {
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
-              <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
+              <span className="text-2xl font-black text-white uppercase italic tracking-tighter"></span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed max-w-xs font-medium">
               El sistema operativo para agencias de élite. Fusionamos inteligencia operativa con formación de alto rendimiento.
