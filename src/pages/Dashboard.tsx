@@ -6,14 +6,14 @@ import {
   CheckCircle2, Clock, 
   BrainCircuit, BarChart3, BookOpen, ChevronRight, 
   History, RefreshCw, FileText,
-  Cpu, Layers, Network, ShieldCheck
+  Cpu, Layers, Network, CheckSquare
 } from 'lucide-react';
 import { 
   AreaChart, Area, Tooltip, 
   ResponsiveContainer
 } from 'recharts';
 import { collection, query, onSnapshot, limit } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
@@ -29,12 +29,10 @@ interface SystemEvent {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { userData } = useOutletContext<{ userData: any }>();
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
   
   // System Events Feed
   const [events, setEvents] = useState<SystemEvent[]>([
@@ -64,21 +62,14 @@ export default function Dashboard() {
     }
   ]);
 
-  const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending' || u.role === 'none'), [users]);
-
   useEffect(() => {
     // Listeners for real database connection test
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
-
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
-      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
+    });
 
     return () => {
       unsubClients();
-      unsubUsers();
     };
   }, []);
 
@@ -184,41 +175,6 @@ export default function Dashboard() {
             </div>
          </div>
       </div>
-
-      {/* Pending Authorizations Alert for SuperAdmins */}
-      <AnimatePresence>
-        {userData?.role === 'superadmin' && pendingUsers.length > 0 && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="mb-8"
-          >
-            <div className="bg-amber-100 border-2 border-amber-500 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
-               <div className="absolute top-0 right-0 p-6 opacity-10">
-                  <ShieldCheck className="w-24 h-24 text-amber-600" />
-               </div>
-               <div className="flex items-center gap-6 relative z-10">
-                  <div className="h-14 w-14 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-xl animate-pulse">
-                     <Users className="w-8 h-8" />
-                  </div>
-                  <div>
-                     <h3 className="text-xl font-black text-amber-900 uppercase tracking-tighter italic">Alerta de Seguridad: Autorizaciones Pendientes</h3>
-                     <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mt-1">
-                        Hay {pendingUsers.length} Nodo(s) solicitando acceso a la Red Kaivincia.
-                     </p>
-                  </div>
-               </div>
-               <button 
-                onClick={() => navigate('/crm/superadmin')}
-                className="bg-gray-900 text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all shadow-xl relative z-10"
-               >
-                 Gestionar Nodos
-               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
@@ -347,6 +303,37 @@ export default function Dashboard() {
         {/* THE CORE: 4 QUADRANTS OPERATIONAL MAP */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           
+          {/* QUADRANT V: GESTIÓN DE TAREAS */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            onClick={() => navigate('/crm/tasks')}
+            className="bg-[#151921] border border-[#00F0FF]/30 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-8 relative z-10">
+              <div>
+                <h3 className="text-xs font-black text-white uppercase tracking-[0.3em] mb-1 italic">V. Operational System</h3>
+                <p className="text-2xl font-black text-[#00F0FF] italic tracking-tighter uppercase whitespace-nowrap">Gestión de Tareas</p>
+              </div>
+              <div className="h-14 w-14 bg-gradient-to-br from-[#00F0FF]/20 to-[#00F0FF]/10 rounded-2xl flex items-center justify-center text-[#00F0FF] border border-[#00F0FF]/20 group-hover:scale-110 transition-transform">
+                <CheckSquare className="w-8 h-8" />
+              </div>
+            </div>
+            
+            <div className="space-y-4 relative z-10">
+              <div className="flex justify-between items-end">
+                <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Active Progress</span>
+                <span className="text-lg font-black text-white italic">Sync Active</span>
+              </div>
+              <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  className="h-full bg-[#00F0FF] shadow-[0_0_10px_#00F0FF]"
+                />
+              </div>
+            </div>
+          </motion.div>
+          
           {/* A. FLOW OF CAPITAL (FINANCE) */}
           <motion.div 
             whileHover={{ scale: 1.01 }}
@@ -363,7 +350,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
@@ -597,4 +584,5 @@ export default function Dashboard() {
 
     </div>
   );
-} 
+}
+
