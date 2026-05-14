@@ -10,8 +10,9 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../firebase';
-import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
+import Footer from '../components/Footer';
 
 interface LandingPageProps {
   onGuestMode: () => void;
@@ -31,8 +32,8 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
   useEffect(() => {
     const q = query(
       collection(db, 'jobs'),
-      where('status', '==', 'active'),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(20)
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -116,12 +117,12 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
+            <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
             <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            {['Sistemas', 'Academia', 'Carreras'].map((item) => (
+            {['Sistemas', 'Academia'].map((item) => (
               <a key={item} href={`#${item.toLowerCase()}`} className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#00F0FF] transition-colors">
                 {item}
               </a>
@@ -204,7 +205,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Dashboard Preview */}
+      {/* Dashboard Preview (WOW Factor) */}
       <section className="relative px-6 py-20 z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -215,6 +216,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
           >
             <div className="absolute inset-0 bg-gradient-to-b from-[#00F0FF]/5 to-transparent pointer-events-none" />
             
+            {/* Blurred Mock UI */}
             <div className="filter blur-[8px] opacity-20 transition-all group-hover:blur-[2px] duration-1000 scale-105">
                <div className="grid grid-cols-4 gap-6 mb-8">
                  {[1,2,3,4].map(i => (
@@ -224,6 +226,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                <div className="h-[400px] bg-white/5 rounded-[3rem]" />
             </div>
 
+            {/* Content Overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center pointer-events-none">
               <div className="h-20 w-20 bg-[#00F0FF] rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-[#00F0FF]/40 animate-bounce">
                 <Lock className="w-8 h-8 text-white" />
@@ -341,8 +344,8 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* AI Powered Careers Section */}
-      <section id="carreras" className="relative py-32 px-6 z-10 overflow-hidden bg-black/40">
+      {/* AI Powered Careers Section (Carousel) */}
+      <section id="careers" className="relative py-32 px-6 z-10 overflow-hidden bg-black/40">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
             <div className="max-w-2xl">
@@ -511,7 +514,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                    </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-12">
+                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                       <div className="lg:col-span-2 space-y-10">
                          <div>
@@ -567,34 +570,11 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         )}
       </AnimatePresence>
 
-      {/* Footer */}
-      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
-          <div className="flex items-center gap-3">
-            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
-            <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
-          </div>
-          <div className="flex gap-10">
-            <Link to="/guest-academy" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
-              Academia
-            </Link>
-            <Link to="/strategy-blog" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
-              Blog Estratégico
-            </Link>
-            <Link to="/careers" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
-              Carreras
-            </Link>
-            <a href="#" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
-              Soporte
-            </a>
-          </div>
-          <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest italic">
-            Est. 2026 - Mastered by AI
-          </p>
-        </div>
-      </footer>
+      <section className="relative z-10 overflow-hidden">
+        <Footer />
+      </section>
 
-      {/* Elite Clients Modal */}
+      {/* Elite Clients / Results Modal */}
       <AnimatePresence>
         {showResults && (
           <motion.div 
