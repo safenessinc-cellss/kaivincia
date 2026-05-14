@@ -1,450 +1,605 @@
-import { useState, useEffect, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Zap, Plus, Settings, PlayCircle, CheckCircle2, AlertCircle, 
-  ArrowRight, Bell, MessageSquare, Mail, Activity, Webhook, Clock,
-  MoreVertical, Edit2, Trash2, PhoneCall, Sparkles, Loader2, ShieldAlert,
-  Terminal, Server, Cpu, Database, ChevronRight, X, Power, ToggleLeft, ToggleRight,
-  Filter, Layers, ArrowUpRight, Code, Binary, ZapOff
-} from 'lucide-react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, setDoc, query, orderBy, limit } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import { 
+  ShieldCheck, XCircle, ShieldAlert, Activity, Users, 
+  Key, UserPlus, Eye, Lock, Globe, AlertTriangle, CheckCircle2,
+  Search, Filter, MoreVertical, X, Mail, ArrowLeft
+} from 'lucide-react';
 
-// --- TYPES ---
-interface Workflow {
-  id: string;
-  name: string;
-  trigger: string;
-  condition: string;
-  action: {
-    type: 'INTERNAL' | 'EXTERNAL';
-    target: string;
-    payload: string;
+export default function SuperAdmin() {
+  const [activeTab, setActiveTab] = useState('users');
+  const navigate = useNavigate();
+  const [users, setUsers] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('none');
+  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
+
+  const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+
+  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      const currentPerms = user.permissions || {};
+      const newPerms = { ...currentPerms, [module]: hasAccess };
+      
+      await updateDoc(doc(db, 'users', userId), { 
+        permissions: newPerms,
+        status: 'active' // Auto-activate if we are setting perms
+      });
+      
+      alert(`Permisos actualizados para el módulo: ${module}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
   };
-  isActive: boolean;
-  stats: {
-    success: number;
-    failed: number;
-  };
-  createdAt: string;
-}
-
-interface TelemetryLog {
-  id: string;
-  timestamp: string;
-  workflow: string;
-  event: string;
-  status: 'info' | 'success' | 'error';
-}
-
-const MASTER_AUTOMATIONS: Partial<Workflow>[] = [
-  {
-    name: 'Protector contra Abandono',
-    trigger: 'CAÍDA_PUNTAJE_SALUD',
-    condition: 'Puntaje_Salud < 40',
-    action: { type: 'INTERNAL', target: 'Crear_Tarea_Urgente', payload: 'Etiquetar_Usuario_Critico' },
-    isActive: true,
-    stats: { success: 124, failed: 2 }
-  },
-  {
-    name: 'Motor de Upsell',
-    trigger: 'CURSO_COMPLETADO',
-    condition: 'Tipo_Curso == "Gratis"',
-    action: { type: 'INTERNAL', target: 'Enviar_Notificación_Push', payload: 'Invitar_Kaivincia_PRO' },
-    isActive: true,
-    stats: { success: 850, failed: 12 }
-  },
-  {
-    name: 'Sincronización de Campo',
-    trigger: 'CHECKIN_GPS',
-    condition: 'Venta_Marcada == true',
-    action: { type: 'EXTERNAL', target: 'Webhook_Post', payload: 'Generar_PDF_Factura' },
-    isActive: false,
-    stats: { success: 0, failed: 0 }
-  }
-];
-
-export default function Automations() {
-  const { userData } = useOutletContext<{ userData: any }>();
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [logs, setLogs] = useState<TelemetryLog[]>([]);
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
-  const [builderStep, setBuilderStep] = useState(1);
-  const [newWorkflow, setNewWorkflow] = useState<Partial<Workflow>>({
-    name: '',
-    trigger: 'TICKET_ABIERTO',
-    condition: '',
-    action: { type: 'INTERNAL', target: 'Notificación Push', payload: '{}' },
-    isActive: true,
-    stats: { success: 0, failed: 0 }
-  });
-
-  const logEndRef = useRef<HTMLDivElement>(null);
-  const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
 
   useEffect(() => {
-    if (!isAdmin) return;
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setLoading(false);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
-    // Listen to Workflows
-    const unsubWorkflows = onSnapshot(collection(db, 'automation_workflows'), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workflow));
-      if (data.length === 0) {
-        // Pre-populate if empty for demo/setup
-        setWorkflows(MASTER_AUTOMATIONS.map((wa, i) => ({ ...wa, id: `master-${i}`, createdAt: new Date().toISOString() } as Workflow)));
-      } else {
-        setWorkflows(data);
-      }
-    });
-
-    // Simulated Telemetry
-    const simulatedEvents = [
-      'Ejecutando Protector contra Abandono...',
-      'Validando condición: Puntaje_Salud < 40',
-      'Acción interna: ¡Tarea creada!',
-      'Evento emitido: CURSO_COMPLETADO',
-      'Webhook enviado a Slack',
-      'Sincronización de Campo en espera de señal GPS...',
-      'Disparador: NUEVO_CLIENTE detectado',
-      'Sincronizando con ERP...',
-    ];
-
-    const logInterval = setInterval(() => {
-      const randomEvent = simulatedEvents[Math.floor(Math.random() * simulatedEvents.length)];
-      const newLog: TelemetryLog = {
-        id: Math.random().toString(36).substr(2, 9),
-        timestamp: new Date().toLocaleTimeString(),
-        workflow: 'SYSTEM_KERNEL',
-        event: randomEvent,
-        status: randomEvent.includes('!') ? 'success' : (randomEvent.includes('espera') ? 'info' : 'success')
-      };
-      setLogs(prev => [...prev.slice(-15), newLog]);
-    }, 4000);
+    const unsubscribeAudit = onSnapshot(collection(db, 'audit_logs'), (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by timestamp descending
+      setAuditLogs(logs.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'audit_logs'));
 
     return () => {
-      unsubWorkflows();
-      clearInterval(logInterval);
+      unsubscribeUsers();
+      unsubscribeAudit();
     };
-  }, [isAdmin]);
+  }, []);
 
-  useEffect(() => {
-     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [logs]);
-
-  const handleSaveWorkflow = async () => {
+  const updateUserStatus = async (userId: string, status: string) => {
     try {
-      await addDoc(collection(db, 'automation_workflows'), {
-        ...newWorkflow,
-        createdAt: new Date().toISOString()
+      await updateDoc(doc(db, 'users', userId), { status });
+      // Log audit
+      await addDoc(collection(db, 'audit_logs'), {
+        userId: 'system',
+        action: 'UPDATE_USER_STATUS',
+        resourceType: 'User',
+        resourceId: userId,
+        details: JSON.stringify({ newStatus: status }),
+        timestamp: new Date().toISOString(),
+        ipAddress: '127.0.0.1'
       });
-      setIsBuilderOpen(false);
-      setBuilderStep(1);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'automation_workflows');
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
 
-  const toggleStatus = async (id: string, current: boolean) => {
-    if (id.startsWith('master-')) {
-       setWorkflows(prev => prev.map(w => w.id === id ? { ...w, isActive: !current } : w));
-       return;
-    }
+  const updateUserRole = async (userId: string, role: string) => {
     try {
-      await updateDoc(doc(db, 'automation_workflows', id), { isActive: !current });
+      await updateDoc(doc(db, 'users', userId), { role });
+      // Log audit
+      await addDoc(collection(db, 'audit_logs'), {
+        userId: 'system',
+        action: 'UPDATE_USER_ROLE',
+        resourceType: 'User',
+        resourceId: userId,
+        details: JSON.stringify({ newRole: role }),
+        timestamp: new Date().toISOString(),
+        ipAddress: '127.0.0.1'
+      });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `automation_workflows/${id}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
 
-  if (!isAdmin) return <div className="p-8 text-center text-gray-500">Acceso denegado.</div>;
+  const handleInviteUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Simulation of sending an invite
+      alert(`Invitación enviada a ${inviteEmail} con rol ${inviteRole}`);
+      setIsInviteModalOpen(false);
+      setInviteEmail('');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Cargando centro de seguridad...</div>;
 
   return (
-    <div className="h-full bg-[#0B0E14] text-slate-300 flex flex-col overflow-hidden font-sans">
-      {/* Header */}
-      <div className="p-8 pb-4 shrink-0 flex justify-between items-end border-b border-[#1E293B]/30 bg-[#0B0E14]/80 backdrop-blur-md z-10">
-        <div>
-          <h2 className="text-3xl font-black text-white uppercase tracking-tighter flex items-center gap-3">
-            <Cpu className="w-8 h-8 text-[#00F0FF]" />
-             Motor de Automatización
-          </h2>
-          <p className="text-xs font-mono text-slate-500 mt-2 flex items-center gap-2">
-            <span className="w-2 h-2 bg-[#00F0FF] rounded-full animate-pulse" />
-            KAIVINCIA LOGIC ENGINE v4.2 // READY_FOR_DEPLOYMENT
-          </p>
+    <div className="space-y-6 flex flex-col h-full">
+      <div className="flex justify-between items-center bg-white/50 p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-6">
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Centro de Control de Seguridad (CISO)</h2>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Gestión de accesos • Roles (RBAC) • Auditoría</p>
+          </div>
         </div>
-        <button 
-          onClick={() => setIsBuilderOpen(true)}
-          className="bg-white text-black px-6 py-3 rounded-full font-black text-xs uppercase tracking-widest hover:bg-[#00F0FF] hover:text-white transition-all flex items-center gap-2 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-        >
-          <Plus className="w-4 h-4" /> Crear Workflow
-        </button>
+        <div className="flex items-center gap-4">
+          {pendingUsers.length > 0 && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-2 rounded-2xl animate-bounce">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">{pendingUsers.length} Pendientes</span>
+            </div>
+          )}
+          <button 
+            onClick={() => setIsInviteModalOpen(true)}
+            className="bg-[#00F0FF] text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black hover:text-[#00F0FF] transition-all shadow-xl flex items-center gap-2 group"
+          >
+            <UserPlus className="h-4 w-4" /> Invitar Nodo
+          </button>
+        </div>
       </div>
 
-      {/* Assembly Line Grid */}
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workflows.map((wf) => (
-            <motion.div 
-              key={wf.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-[#12161F] border border-[#1E293B] rounded-2xl p-6 relative overflow-hidden group hover:border-[#00F0FF]/50 transition-colors"
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
+        <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar shrink-0">
+          {[
+            { id: 'users', label: 'Gestión de Usuarios', icon: Users },
+            { id: 'roles', label: 'Matriz de Permisos (RBAC)', icon: Key },
+            { id: 'audit', label: 'Logs de Auditoría', icon: Activity },
+            { id: 'alerts', label: 'Alertas de Seguridad', icon: ShieldAlert },
+          ].map(tab => (
+            <button 
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTab === tab.id 
+                  ? 'border-b-2 border-[#00F0FF] text-[#00F0FF] bg-cyan-500/10/50' 
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
             >
-              <div className="absolute top-0 right-0 p-2 opacity-5">
-                <Binary className="w-20 h-20 text-white" />
-              </div>
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-white font-black uppercase tracking-widest text-sm mb-1">{wf.name}</h3>
-                  <p className="text-[10px] font-mono text-[#00F0FF] uppercase">{wf.trigger}</p>
+        <div className="p-6 flex-1 overflow-y-auto bg-gray-50/50">
+          
+          {/* USERS TAB */}
+          {activeTab === 'users' && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+              <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+                <div className="relative w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar usuario..." 
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-[#00F0FF] focus:border-[#00F0FF]"
+                  />
                 </div>
-                <button 
-                  onClick={() => toggleStatus(wf.id, wf.isActive)}
-                  className={`p-2 rounded-lg transition-colors ${wf.isActive ? 'bg-[#00F0FF]/10 text-[#00F0FF]' : 'bg-slate-800 text-slate-600'}`}
-                >
-                  {wf.isActive ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+                <button className="flex items-center gap-2 text-sm text-gray-600 bg-white border border-gray-300 px-3 py-2 rounded-lg hover:bg-gray-50">
+                  <Filter className="w-4 h-4" /> Filtros
                 </button>
               </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3">Usuario</th>
+                      <th className="px-6 py-3">Rol</th>
+                      <th className="px-6 py-3">Estado</th>
+                      <th className="px-6 py-3">Último Login</th>
+                      <th className="px-6 py-3">Seguridad (2FA)</th>
+                      <th className="px-6 py-3 text-right">Acciones de Poder</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {users.map((user) => (
+                      <tr key={user.id} className="bg-white hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">
+                              {user.name?.charAt(0) || user.email?.charAt(0)}
+                            </div>
+                            <div className="ml-3">
+                              <div className="font-medium text-gray-900">{user.name || 'Usuario'}</div>
+                              <div className="text-gray-500 text-xs">{user.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={user.role || 'none'}
+                              onChange={(e) => updateUserRole(user.id, e.target.value)}
+                              className={`text-sm border-gray-300 rounded-md shadow-sm focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white ${
+                                (user.role === 'none' || !user.role) ? 'border-red-300 text-red-500 font-bold' : ''
+                              }`}
+                            >
+                              <option value="none">⚠️ Sin Rol</option>
+                              <option value="user">Usuario Básico</option>
+                              <option value="alumno">Alumno</option>
+                              <option value="collaborator">Colaborador</option>
+                              <option value="gestor">Gestor de Operaciones</option>
+                              <option value="ceo">CEO / Director</option>
+                              <option value="rrhh">Recursos Humanos</option>
+                              <option value="sales">Ventas</option>
+                              <option value="support">Soporte</option>
+                              <option value="tutor">Tutor</option>
+                              <option value="admin">Administrador</option>
+                              <option value="superadmin">⚡ SuperAdmin</option>
+                            </select>
+                            { (user.role === 'none' || !user.role) && (
+                              <div className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <select
+                            value={user.status || 'pending'}
+                            onChange={(e) => updateUserStatus(user.id, e.target.value)}
+                            className={`text-sm border-0 rounded-full px-2 py-1 font-semibold ${
+                              user.status === 'active' ? 'bg-green-100 text-green-800' : 
+                              user.status === 'suspended' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            <option value="active">Activo</option>
+                            <option value="pending">Pendiente</option>
+                            <option value="suspended">Suspendido</option>
+                          </select>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-xs text-gray-900 flex items-center gap-1">
+                            <Globe className="w-3 h-3 text-gray-400" /> {user.lastLoginIp || '192.168.1.1'}
+                          </div>
+                          <div className="text-xs text-gray-500">{user.lastLoginCountry || 'México'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {user.twoFactorEnabled ? (
+                            <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-2 py-1 rounded-full w-fit">
+                              <CheckCircle2 className="w-3 h-3" /> 2FA Activo
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-1 rounded-full w-fit">
+                              <AlertTriangle className="w-3 h-3" /> 2FA Inactivo
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              onClick={() => setSelectedUserForPerms(user)}
+                              title="Gestionar Permisos por Módulo" 
+                              className="p-2 bg-gray-50 text-gray-400 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 rounded-xl transition-all"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
+                            </button>
+                            <button title="Resetear Password" className="p-1 text-gray-400 hover:text-[#00F0FF] transition-colors">
+                              <Lock className="w-4 h-4" />
+                            </button>
+                            <button title="Ver Logs" className="p-1 text-gray-400 hover:text-[#00F0FF] transition-colors">
+                              <Activity className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
-              <div className="space-y-4 mb-8">
-                <div className="flex items-center gap-3">
-                  <div className="w-1.5 h-10 bg-slate-800 rounded-full flex flex-col items-center group-hover:bg-[#00F0FF]/20">
-                     <div className={`w-1.5 h-4 bg-[#00F0FF] rounded-full transition-all ${wf.isActive ? 'translate-y-0' : 'translate-y-6 opacity-0'}`} />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                      <Filter className="w-3 h-3" /> Condición
-                    </p>
-                    <p className="text-xs text-slate-300 font-mono truncate">{wf.condition || 'Sin filtros definidos'}</p>
-                  </div>
+          {/* RBAC TAB */}
+          {activeTab === 'roles' && (
+            <div className="space-y-6">
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Matriz de Permisos (RBAC)</h3>
+                <p className="text-sm text-gray-500 mb-6">Configura qué módulos y acciones puede realizar cada rol en el sistema.</p>
+                
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left border-collapse">
+                    <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
+                      <tr>
+                        <th className="px-4 py-3 border-r border-gray-200">Módulo / Permiso</th>
+                        <th className="px-4 py-3 text-center border-r border-gray-200">SuperAdmin</th>
+                        <th className="px-4 py-3 text-center border-r border-gray-200">Admin</th>
+                        <th className="px-4 py-3 text-center border-r border-gray-200">Ventas</th>
+                        <th className="px-4 py-3 text-center border-r border-gray-200">Soporte</th>
+                        <th className="px-4 py-3 text-center">Tutor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {[
+                        { name: 'Ver Dashboard Financiero', sa: true, a: true, v: false, s: false, t: false },
+                        { name: 'Ver Valor de Contratos', sa: true, a: true, v: false, s: false, t: false },
+                        { name: 'Exportar Base de Datos', sa: true, a: false, v: false, s: false, t: false },
+                        { name: 'Gestionar Clientes B2B', sa: true, a: true, v: true, s: false, t: false },
+                        { name: 'Gestionar Alumnos', sa: true, a: true, v: true, s: true, t: true },
+                        { name: 'Configurar VoIP', sa: true, a: true, v: false, s: false, t: false },
+                        { name: 'Eliminar Registros', sa: true, a: false, v: false, s: false, t: false },
+                      ].map((perm, i) => (
+                        <tr key={i} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900 border-r border-gray-200">{perm.name}</td>
+                          <td className="px-4 py-3 text-center border-r border-gray-200">{perm.sa ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-300 mx-auto" />}</td>
+                          <td className="px-4 py-3 text-center border-r border-gray-200">{perm.a ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-300 mx-auto" />}</td>
+                          <td className="px-4 py-3 text-center border-r border-gray-200">{perm.v ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-300 mx-auto" />}</td>
+                          <td className="px-4 py-3 text-center border-r border-gray-200">{perm.s ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-300 mx-auto" />}</td>
+                          <td className="px-4 py-3 text-center">{perm.t ? <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto" /> : <XCircle className="w-5 h-5 text-red-300 mx-auto" />}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              </div>
+            </div>
+          )}
 
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-black/40 flex items-center justify-center border border-[#1E293B]">
-                    {wf.action.type === 'INTERNAL' ? <Server className="w-4 h-4 text-emerald-400" /> : <Webhook className="w-4 h-4 text-blue-400" />}
+          {/* AUDIT LOGS TAB */}
+          {activeTab === 'audit' && (
+            <div className="space-y-6">
+              {/* Login Stats Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                    <Lock className="w-6 h-6" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{wf.action.type}: {wf.action.target}</p>
-                    <p className="text-[11px] text-white/70 font-mono">{wf.action.payload}</p>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inicios de Sesión (24h)</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.filter(l => l.action === 'LOGIN' && new Date(l.timestamp).getTime() > Date.now() - 86400000).length}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+                    <UserPlus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nuevos Registros</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.filter(l => l.action === 'USER_REGISTER').length}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+                    <Activity className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Eventos Totales</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.length}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 border-t border-[#1E293B] pt-4">
-                <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Éxitos</p>
-                  <p className="text-xl font-black text-emerald-400 font-mono">{wf.stats.success}</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-[10px] font-bold text-slate-500 uppercase mb-1">Fallos</p>
-                  <p className="text-xl font-black text-red-500 font-mono">{wf.stats.failed}</p>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-
-      {/* Live Log: Telemetry Console */}
-      <div className="h-48 shrink-0 bg-black border-t border-[#1E293B] p-4 flex flex-col font-mono text-[11px]">
-        <div className="flex items-center justify-between mb-2">
-           <span className="flex items-center gap-2 text-[#22D3EE] font-black uppercase tracking-widest bg-[#22D3EE]/10 px-3 py-1 rounded">
-             <Terminal className="w-3 h-3" /> Kernel Telemetry Live
-           </span>
-           <span className="text-slate-600">CONEXIÓN_ESTABLE // 99.9% TIEMPO_ACTIVIDAD</span>
-        </div>
-        <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
-          {logs.map((log) => (
-            <div key={log.id} className="flex gap-4 group">
-              <span className="text-slate-700 shrink-0">[{log.timestamp}]</span>
-              <span className="text-[#00F0FF] shrink-0 uppercase tracking-tighter opacity-50">{log.workflow}:</span>
-              <span className={`flex-1 ${log.status === 'success' ? 'text-emerald-400' : (log.status === 'error' ? 'text-red-500' : 'text-slate-300')}`}>
-                {log.event}
-              </span>
-            </div>
-          ))}
-          <div ref={logEndRef} />
-        </div>
-      </div>
-
-      {/* Rule Builder Modal */}
-      <AnimatePresence>
-        {isBuilderOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-[#0B0E14] border border-[#00F0FF]/30 rounded-3xl w-full max-w-2xl overflow-hidden shadow-[0_0_50px_rgba(181,154,69,0.15)]"
-            >
-              {/* Modal Header */}
-              <div className="p-6 border-b border-[#1E293B] flex justify-between items-center">
-                 <div className="flex items-center gap-4">
-                   <div className="w-10 h-10 bg-[#00F0FF]/10 rounded-xl flex items-center justify-center text-[#00F0FF]">
-                     <Layers className="w-6 h-6" />
-                   </div>
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
                    <div>
-                     <h3 className="text-xl font-black text-white uppercase tracking-tighter">Configurador Lógico</h3>
-                     <p className="text-[10px] font-mono text-slate-500 uppercase">Paso {builderStep} de 3 // Instrucción de Construcción</p>
+                      <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Historial de Auditoría Realtime</h3>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Eventos del sistema, accesos y modificaciones de privilegios.</p>
                    </div>
-                 </div>
-                 <button onClick={() => setIsBuilderOpen(false)} className="text-slate-500 hover:text-white">
-                   <X className="w-6 h-6" />
-                 </button>
-              </div>
+                   <div className="flex gap-2">
+                       <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-widest rounded-lg border border-emerald-100 flex items-center gap-2">
+                          <Activity className="w-3 h-3 animate-pulse" /> Stream Activo
+                       </div>
+                   </div>
+                </div>
 
-              {/* Steps Progress */}
-              <div className="flex px-6 pt-4 gap-2">
-                {[1, 2, 3].map(s => (
-                  <div key={s} className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: builderStep >= s ? '100%' : '0%' }}
-                      className="h-full bg-[#00F0FF]"
-                    />
+                <div className="space-y-4">
+                  {auditLogs.length > 0 ? auditLogs.map((log, i) => (
+                    <div key={log.id} className="flex items-start gap-4 p-4 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md transition-all group">
+                      <div className={`p-3 rounded-xl border shadow-sm transition-colors ${
+                        log.action === 'LOGIN' ? 'bg-blue-50 border-blue-100 text-blue-600' :
+                        log.action === 'USER_REGISTER' ? 'bg-purple-50 border-purple-100 text-purple-600' :
+                        'bg-gray-100 border-gray-200 text-gray-500'
+                      }`}>
+                        {log.action === 'LOGIN' ? <Lock className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-black text-gray-900 uppercase tracking-tight">{log.action.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{log.details}</p>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100">
+                            {new Date(log.timestamp).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                          <span className="flex items-center gap-1.5 text-gray-600">
+                            <Users className="w-3 h-3" /> {log.userEmail || log.userId}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1.5">
+                             <Globe className="w-3 h-3" /> {log.ipAddress || '127.0.0.1'}
+                          </span>
+                          {log.resourceId && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[9px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded uppercase">ID: {log.resourceId.substring(0, 8)}...</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="py-20 text-center bg-gray-50 rounded-3xl border border-gray-100 border-dashed">
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No se detectan eventos recientes en el ledger.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ALERTS TAB */}
+          {activeTab === 'alerts' && (
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Alertas de Seguridad y Prevención de Fugas (DLP)</h3>
+              <div className="space-y-4">
+                <div className="p-4 border border-red-200 bg-red-50 rounded-xl flex items-start gap-4">
+                  <div className="p-2 bg-red-100 rounded-lg text-red-600">
+                    <AlertTriangle className="w-6 h-6" />
                   </div>
-                ))}
+                  <div>
+                    <h4 className="font-bold text-red-900">Intento de Exportación Masiva</h4>
+                    <p className="text-sm text-red-700 mt-1">El usuario "ventas_jr@kaivincia.com" intentó descargar el 100% de la base de datos de clientes. La acción fue bloqueada por la regla DLP-01.</p>
+                    <p className="text-xs text-red-500 mt-2 font-medium">Hace 2 horas • IP: 189.200.1.5</p>
+                  </div>
+                  <button className="ml-auto px-3 py-1.5 bg-white border border-red-200 text-red-700 text-xs font-bold rounded-lg hover:bg-red-50">
+                    Investigar
+                  </button>
+                </div>
+                
+                <div className="p-4 border border-yellow-200 bg-cyan-500/10 rounded-xl flex items-start gap-4">
+                  <div className="p-2 bg-yellow-100 rounded-lg text-yellow-600">
+                    <Globe className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-yellow-900">Inicio de Sesión Inusual</h4>
+                    <p className="text-sm text-yellow-700 mt-1">Se detectó un inicio de sesión exitoso desde un país no habitual (Rusia) para el usuario "soporte@kaivincia.com".</p>
+                    <p className="text-xs text-yellow-600 mt-2 font-medium">Hace 5 horas • IP: 45.12.33.1</p>
+                  </div>
+                  <button className="ml-auto px-3 py-1.5 bg-white border border-yellow-200 text-yellow-700 text-xs font-bold rounded-lg hover:bg-yellow-100">
+                    Forzar 2FA
+                  </button>
+                </div>
               </div>
+            </div>
+          )}
 
-              {/* Step Content */}
-              <div className="p-8 min-h-[300px]">
-                {builderStep === 1 && (
-                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                    <h4 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
-                      <ArrowUpRight className="w-5 h-5 text-[#00F0FF]" /> 1. TRIGGER (Disparador)
-                    </h4>
-                    <div className="space-y-4">
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Nombre del Flujo de Trabajo</label>
-                      <input 
-                        type="text"
-                        value={newWorkflow.name}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, name: e.target.value })}
-                        className="w-full bg-[#12161F] border border-[#1E293B] rounded-xl p-4 text-white font-mono focus:border-[#00F0FF] transition-colors"
-                        placeholder="Ej: Alerta de Abandono Global"
-                      />
-                      
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Evento del Sistema</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {[
-                          { key: 'CURSO_COMPLETADO', label: 'CURSO_COMPLETADO' },
-                          { key: 'TICKET_ABIERTO', label: 'TICKET_ABIERTO' },
-                          { key: 'CHECKIN_GPS', label: 'CHECKIN_GPS' },
-                          { key: 'NUEVO_LEAD', label: 'NUEVO_LEAD' },
-                          { key: 'FACTURA_PAGADA', label: 'FACTURA_PAGADA' },
-                          { key: 'CAÍDA_PUNTAJE_SALUD', label: 'CAÍDA_PUNTAJE_SALUD' }
-                        ].map((trigger) => (
-                           <button 
-                            key={trigger.key}
-                            onClick={() => setNewWorkflow({ ...newWorkflow, trigger: trigger.key })}
-                            className={`p-3 rounded-xl border text-[11px] font-black tracking-widest transition-all ${newWorkflow.trigger === trigger.key ? 'bg-[#00F0FF] text-black border-[#00F0FF]' : 'bg-[#12161F] text-slate-400 border-[#1E293B] hover:border-slate-700'}`}
-                           >
-                             {trigger.label}
-                           </button>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+        </div>
+      </div>
 
-                {builderStep === 2 && (
-                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Filter className="w-5 h-5 text-[#00F0FF]" />
-                      <h4 className="text-lg font-black text-white uppercase tracking-widest">2. CONDICIÓN (Filtro)</h4>
-                    </div>
-                    <div className="space-y-4">
-                      <p className="text-xs text-slate-500 font-mono">Define la lógica booleana que debe cumplirse para disparar el evento.</p>
-                      <textarea 
-                        value={newWorkflow.condition}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, condition: e.target.value })}
-                        className="w-full h-32 bg-[#12161F] border border-[#1E293B] rounded-xl p-4 text-white font-mono focus:border-[#00F0FF] transition-colors resize-none"
-                        placeholder="Ej: VALOR_VENTA > 500 && CATEGORIA == 'PREMIUM'"
-                      />
-                      <div className="flex gap-2">
-                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"PUNTAJE_SALUD < 40"}</span>
-                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"TIPO_USUARIO == 'GOLD'"}</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {builderStep === 3 && (
-                  <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Zap className="w-5 h-5 text-[#00F0FF]" />
-                      <h4 className="text-lg font-black text-white uppercase tracking-widest">3. ACCIÓN (Ejecución)</h4>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <button 
-                        onClick={() => setNewWorkflow({ ...newWorkflow, action: { ...newWorkflow.action!, type: 'INTERNAL' } })}
-                        className={`p-6 rounded-2xl border text-left transition-all ${newWorkflow.action?.type === 'INTERNAL' ? 'bg-[#00F0FF]/10 border-[#00F0FF]' : 'bg-[#12161F] border-[#1E293B]'}`}
-                      >
-                        <Server className={`w-8 h-8 mb-4 ${newWorkflow.action?.type === 'INTERNAL' ? 'text-[#00F0FF]' : 'text-slate-600'}`} />
-                        <p className="font-black text-white uppercase tracking-tighter text-sm">INTERNA</p>
-                        <p className="text-[10px] text-slate-500 mt-1">Tarea, Push, Registro</p>
-                      </button>
-
-                      <button 
-                        onClick={() => setNewWorkflow({ ...newWorkflow, action: { ...newWorkflow.action!, type: 'EXTERNAL' } })}
-                        className={`p-6 rounded-2xl border text-left transition-all ${newWorkflow.action?.type === 'EXTERNAL' ? 'bg-blue-500/10 border-blue-500' : 'bg-[#12161F] border-[#1E293B]'}`}
-                      >
-                        <Webhook className={`w-8 h-8 mb-4 ${newWorkflow.action?.type === 'EXTERNAL' ? 'text-blue-500' : 'text-slate-600'}`} />
-                        <p className="font-black text-white uppercase tracking-tighter text-sm">EXTERNA</p>
-                        <p className="text-[10px] text-slate-500 mt-1">Webhook, WhatsApp, Slack</p>
-                      </button>
-                    </div>
-
-                    <div className="space-y-4 mt-6">
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Objetivo / Carga (Payload)</label>
-                      <input 
-                        type="text"
-                        value={newWorkflow.action?.target}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, action: { ...newWorkflow.action!, target: e.target.value } })}
-                        className="w-full bg-[#12161F] border border-[#1E293B] rounded-xl p-4 text-white font-mono focus:border-[#00F0FF] mb-2"
-                        placeholder="Nombre de la acción"
-                      />
-                      <textarea 
-                        value={newWorkflow.action?.payload}
-                        onChange={(e) => setNewWorkflow({ ...newWorkflow, action: { ...newWorkflow.action!, payload: e.target.value } })}
-                        className="w-full h-24 bg-[#12161F] border border-[#1E293B] rounded-xl p-4 text-white font-mono focus:border-[#00F0FF] resize-none"
-                        placeholder="JSON Payload {}"
-                      />
-                    </div>
-                  </motion.div>
-                )}
+      {/* Invite User Modal */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-900">Invitar Nuevo Miembro</h3>
+              <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleInviteUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                  <input 
+                    type="email" 
+                    required
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    placeholder="ejemplo@kaivincia.com"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-[#00F0FF] focus:border-[#00F0FF]"
+                  />
+                </div>
               </div>
-
-              {/* Modal Footer */}
-              <div className="p-6 border-t border-[#1E293B] bg-black/40 flex justify-between">
-                <button 
-                  disabled={builderStep === 1}
-                  onClick={() => setBuilderStep(prev => prev - 1)}
-                  className="px-6 py-3 rounded-xl border border-[#1E293B] text-xs font-black uppercase tracking-widest disabled:opacity-30"
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Asignar Rol Inicial</label>
+                <select 
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white"
                 >
-                  Atrás
-                </button>
-                {builderStep < 3 ? (
-                  <button 
-                    onClick={() => setBuilderStep(prev => prev + 1)}
-                    className="bg-[#00F0FF] text-black px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-white transition-all flex items-center gap-2"
-                  >
-                    Siguiente <ChevronRight className="w-4 h-4" />
-                  </button>
-                ) : (
-                  <button 
-                    onClick={handleSaveWorkflow}
-                    className="bg-emerald-500 text-black px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all"
-                  >
-                    Implementar Flujo de Trabajo
-                  </button>
-                )}
+                  <option value="none">Sin Rol (Activación Manual)</option>
+                  <option value="user">Usuario Básico</option>
+                  <option value="alumno">Alumno (Solo Academia)</option>
+                  <option value="sales">Ventas</option>
+                  <option value="support">Soporte</option>
+                  <option value="tutor">Tutor Académico</option>
+                  <option value="admin">Administrador</option>
+                  <option value="superadmin">SuperAdmin</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  Los usuarios invitados con "Sin Rol" no podrán acceder al dashboard hasta que un SuperAdmin les asigne una función específica.
+                </p>
               </div>
-            </motion.div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-6 py-2 bg-[#00F0FF] text-white rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2"
+                >
+                  Enviar Invitación
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
+      {/* Permission Management Modal */}
+      {selectedUserForPerms && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-100 italic">
+            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-4">
+                 <div className="h-12 w-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-xl">
+                    <ShieldCheck className="w-6 h-6 text-[#00F0FF]" />
+                 </div>
+                 <div>
+                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Gestionar Permisos</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Usuario: {selectedUserForPerms.email}</p>
+                 </div>
+              </div>
+              <button onClick={() => setSelectedUserForPerms(null)} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors">
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="p-8 grid grid-cols-2 gap-4">
+              {[
+                { id: 'crm', label: 'CRM & Pipeline', icon: Activity },
+                { id: 'recruitment', label: 'Reclutamiento (IA)', icon: UserPlus },
+                { id: 'accounting', label: 'Contabilidad & Pagos', icon: Globe },
+                { id: 'academy', label: 'Academia & Cursos', icon: CheckCircle2 },
+                { id: 'operations', label: 'Operaciones Internas', icon: ShieldAlert },
+                { id: 'strategy', label: 'Estrategia & Blog', icon: Globe },
+              ].map(module => {
+                const hasAccess = selectedUserForPerms.permissions?.[module.id];
+                return (
+                  <button 
+                    key={module.id}
+                    onClick={() => updateUserPermissions(selectedUserForPerms.id, module.id, !hasAccess)}
+                    className={`flex items-center justify-between p-5 rounded-2xl border transition-all text-left group ${
+                      hasAccess 
+                        ? 'bg-[#00F0FF]/5 border-[#00F0FF]/30 ring-1 ring-[#00F0FF]/10' 
+                        : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                       <module.icon className={`w-5 h-5 ${hasAccess ? 'text-[#00F0FF]' : 'text-gray-400'}`} />
+                       <span className={`text-[10px] font-black uppercase tracking-widest ${hasAccess ? 'text-gray-900' : 'text-gray-500'}`}>{module.label}</span>
+                    </div>
+                    {hasAccess ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-gray-300" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
+               <button 
+                onClick={() => setSelectedUserForPerms(null)}
+                className="px-8 py-3 bg-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-300 transition-all"
+               >
+                 Cerrar
+               </button>
+               <button 
+                onClick={async () => {
+                   await updateUserStatus(selectedUserForPerms.id, 'active');
+                   alert('Acceso Autorizado y Usuario Activado.');
+                   setSelectedUserForPerms(null);
+                }}
+                className="px-8 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] transition-all shadow-xl"
+               >
+                 Autorizar Acceso Total
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
