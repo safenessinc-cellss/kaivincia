@@ -118,7 +118,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
@@ -355,7 +355,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                 <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Ecosistema.</span>
               </h4>
               <p className="text-xl text-gray-400 font-medium leading-relaxed">
-                No buscamos empleados, buscamos arquitectos operativos. Explora nuestras vacantes estratégicas ofrecidas por <b className="text-white">RRHH Gibbor</b>.
+                No buscamos empleados, buscamos arquitectos operativos. Explora nuestras vacantes estratégicas ofrecidas por <b className="text-white">RRHH KAIVINCIACORP</b>.
               </p>
             </div>
             
