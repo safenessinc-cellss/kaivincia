@@ -11,10 +11,10 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin' ||
-         (request.auth.token.email == "safeness.c.a@gmail.com" && request.auth.token.email_verified == true));
+      return isAuthenticated() && (
+        request.auth.token.email == "safeness.c.a@gmail.com" ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["admin", "superadmin"]
+      );
     }
 
     function isUser(userId) {
@@ -22,7 +22,7 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Rules
+    // Rules (todas las reglas específicas aquí)
     // ===============================================================
 
     match /users/{userId} {
