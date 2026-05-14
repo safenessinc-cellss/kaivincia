@@ -12,6 +12,7 @@ export default function SuperAdmin() {
   const [activeTab, setActiveTab] = useState('users');
   const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -38,12 +39,20 @@ export default function SuperAdmin() {
   };
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
+    const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
-    return () => unsubscribe();
+    const unsubscribeAudit = onSnapshot(query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100)), (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAuditLogs(logs);
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'audit_logs'));
+
+    return () => {
+      unsubscribeUsers();
+      unsubscribeAudit();
+    };
   }, []);
 
   const updateUserStatus = async (userId: string, status: string) => {
@@ -56,7 +65,7 @@ export default function SuperAdmin() {
         resourceType: 'User',
         resourceId: userId,
         details: JSON.stringify({ newStatus: status }),
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(),
         ipAddress: '127.0.0.1'
       });
     } catch (error) {
@@ -74,7 +83,7 @@ export default function SuperAdmin() {
         resourceType: 'User',
         resourceId: userId,
         details: JSON.stringify({ newRole: role }),
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(),
         ipAddress: '127.0.0.1'
       });
     } catch (error) {
@@ -318,30 +327,94 @@ export default function SuperAdmin() {
 
           {/* AUDIT LOGS TAB */}
           {activeTab === 'audit' && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Historial de Auditoría</h3>
-              <div className="space-y-4">
-                {[
-                  { time: 'Hace 5 min', user: 'admin@kaivincia.com', action: 'Cambió estado de cliente "TechSolutions" de Activo a Pausado', ip: '192.168.1.45' },
-                  { time: 'Hace 1 hora', user: 'ventas@kaivincia.com', action: 'Exportó reporte de alumnos (Limitado a 50 filas)', ip: '189.200.1.2' },
-                  { time: 'Hace 3 horas', user: 'safeness.c.a@gmail.com', action: 'Asignó rol "Ventas" a nuevo usuario', ip: '10.0.0.1' },
-                ].map((log, i) => (
-                  <div key={i} className="flex items-start gap-4 p-4 border border-gray-100 rounded-lg bg-gray-50">
-                    <div className="p-2 bg-white rounded-lg border border-gray-200 shadow-sm">
-                      <Activity className="w-5 h-5 text-gray-500" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{log.action}</p>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                        <span>{log.user}</span>
-                        <span>•</span>
-                        <span>{log.time}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> {log.ip}</span>
+            <div className="space-y-6">
+              {/* Login Stats Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inicios de Sesión (24h)</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.filter(l => l.action === 'LOGIN' && new Date(l.timestamp).getTime() > Date.now() - 86400000).length}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
+                    <UserPlus className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Nuevos Registros</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.filter(l => l.action === 'USER_REGISTER').length}</p>
+                  </div>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4">
+                  <div className="h-12 w-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
+                    <Activity className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Eventos Totales</p>
+                    <p className="text-2xl font-black text-gray-900 italic">{auditLogs.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
+                <div className="flex justify-between items-center mb-6">
+                   <div>
+                      <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Historial de Auditoría Realtime</h3>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Eventos del sistema, accesos y modificaciones de privilegios.</p>
+                   </div>
+                   <div className="flex gap-2">
+                       <div className="px-4 py-2 bg-emerald-50 text-emerald-700 text-[9px] font-black uppercase tracking-widest rounded-lg border border-emerald-100 flex items-center gap-2">
+                          <Activity className="w-3 h-3 animate-pulse" /> Stream Activo
+                       </div>
+                   </div>
+                </div>
+
+                <div className="space-y-4">
+                  {auditLogs.length > 0 ? auditLogs.map((log, i) => (
+                    <div key={log.id} className="flex items-start gap-4 p-4 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md transition-all group">
+                      <div className={`p-3 rounded-xl border shadow-sm transition-colors ${
+                        log.action === 'LOGIN' ? 'bg-blue-50 border-blue-100 text-blue-600' :
+                        log.action === 'USER_REGISTER' ? 'bg-purple-50 border-purple-100 text-purple-600' :
+                        'bg-gray-100 border-gray-200 text-gray-500'
+                      }`}>
+                        {log.action === 'LOGIN' ? <Lock className="w-5 h-5" /> : <Activity className="w-5 h-5" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-sm font-black text-gray-900 uppercase tracking-tight">{log.action.replace(/_/g, ' ')}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">{log.details}</p>
+                          </div>
+                          <span className="text-[10px] font-bold text-gray-400 bg-white px-2 py-1 rounded-lg border border-gray-100">
+                            {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : new Date().toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4 mt-3 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                          <span className="flex items-center gap-1.5 text-gray-600">
+                            <Users className="w-3 h-3" /> {log.userEmail || log.userId}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1.5">
+                             <Globe className="w-3 h-3" /> {log.ipAddress || '127.0.0.1'}
+                          </span>
+                          {log.resourceId && (
+                            <>
+                              <span>•</span>
+                              <span className="text-[9px] bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded uppercase">ID: {log.resourceId.substring(0, 8)}...</span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )) : (
+                    <div className="py-20 text-center bg-gray-50 rounded-3xl border border-gray-100 border-dashed">
+                       <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No se detectan eventos recientes en el ledger.</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
