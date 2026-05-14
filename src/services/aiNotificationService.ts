@@ -4,9 +4,9 @@ let aiClient: any = null;
 
 function getAiClient() {
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined");
+    const apiKey = process.env.GEMINI_API_KEY || ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY);
+    if (!apiKey || apiKey === "undefined") {
+      throw new Error("GEMINI_API_KEY is not defined. Please set it in Settings > Secrets in AI Studio.");
     }
     aiClient = new GoogleGenAI({ apiKey });
   }
