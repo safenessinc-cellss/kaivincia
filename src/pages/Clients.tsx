@@ -170,11 +170,7 @@ export default function Clients() {
     const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'clients');
-      setLoading(false);
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubCollabs = onSnapshot(collection(db, 'collaborators'), (snapshot) => {
       setCollaborators(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -735,7 +731,7 @@ export default function Clients() {
                     </div>
 
                     <div className="h-40 w-full">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                           <BarChart data={clientIntel.paymentHistory}>
                              <XAxis dataKey="month" hide />
                              <Tooltip 
@@ -753,7 +749,7 @@ export default function Clients() {
                   <div className="glass-panel p-8 rounded-[2.5rem] bg-[#161B22]/60">
                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] font-mono mb-8 text-center">Neural Health Vector</h4>
                     <div className="h-64 w-full">
-                       <ResponsiveContainer width="100%" height="100%">
+                       <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
                            { subject: 'Payment', A: 95, fullMark: 100 },
                            { subject: 'Project', A: 85, fullMark: 100 },
