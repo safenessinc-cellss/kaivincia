@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Settings, Database, UploadCloud, Activity, Target, 
-  Users, PhoneCall, Calendar, ArrowRight, AlertTriangle, CheckCircle2, FileSpreadsheet, Loader2, Search,
+  Users, PhoneCall, Calendar, ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, FileSpreadsheet, Loader2, Search,
   Sparkles, Zap, ShieldCheck, Database as DBIcon, GraduationCap, Briefcase, DollarSign,
   Type, Calendar as CalendarIcon, Coins, Info, Trash2, Check, RefreshCw, TrendingUp, TrendingDown, History
 } from 'lucide-react';
@@ -180,11 +180,19 @@ export default function Operations() {
   return (
     <div className="space-y-4 flex flex-col h-full">
       <div className="flex justify-between items-end border-b border-gray-100 pb-4">
-        <div>
-          <h2 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Gestión de Operaciones</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-2 h-2 rounded-full bg-[#00F0FF] animate-pulse" />
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Centro de Control Táctico v4.2</p>
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Gestión de Operaciones</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <div className="w-2 h-2 rounded-full bg-[#00F0FF] animate-pulse" />
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Centro de Control Táctico v4.2</p>
+            </div>
           </div>
         </div>
 
