@@ -262,7 +262,7 @@ export default function TeamManagement() {
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Tareas Completadas
                       </h3>
                       <div className="h-48 w-full">
-                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                           <BarChart data={taskStatsData.slice(0, 5)} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                             <XAxis type="number" hide />
