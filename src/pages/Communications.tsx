@@ -42,7 +42,8 @@ export default function Communications() {
   const queryClientId = searchParams.get('clientId');
   // const queryClientName = searchParams.get('clientName');
 
-  const { clients } = useGlobalContext();
+  const { clients, users } = useGlobalContext();
+  const userData = users.find(u => u.id === auth.currentUser?.uid);
 
   const [activeChannelId, setActiveChannelId] = useState(queryClientId || 'general');
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,8 +74,7 @@ export default function Communications() {
     if (!activeChannel) return;
     const q = query(
       collection(db, 'chat_messages'),
-      where('channelId', '==', activeChannel.id),
-      orderBy('timestamp', 'asc')
+      where('channelId', '==', activeChannel.id)
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -83,13 +83,15 @@ export default function Communications() {
         return {
           id: doc.id,
           ...data,
-          time: data.timestamp ? new Date(data.timestamp.toMillis()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Ahora'
-        } as Message;
-      });
-      setMessages(msgs);
+          time: data.timestamp ? new Date(data.timestamp.toMillis()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Ahora',
+          sortTimestamp: data.timestamp?.toMillis() || Date.now()
+        } as Message & { sortTimestamp: number };
+      }).sort((a, b) => a.sortTimestamp - b.sortTimestamp);
+
+      setMessages(msgs as Message[]);
     }, (error) => {
-      // If index is missing or permission denied, handle it softly for now
-      console.warn("Messages collection error (index might be building):", error);
+      console.error("Neural Chat Error:", error);
+      handleFirestoreError(error, OperationType.GET, 'chat_messages');
     });
 
     return () => unsub();
@@ -107,16 +109,21 @@ export default function Communications() {
     e?.preventDefault();
     if (!newMessage.trim() || !activeChannelId) return;
 
+    const messageText = newMessage;
+    setNewMessage(''); // Clear immediately for UX
+
     try {
       await addDoc(collection(db, 'chat_messages'), {
         channelId: activeChannelId,
-        sender: auth.currentUser?.email || 'Usuario',
-        role: 'team',
-        text: newMessage,
+        sender: userData?.name || auth.currentUser?.email || 'Usuario',
+        role: userData?.role === 'customer' ? 'customer' : 'team',
+        text: messageText,
         timestamp: serverTimestamp(),
       });
-      setNewMessage('');
     } catch (err) {
+      console.error("Error sending message:", err);
+      // Restore message if failed
+      setNewMessage(messageText);
       handleFirestoreError(err, OperationType.CREATE, 'chat_messages');
     }
   };
