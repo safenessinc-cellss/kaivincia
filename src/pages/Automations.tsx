@@ -40,26 +40,26 @@ interface TelemetryLog {
 
 const MASTER_AUTOMATIONS: Partial<Workflow>[] = [
   {
-    name: 'Churn Protector',
-    trigger: 'HEALTH_SCORE_DROP',
-    condition: 'Health_Score < 40',
-    action: { type: 'INTERNAL', target: 'Create_Urgent_Task', payload: 'Tag_User_Critical' },
+    name: 'Protector contra Abandono',
+    trigger: 'CAÍDA_PUNTAJE_SALUD',
+    condition: 'Puntaje_Salud < 40',
+    action: { type: 'INTERNAL', target: 'Crear_Tarea_Urgente', payload: 'Etiquetar_Usuario_Critico' },
     isActive: true,
     stats: { success: 124, failed: 2 }
   },
   {
-    name: 'Upsell Engine',
-    trigger: 'COURSE_COMPLETED',
-    condition: 'Course_Type == "Free"',
-    action: { type: 'INTERNAL', target: 'Send_Push_Notification', payload: 'Invite_Kaivincia_PRO' },
+    name: 'Motor de Upsell',
+    trigger: 'CURSO_COMPLETADO',
+    condition: 'Tipo_Curso == "Gratis"',
+    action: { type: 'INTERNAL', target: 'Enviar_Notificación_Push', payload: 'Invitar_Kaivincia_PRO' },
     isActive: true,
     stats: { success: 850, failed: 12 }
   },
   {
-    name: 'Field Sync',
-    trigger: 'GPS_CHECKIN',
+    name: 'Sincronización de Campo',
+    trigger: 'CHECKIN_GPS',
     condition: 'Venta_Marcada == true',
-    action: { type: 'EXTERNAL', target: 'Webhook_Post', payload: 'Generate_Invoice_PDF' },
+    action: { type: 'EXTERNAL', target: 'Webhook_Post', payload: 'Generar_PDF_Factura' },
     isActive: false,
     stats: { success: 0, failed: 0 }
   }
@@ -73,7 +73,7 @@ export default function Automations() {
   const [builderStep, setBuilderStep] = useState(1);
   const [newWorkflow, setNewWorkflow] = useState<Partial<Workflow>>({
     name: '',
-    trigger: 'TICKET_OPENED',
+    trigger: 'TICKET_ABIERTO',
     condition: '',
     action: { type: 'INTERNAL', target: 'Notificación Push', payload: '{}' },
     isActive: true,
@@ -99,13 +99,13 @@ export default function Automations() {
 
     // Simulated Telemetry
     const simulatedEvents = [
-      'Ejecutando Churn Protector...',
-      'Validando condición: Health_Score < 40',
-      'Acción interna: Tarea creada!',
-      'Evento emitido: COURSE_COMPLETED',
+      'Ejecutando Protector contra Abandono...',
+      'Validando condición: Puntaje_Salud < 40',
+      'Acción interna: ¡Tarea creada!',
+      'Evento emitido: CURSO_COMPLETADO',
       'Webhook enviado a Slack',
-      'Field Sync en espera de señal GPS...',
-      'Trigger: NEW_CLIENT detectado',
+      'Sincronización de Campo en espera de señal GPS...',
+      'Disparador: NUEVO_CLIENTE detectado',
       'Sincronizando con ERP...',
     ];
 
@@ -252,7 +252,7 @@ export default function Automations() {
            <span className="flex items-center gap-2 text-[#22D3EE] font-black uppercase tracking-widest bg-[#22D3EE]/10 px-3 py-1 rounded">
              <Terminal className="w-3 h-3" /> Kernel Telemetry Live
            </span>
-           <span className="text-slate-600">STABLE_CONNECTION // 99.9% UPTIME</span>
+           <span className="text-slate-600">CONEXIÓN_ESTABLE // 99.9% TIEMPO_ACTIVIDAD</span>
         </div>
         <div className="flex-1 overflow-y-auto space-y-1 custom-scrollbar pr-2">
           {logs.map((log) => (
@@ -286,7 +286,7 @@ export default function Automations() {
                    </div>
                    <div>
                      <h3 className="text-xl font-black text-white uppercase tracking-tighter">Configurador Lógico</h3>
-                     <p className="text-[10px] font-mono text-slate-500 uppercase">Step {builderStep} of 3 // Building Instruction</p>
+                     <p className="text-[10px] font-mono text-slate-500 uppercase">Paso {builderStep} de 3 // Instrucción de Construcción</p>
                    </div>
                  </div>
                  <button onClick={() => setIsBuilderOpen(false)} className="text-slate-500 hover:text-white">
@@ -315,24 +315,31 @@ export default function Automations() {
                       <ArrowUpRight className="w-5 h-5 text-[#00F0FF]" /> 1. TRIGGER (Disparador)
                     </h4>
                     <div className="space-y-4">
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Nombre del Workflow</label>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Nombre del Flujo de Trabajo</label>
                       <input 
                         type="text"
                         value={newWorkflow.name}
                         onChange={(e) => setNewWorkflow({ ...newWorkflow, name: e.target.value })}
                         className="w-full bg-[#12161F] border border-[#1E293B] rounded-xl p-4 text-white font-mono focus:border-[#00F0FF] transition-colors"
-                        placeholder="Ej: Alerta de Churn Global"
+                        placeholder="Ej: Alerta de Abandono Global"
                       />
                       
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Evento de Sistema</label>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Evento del Sistema</label>
                       <div className="grid grid-cols-2 gap-3">
-                        {['COURSE_COMPLETED', 'TICKET_OPENED', 'GPS_CHECKIN', 'NEW_LEAD', 'INVOICE_PAID', 'HEALTH_SCORE_DROP'].map((trigger) => (
+                        {[
+                          { key: 'CURSO_COMPLETADO', label: 'CURSO_COMPLETADO' },
+                          { key: 'TICKET_ABIERTO', label: 'TICKET_ABIERTO' },
+                          { key: 'CHECKIN_GPS', label: 'CHECKIN_GPS' },
+                          { key: 'NUEVO_LEAD', label: 'NUEVO_LEAD' },
+                          { key: 'FACTURA_PAGADA', label: 'FACTURA_PAGADA' },
+                          { key: 'CAÍDA_PUNTAJE_SALUD', label: 'CAÍDA_PUNTAJE_SALUD' }
+                        ].map((trigger) => (
                            <button 
-                            key={trigger}
-                            onClick={() => setNewWorkflow({ ...newWorkflow, trigger })}
-                            className={`p-3 rounded-xl border text-[11px] font-black tracking-widest transition-all ${newWorkflow.trigger === trigger ? 'bg-[#00F0FF] text-black border-[#00F0FF]' : 'bg-[#12161F] text-slate-400 border-[#1E293B] hover:border-slate-700'}`}
+                            key={trigger.key}
+                            onClick={() => setNewWorkflow({ ...newWorkflow, trigger: trigger.key })}
+                            className={`p-3 rounded-xl border text-[11px] font-black tracking-widest transition-all ${newWorkflow.trigger === trigger.key ? 'bg-[#00F0FF] text-black border-[#00F0FF]' : 'bg-[#12161F] text-slate-400 border-[#1E293B] hover:border-slate-700'}`}
                            >
-                             {trigger}
+                             {trigger.label}
                            </button>
                         ))}
                       </div>
@@ -344,7 +351,7 @@ export default function Automations() {
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                     <div className="flex items-center gap-2 mb-2">
                       <Filter className="w-5 h-5 text-[#00F0FF]" />
-                      <h4 className="text-lg font-black text-white uppercase tracking-widest">2. CONDITION (Filtro)</h4>
+                      <h4 className="text-lg font-black text-white uppercase tracking-widest">2. CONDICIÓN (Filtro)</h4>
                     </div>
                     <div className="space-y-4">
                       <p className="text-xs text-slate-500 font-mono">Define la lógica booleana que debe cumplirse para disparar el evento.</p>
@@ -355,8 +362,8 @@ export default function Automations() {
                         placeholder="Ej: VALOR_VENTA > 500 && CATEGORIA == 'PREMIUM'"
                       />
                       <div className="flex gap-2">
-                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"HEALTH_SCORE < 40"}</span>
-                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"USER_TYPE == 'GOLD'"}</span>
+                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"PUNTAJE_SALUD < 40"}</span>
+                         <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">{"TIPO_USUARIO == 'GOLD'"}</span>
                       </div>
                     </div>
                   </motion.div>
@@ -366,7 +373,7 @@ export default function Automations() {
                   <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="w-5 h-5 text-[#00F0FF]" />
-                      <h4 className="text-lg font-black text-white uppercase tracking-widest">3. ACTION (Ejecución)</h4>
+                      <h4 className="text-lg font-black text-white uppercase tracking-widest">3. ACCIÓN (Ejecución)</h4>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
@@ -376,7 +383,7 @@ export default function Automations() {
                       >
                         <Server className={`w-8 h-8 mb-4 ${newWorkflow.action?.type === 'INTERNAL' ? 'text-[#00F0FF]' : 'text-slate-600'}`} />
                         <p className="font-black text-white uppercase tracking-tighter text-sm">INTERNA</p>
-                        <p className="text-[10px] text-slate-500 mt-1">Tarea, Push, Log</p>
+                        <p className="text-[10px] text-slate-500 mt-1">Tarea, Push, Registro</p>
                       </button>
 
                       <button 
@@ -390,7 +397,7 @@ export default function Automations() {
                     </div>
 
                     <div className="space-y-4 mt-6">
-                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Target / Payload</label>
+                      <label className="block text-xs font-black text-slate-500 uppercase tracking-widest">Objetivo / Carga (Payload)</label>
                       <input 
                         type="text"
                         value={newWorkflow.action?.target}
@@ -430,7 +437,7 @@ export default function Automations() {
                     onClick={handleSaveWorkflow}
                     className="bg-emerald-500 text-black px-8 py-3 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-emerald-400 transition-all"
                   >
-                    Implementar Workflow
+                    Implementar Flujo de Trabajo
                   </button>
                 )}
               </div>
