@@ -13,7 +13,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { collection, query, onSnapshot, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
@@ -70,11 +70,11 @@ export default function Dashboard() {
     // Listeners for real database connection test
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
       setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
     return () => {
       unsubClients();
@@ -597,4 +597,4 @@ export default function Dashboard() {
 
     </div>
   );
-}
+} 
