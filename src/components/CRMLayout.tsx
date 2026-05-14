@@ -7,11 +7,12 @@ import {
   UserPlus, FileText, Receipt, GraduationCap, ShoppingCart, ChevronRight, Home,
   ChevronDown, ChevronUp, Search, Activity, Zap, Award, Bell, Eye, EyeOff, PanelLeftClose, PanelLeftOpen,
   BrainCircuit, Navigation, DollarSign, HelpCircle, HardDrive, ClipboardCheck,
-  ShieldCheck
+  ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
+import { LOGO_FULL, LOGO_ICON } from '../constants/images';
 import CommandBar from './CommandBar';
 import NotificationCenter from './NotificationCenter';
 
@@ -23,11 +24,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const [ceoMode, setCeoMode] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    'SISTEMA NERVIOSO': true,
-    'GESTIÓN & OPERACIONES': true,
-    'TALENTO & SGI': false,
-    'FINANZAS & ESTRATEGIA': false,
-    'PORTALES & EXTERNOS': false,
+    'Módulo Core': true,
+    'Módulo de Talento': false,
+    'Módulo Financiero': false,
+    'Módulo de Estrategia': false,
+    'Academia Kaivincia': true,
+    'Portales': false,
     'Configuración': false
   });
 
@@ -66,15 +68,71 @@ export default function CRMLayout({ userData }: { userData: any }) {
   };
 
   const menuGroups = useMemo(() => {
+    // Definición de grupos de navegación base
+    const academyGroup = {
+      title: 'ACADEMIA KAIVINCIA',
+      items: [
+        { name: 'Cursos & Formación', href: '/crm/academy-internal', icon: GraduationCap, color: 'text-purple-500' },
+        { name: 'Manuales de Élite', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
+      ]
+    };
+
+    const coreGroup = {
+      title: 'SISTEMA NERVIOSO',
+      items: [
+        { name: 'Nervous System', href: '/crm/nervous', icon: BrainCircuit, highlight: true, color: 'text-[#22D3EE]' },
+        { name: 'Panel Maestro', href: '/crm/dashboard', icon: Home, highlight: true, color: 'text-cyan-500' },
+        { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, badge: '9+', color: 'text-[#A855F7]' },
+      ]
+    };
+
+    const strategyGroup = {
+      title: 'ESTRATEGIA & KPIS',
+      items: [
+        { name: 'KPIs Estratégicos', href: '/crm/reports', icon: BarChart3, color: 'text-white' },
+        { name: 'Estrategia Intel', href: '/crm/strategy-blog', icon: BrainCircuit, color: 'text-amber-300' },
+      ]
+    };
+
+    const clientGroup = {
+      title: 'ECOSISTEMA DE CLIENTES',
+      items: [
+        { name: 'Base de Clientes', href: '/crm/clients', icon: Users, color: 'text-emerald-500' },
+        { name: 'Pipeline IA', href: '/crm/pipeline', icon: Navigation, color: 'text-[#00F0FF]' },
+        { name: 'Cobranza GPS', href: '/crm/cobranza', icon: DollarSign, color: 'text-amber-500' },
+      ]
+    };
+
+    const operationsGroup = {
+      title: 'OPERACIONES & PROYECTOS',
+      items: [
+        { name: 'Gestión de Tareas', href: '/crm/tasks', icon: ClipboardCheck, color: 'text-blue-400' },
+        { name: 'Proyectos Activos', href: '/crm/projects', icon: FolderKanban, color: 'text-orange-500' },
+        { name: 'SGI Drive', href: '/crm/drive', icon: HardDrive, color: 'text-indigo-500' },
+      ]
+    };
+
+    const talentGroup = {
+      title: 'MÓDULO DE TALENTO',
+      items: [
+        { name: 'Reclutamiento AI', href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
+        { name: 'Gestión de Equipo', href: '/crm/team', icon: Users2, color: 'text-orange-500' },
+        { name: 'Módulo Nómina', href: '/crm/payroll', icon: DollarSign, color: 'text-green-500' },
+      ]
+    };
+
+    const portalGroup = {
+      title: 'PORTAL PERSONAL',
+      items: [
+        { name: 'Mi Portal', href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
+        { name: 'Facturación GPS', href: '/crm/billing', icon: Receipt, color: 'text-cyan-600' },
+      ]
+    };
+
+    // Lógica de menús según el Rol
     if (userRole === 'alumno') {
       return [
-        {
-          title: 'ACADEMIA KAIVINCIA',
-          items: [
-            { name: 'Cursos & Formación', href: '/crm/academy-internal', icon: GraduationCap, color: 'text-purple-500' },
-            { name: 'Manuales de Élite', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
-          ]
-        },
+        academyGroup,
         {
           title: 'PAGOS & PORTAL',
           items: [
@@ -86,69 +144,63 @@ export default function CRMLayout({ userData }: { userData: any }) {
       ];
     }
 
-    const groups = [
+    if (userRole === 'collaborator') {
+      return [
+        {
+          title: 'MI TRABAJO',
+          items: [
+            { name: 'Panel Operativo', href: '/crm/dashboard', icon: Home, color: 'text-cyan-500' },
+            { name: 'Tareas Asignadas', href: '/crm/tasks', icon: ClipboardCheck, color: 'text-blue-400' },
+            { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, color: 'text-[#A855F7]' },
+            { name: 'Manuales SOP', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
+          ]
+        },
+        portalGroup
+      ];
+    }
+
+    if (userRole === 'rrhh') {
+      return [coreGroup, talentGroup, academyGroup, portalGroup];
+    }
+
+    if (userRole === 'gestor') {
+      return [coreGroup, operationsGroup, clientGroup, strategyGroup, portalGroup];
+    }
+
+    if (userRole === 'ceo' || userRole === 'superadmin') {
+      const groups = [
+        coreGroup,
+        clientGroup,
+        operationsGroup,
+        talentGroup,
+        strategyGroup,
+        academyGroup,
+        portalGroup,
+      ];
+
+      if (isSuperAdmin) {
+        groups.push({
+          title: 'Configuración',
+          items: [
+            { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert },
+            { name: 'Security Center', href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
+            { name: 'Automatizaciones', href: '/crm/automations', icon: Zap },
+          ]
+        } as any);
+      }
+      return groups;
+    }
+
+    // Usuario básico o sin rol/pending
+    return [
       {
-        title: 'SISTEMA NERVIOSO',
+        title: 'BIENVENIDO',
         items: [
-          { name: 'Nervous System', href: '/crm/nervous', icon: BrainCircuit, highlight: true, color: 'text-[#22D3EE]' },
-          { name: 'Command Center', href: '/crm/dashboard', icon: LayoutDashboard, highlight: true, color: 'text-cyan-500' },
-          { name: 'Neural Chat', href: '/crm/chat', icon: MessageSquare, badge: '9+', color: 'text-[#A855F7]' },
-          { name: 'Automatizaciones', href: '/crm/automations', icon: Zap, color: 'text-amber-500' },
-        ]
-      },
-      {
-        title: 'GESTIÓN & OPERACIONES',
-        items: [
-          { name: 'Clientes 360', href: '/crm/client-management', icon: Users, color: 'text-blue-500' },
-          { name: 'Helpdesk CX', href: '/crm/helpdesk', icon: HelpCircle, color: 'text-[#22D3EE]' },
-          { name: 'Sala de Control', href: '/crm/operations', icon: Activity, color: 'text-emerald-500' },
-          { name: 'Despliegue Táctico', href: '/crm/tactical', icon: Navigation, color: 'text-cyan-400' },
-          { name: 'Pipeline B2B', href: '/crm/pipeline', icon: Trello, color: 'text-[#00F0FF]' },
-          { name: 'Proyectos', href: '/crm/projects', icon: FolderKanban, color: 'text-orange-500' },
-        ]
-      },
-      {
-        title: 'TALENTO & SGI',
-        items: [
-          { name: 'Academia Interna', href: '/crm/academy-internal', icon: GraduationCap, color: 'text-purple-500' },
-          { name: 'Skill Map', href: '/crm/team', icon: Briefcase, color: 'text-indigo-400' },
-          { name: 'Reclutamiento AI', href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
-          { name: 'Manuales', href: '/crm/manuales', icon: BookOpen, color: 'text-emerald-400' },
-          { name: 'Turs', href: '/crm/turs', icon: FileText, color: 'text-orange-400' },
-          { name: 'Drive SGI', href: '/crm/drive', icon: HardDrive, color: 'text-indigo-500' },
-          { name: 'Auditorías SGI', href: '/crm/audits', icon: ClipboardCheck, color: 'text-orange-500' },
-        ]
-      },
-      {
-        title: 'FINANZAS & ESTRATEGIA',
-        hidden: !isAdminOrFin,
-        items: [
-          { name: 'Capital Flow', href: '/crm/commissions', icon: DollarSign, color: 'text-emerald-400' },
-          { name: 'Facturación GPS', href: '/crm/billing', icon: Receipt, color: 'text-cyan-600' },
-          { name: 'KPIs Estratégicos', href: '/crm/reports', icon: BarChart3, color: 'text-white' },
-          { name: 'Estrategia Intel', href: '/crm/strategy-blog', icon: BrainCircuit, color: 'text-amber-300' },
-        ]
-      },
-      {
-        title: 'PORTALES & EXTERNOS',
-        items: [
-          { name: 'Portal Clientes', href: '/crm/client-portal', icon: UserCircle, color: 'text-gray-400' },
-          { name: 'Academy Store', href: '/crm/digital-products', icon: ShoppingCart, color: 'text-gray-400' },
+          { name: 'Mi Portal', href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
+          { name: 'Centro de Soporte', href: '/crm/helpdesk', icon: HelpCircle, color: 'text-cyan-400' },
         ]
       }
     ];
-
-    if (isSuperAdmin) {
-      groups.push({
-        title: 'Configuración',
-        items: [
-          { name: 'SuperAdmin', href: '/crm/superadmin', icon: ShieldAlert, color: 'text-red-500' },
-          { name: 'Security Center', href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
-        ]
-      } as any);
-    }
-
-    return groups.filter(g => !g.hidden);
   }, [userRole, isAdminOrFin, isSuperAdmin]);
 
   const filteredMenuGroups = useMemo(() => {
@@ -195,13 +247,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img src="/images/portada.jpg" alt="Portada" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-multiply" />
       </div>
-      
       {/* Sidebar */}
       <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
-              src="/images/logo.png"
+              src={LOGO_FULL}
               alt="Kaivincia Logo" 
               className="h-8 object-contain"
               referrerPolicy="no-referrer"
@@ -287,7 +338,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
                               <span className="text-[10px] uppercase font-black tracking-widest">{item.name}</span>
                               {item.badge && (
                                 <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full ${
-                                  item.badge === '9+' ? 'bg-[#A855F7] text-white' : ''
+                                  item.badge === 'LIVE' ? 'bg-cyan-500 text-black animate-pulse' : 'bg-[#A855F7] text-white'
                                 }`}>
                                   {item.badge}
                                 </span>
@@ -380,6 +431,14 @@ export default function CRMLayout({ userData }: { userData: any }) {
               title={isSidebarCollapsed ? "Expandir Menú" : "Colapsar Menú"}
             >
               {isSidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
+            </button>
+
+            <button 
+              onClick={() => navigate(-1)}
+              className="p-2 text-gray-400 hover:text-[#00F0FF] hover:bg-cyan-50 rounded-lg transition-all group"
+              title="Volver"
+            >
+              <ArrowLeft className="w-5 h-5 group-active:scale-90" />
             </button>
             
             <nav className="hidden sm:flex" aria-label="Breadcrumb">
