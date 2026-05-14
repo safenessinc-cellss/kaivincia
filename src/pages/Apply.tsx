@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { CheckCircle2, UploadCloud, FileText, Image as ImageIcon, X, Bot, Loader2, Circle } from 'lucide-react';
+import { CheckCircle2, UploadCloud, FileText, Image as ImageIcon, X, Bot, Loader2, Circle, ArrowLeft } from 'lucide-react';
 import { LOGO_FULL } from '../constants/images';
 import * as pdfjsLib from 'pdfjs-dist';
 import { GoogleGenAI } from '@google/genai';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function Apply() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const initialRole = searchParams.get('role') || '';
   const jobId = searchParams.get('jobId') || '';
@@ -84,7 +85,7 @@ export default function Apply() {
   const analyzeResumeWithAI = async (resumeText: string, role: string) => {
     try {
       const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY is not defined");
+      if (!apiKey) throw new Error("GEMINI_API_KEY is not defined. Please set it in Settings > Secrets.");
       const ai = new GoogleGenAI({ apiKey });
       
       const prompt = `
@@ -108,7 +109,7 @@ export default function Apply() {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -186,8 +187,16 @@ export default function Apply() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 flex flex-col items-center">
       <div className="w-full max-w-3xl">
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-between items-center mb-8">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            <span>Volver</span>
+          </button>
           <img src={LOGO_FULL} alt="Kaivincia Corp" className="h-12 object-contain" referrerPolicy="no-referrer" />
+          <div className="w-20" /> {/* Spacer to balance the logo */}
         </div>
         
         <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
@@ -431,3 +440,4 @@ export default function Apply() {
     </div>
   );
 }
+
