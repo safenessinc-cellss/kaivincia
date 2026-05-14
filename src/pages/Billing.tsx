@@ -122,8 +122,8 @@ export default function Billing() {
     if (!aiPrompt) return;
     setIsAiLoading(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY not found. Please set it in Settings > Secrets.");
+      const apiKey = process.env.GEMINI_API_KEY || ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY);
+      if (!apiKey || apiKey === "undefined") throw new Error("GEMINI_API_KEY not found. Please set it in Settings > Secrets in AI Studio.");
       
       const ai = new GoogleGenAI({ apiKey });
 
