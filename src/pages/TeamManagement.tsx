@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   Users, Activity, DollarSign, ShieldAlert, Clock, ChevronRight, 
   Phone, CheckCircle2, Target, History, Lock, UserCircle, 
@@ -59,7 +59,7 @@ export default function TeamManagement() {
     if (!users || users.length === 0) return TEAM_MEMBERS;
     
     return users.map(user => {
-      const mockMember = TEAM_MEMBERS.find(m => m.id === user.uid) || TEAM_MEMBERS[Math.floor(Math.random() * TEAM_MEMBERS.length)];
+      const mockMember = TEAM_MEMBERS.find(m => m.id === user.uid) || TEAM_MEMBERS[0];
       return {
         ...mockMember,
         id: user.uid || user.id,
@@ -67,6 +67,12 @@ export default function TeamManagement() {
         role: user.role || 'Especialista',
         status: user.status === 'active' ? 'Online' : 'Offline',
         avatar: (user.name || 'U').charAt(0).toUpperCase(),
+        // If it's a real user, it might not have some mock fields, let's provide defaults if missing
+        goal: mockMember.goal || 100,
+        current: mockMember.current || 0,
+        type: mockMember.type || 'operations',
+        kpis: mockMember.kpis || { projects: 0, compliance: '0%', delays: 0 },
+        skills: mockMember.skills || []
       };
     });
   }, [users]);
@@ -77,9 +83,15 @@ export default function TeamManagement() {
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Update selected member when members change if it was based on an old list
-  useMemo(() => {
-    if (members.length > 0 && !members.find(m => m.id === selectedMember.id)) {
-      setSelectedMember(members[0]);
+  useEffect(() => {
+    if (members.length > 0) {
+      const currentSelectedExists = members.find(m => m.id === selectedMember.id);
+      if (!currentSelectedExists) {
+        setSelectedMember(members[0]);
+      } else {
+        // Sync data with updated user info
+        setSelectedMember(currentSelectedExists);
+      }
     }
   }, [members]);
 
