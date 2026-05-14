@@ -24,22 +24,18 @@ interface SecurityUser {
 
 interface AuditLog {
   id: string;
-  user: string;
+  userEmail: string;
+  userId?: string;
   action: string;
   ip: string;
   location: string;
-  browser: string;
+  browser?: string;
   timestamp: any;
 }
 
 export default function SecurityCenter() {
   const { userData } = useOutletContext<{ userData: any }>();
-  const [users, setUsers] = useState<SecurityUser[]>([
-    { id: 'u1', name: 'SAFENESS INC', email: 'admin@kaivincia.com', role: 'superadmin', status: 'active', mfaEnabled: true, lastLogin: 'Hace 2 min' },
-    { id: 'u2', name: 'safeness', email: 'safeness.c.a@gmail.com', role: 'admin', status: 'active', mfaEnabled: false, lastLogin: 'Hace 10 min' },
-    { id: 'u3', name: 'Carlos M.', email: 'carlos@kaivincia.com', role: 'ventas', status: 'active', mfaEnabled: true, lastLogin: 'Hace 1 hora' },
-    { id: 'u4', name: 'Ana Silva', email: 'ana@kaivincia.com', role: 'operaciones', status: 'frozen', mfaEnabled: true, lastLogin: 'Hace 3 días' },
-  ]);
+  const [users, setUsers] = useState<SecurityUser[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,8 +49,14 @@ export default function SecurityCenter() {
       setScanPulse(prev => (prev + 1) % 100);
     }, 50);
 
+    // Fetch Users
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setUsers(data);
+    }, (err) => handleFirestoreError(err, OperationType.GET, 'users'));
+
     // Fetch Audit Logs
-    const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50));
+    const q = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(100));
     const unsubLogs = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
       setLogs(data);
@@ -62,39 +64,54 @@ export default function SecurityCenter() {
 
     return () => {
       clearInterval(scannerInterval);
+      unsubUsers();
       unsubLogs();
     };
   }, []);
 
   const handleRoleChange = async (userId: string, newRole: any) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-    
-    // Log Activity
-    await addDoc(collection(db, 'audit_logs'), {
-      user: userData?.displayName || 'System',
-      action: `Cambio de rol para usuario ${userId} a ${newRole}`,
-      ip: '190.21.XX.XX',
-      location: 'Bogotá, CO',
-      browser: 'Chrome 124.0 (Windows)',
-      timestamp: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, 'users', userId), { role: newRole });
+      
+      // Log Activity
+      await addDoc(collection(db, 'audit_logs'), {
+        userId: userData?.uid || 'system',
+        userEmail: userData?.email || 'System',
+        action: `CHANGE_ROLE`,
+        details: `Rol de ${userId} cambiado a ${newRole}`,
+        ip: 'Detected',
+        location: 'Remote',
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
   };
 
   const handleStatusChange = async (userId: string, newStatus: any) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, status: newStatus } : u));
-    
-    await addDoc(collection(db, 'audit_logs'), {
-      user: userData?.displayName || 'System',
-      action: `${newStatus === 'frozen' ? 'Congelamiento' : 'Reactivación'} de cuenta: ${userId}`,
-      ip: '190.21.XX.XX',
-      location: 'Bogotá, CO',
-      browser: 'Chrome 124.0 (Windows)',
-      timestamp: serverTimestamp()
-    });
+    try {
+      await updateDoc(doc(db, 'users', userId), { status: newStatus });
+      
+      await addDoc(collection(db, 'audit_logs'), {
+        userId: userData?.uid || 'system',
+        userEmail: userData?.email || 'System',
+        action: `CHANGE_STATUS`,
+        details: `${newStatus === 'suspended' ? 'Suspensión' : 'Activación'} de cuenta: ${userId}`,
+        ip: 'Detected',
+        location: 'Remote',
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
   };
 
-  const toggleMFA = (userId: string) => {
-    setUsers(prev => prev.map(u => u.id === userId ? { ...u, mfaEnabled: !u.mfaEnabled } : u));
+  const toggleMFA = async (userId: string, current: boolean) => {
+    try {
+      await updateDoc(doc(db, 'users', userId), { mfaEnabled: !current });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
   };
 
   const filteredUsers = users.filter(u => 
@@ -166,24 +183,33 @@ export default function SecurityCenter() {
               </button>
               <button 
                 onClick={() => setActiveTab('logs')}
-                className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full border transition-all ${activeTab === 'logs' ? 'bg-[#FF0055] text-black border-[#FF0055]' : 'bg-transparent border-slate-800 text-slate-400 hover:border-slate-600'}`}
+                className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full border transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'bg-[#FF0055] text-black border-[#FF0055]' : 'bg-transparent border-slate-800 text-slate-400 hover:border-slate-600'}`}
               >
+                {activeTab === 'logs' && <Activity className="w-3 h-3 animate-pulse" />}
                 Logs de Auditoría
               </button>
            </div>
            
-           {activeTab === 'users' && (
-             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar usuario..."
-                  className="bg-[#05070A] border border-slate-800 rounded-full pl-10 pr-4 py-2 text-xs text-white focus:border-[#00E5FF] outline-none w-64 transition-all"
-                />
-             </div>
-           )}
+           <div className="flex items-center gap-4">
+             {activeTab === 'logs' && (
+               <div className="px-3 py-1 bg-[#FF0055]/10 border border-[#FF0055]/30 rounded-lg flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-[#FF0055] rounded-full animate-ping" />
+                  <span className="text-[9px] font-black text-[#FF0055] uppercase tracking-widest">Live Stream Activo</span>
+               </div>
+             )}
+             {activeTab === 'users' && (
+               <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <input 
+                    type="text" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Buscar usuario..."
+                    className="bg-[#05070A] border border-slate-800 rounded-full pl-10 pr-4 py-2 text-xs text-white focus:border-[#00E5FF] outline-none w-64 transition-all"
+                  />
+               </div>
+             )}
+           </div>
         </div>
 
         {/* Content Area */}
@@ -250,7 +276,7 @@ export default function SecurityCenter() {
                             </td>
                             <td className="p-4 text-right pr-6">
                                <div className="flex justify-end gap-2">
-                                  <button onClick={() => toggleMFA(user.id)} title="Reset Password" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-[#FF0055] border border-slate-800 transition-all">
+                                  <button onClick={() => toggleMFA(user.id, user.mfaEnabled)} title="Reset Password" className="p-2 bg-slate-900 rounded-lg text-slate-400 hover:text-[#FF0055] border border-slate-800 transition-all">
                                      <RefreshCw className="w-4 h-4" />
                                   </button>
                                   <button 
@@ -283,7 +309,6 @@ export default function SecurityCenter() {
                     </h3>
                     <div className="text-[9px] font-mono text-slate-600">RECORDS_PROTECTED_BY_BLOCKCHAIN_SYNC</div>
                  </div>
-                 
                  <div className="space-y-3">
                     {logs.map((log) => (
                       <div key={log.id} className="bg-[#0B0E14] border border-slate-900 p-4 rounded-xl flex items-center justify-between group hover:border-[#00E5FF]/30 transition-colors">
@@ -292,19 +317,37 @@ export default function SecurityCenter() {
                                {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : new Date().toLocaleString()}
                             </div>
                             <div className="shrink-0">
-                               <span className="text-[#00E5FF] font-black text-[10px] uppercase block underline decoration-dotted">{log.user}</span>
+                               <span className="text-[#00E5FF] font-black text-[10px] uppercase block underline decoration-dotted">{log.userEmail || (log as any).user}</span>
                             </div>
                             <div className="flex-1">
-                               <p className="text-white font-mono text-xs italic">"{log.action}"</p>
+                               <p className="text-white font-mono text-xs italic">
+                                 {log.action === 'LOGIN' ? (
+                                   <span className="text-emerald-400">Sesión Iniciada Correctamente</span>
+                                 ) : log.action === 'USER_REGISTER' ? (
+                                   <span className="text-blue-400">Nuevo Registro de Usuario</span>
+                                 ) : log.action === 'CHANGE_ROLE' ? (
+                                   <span className="text-[#00E5FF]">Cambio de Rol de Usuario</span>
+                                 ) : log.action === 'CHANGE_STATUS' ? (
+                                   <span className="text-amber-400">Cambio de Estado de Cuenta</span>
+                                 ) : (
+                                   log.action
+                                 )}
+                               </p>
+                               {(log as any).details && (
+                                 <p className="text-[9px] text-slate-500 font-mono mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                                   {(log as any).details}
+                                 </p>
+                               )}
                             </div>
                          </div>
                          <div className="flex items-center gap-4 text-slate-600 text-[10px] divide-x divide-slate-800">
-                            <span className="pl-4 flex items-center gap-1"><Globe className="w-3 h-3" /> {log.location}</span>
-                            <span className="pl-4 flex items-center gap-1 font-mono">{log.ip}</span>
-                            <span className="pl-4 flex items-center gap-1"><Monitor className="w-3 h-3" /> {log.browser.split(' ')[0]}</span>
+                            <span className="pl-4 flex items-center gap-1"><Globe className="w-3 h-3" /> {log.location || 'Unknown'}</span>
+                            <span className="pl-4 flex items-center gap-1 font-mono">{log.ip || '0.0.0.0'}</span>
+                            <span className="pl-4 flex items-center gap-1"><Monitor className="w-3 h-3" /> {log.browser ? log.browser.split(' ')[0] : 'Remote'}</span>
                          </div>
                       </div>
                     ))}
+
                     
                     {logs.length === 0 && (
                       <div className="p-20 text-center border border-dashed border-slate-800 rounded-3xl bg-slate-900/10">
