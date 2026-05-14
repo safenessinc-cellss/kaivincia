@@ -38,6 +38,7 @@ export default function SecurityCenter() {
   const [users, setUsers] = useState<SecurityUser[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [scanPulse, setScanPulse] = useState(0);
 
@@ -119,6 +120,12 @@ export default function SecurityCenter() {
     u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredLogs = logs.filter(log => 
+    log.userEmail?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (log as any).details?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   if (!isAdmin) return <div className="p-8 text-center text-slate-500 font-mono">ACCESO DENEGADO // PRIVILEGIOS INSUFICIENTES</div>;
 
   return (
@@ -186,30 +193,28 @@ export default function SecurityCenter() {
                 className={`text-[10px] font-black uppercase tracking-widest px-6 py-2 rounded-full border transition-all flex items-center gap-2 ${activeTab === 'logs' ? 'bg-[#FF0055] text-black border-[#FF0055]' : 'bg-transparent border-slate-800 text-slate-400 hover:border-slate-600'}`}
               >
                 {activeTab === 'logs' && <Activity className="w-3 h-3 animate-pulse" />}
-                Logs de Auditoría
+                Auditoría
               </button>
            </div>
            
-           <div className="flex items-center gap-4">
-             {activeTab === 'logs' && (
-               <div className="px-3 py-1 bg-[#FF0055]/10 border border-[#FF0055]/30 rounded-lg flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-[#FF0055] rounded-full animate-ping" />
-                  <span className="text-[9px] font-black text-[#FF0055] uppercase tracking-widest">Live Stream Activo</span>
-               </div>
-             )}
-             {activeTab === 'users' && (
+             <div className="flex items-center gap-4">
                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
                   <input 
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Buscar usuario..."
+                    placeholder={activeTab === 'users' ? "Buscar usuario..." : "Buscar en logs..."}
                     className="bg-[#05070A] border border-slate-800 rounded-full pl-10 pr-4 py-2 text-xs text-white focus:border-[#00E5FF] outline-none w-64 transition-all"
                   />
                </div>
-             )}
-           </div>
+               {activeTab === 'logs' && (
+                 <div className="px-3 py-1 bg-[#FF0055]/10 border border-[#FF0055]/30 rounded-lg flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-[#FF0055] rounded-full animate-ping" />
+                    <span className="text-[9px] font-black text-[#FF0055] uppercase tracking-widest">Live Stream Activo</span>
+                 </div>
+               )}
+             </div>
         </div>
 
         {/* Content Area */}
@@ -310,8 +315,12 @@ export default function SecurityCenter() {
                     <div className="text-[9px] font-mono text-slate-600">RECORDS_PROTECTED_BY_BLOCKCHAIN_SYNC</div>
                  </div>
                  <div className="space-y-3">
-                    {logs.map((log) => (
-                      <div key={log.id} className="bg-[#0B0E14] border border-slate-900 p-4 rounded-xl flex items-center justify-between group hover:border-[#00E5FF]/30 transition-colors">
+                    {filteredLogs.map((log) => (
+                      <div 
+                        key={log.id} 
+                        onClick={() => setSelectedLog(log)}
+                        className="bg-[#0B0E14] border border-slate-900 p-4 rounded-xl flex items-center justify-between group hover:border-[#00E5FF]/30 transition-colors cursor-pointer"
+                      >
                          <div className="flex items-center gap-6">
                             <div className="text-slate-700 font-mono text-[9px] shrink-0">
                                {log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : new Date().toLocaleString()}
@@ -362,6 +371,92 @@ export default function SecurityCenter() {
 
         </div>
       </div>
+
+      {/* Log Detail Modal */}
+      <AnimatePresence>
+        {selectedLog && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-[100] p-6">
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-[#0B0E14] border border-slate-800 w-full max-w-2xl rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(255,0,85,0.2)]"
+            >
+              <div className="p-8 border-b border-slate-800 bg-gradient-to-r from-[#FF0055]/10 to-transparent flex justify-between items-center">
+                <div>
+                   <h3 className="text-xl font-black text-white italic tracking-tighter uppercase flex items-center gap-3">
+                     <Terminal className="w-6 h-6 text-[#FF0055]" /> Auditoría de Log
+                   </h3>
+                   <p className="text-[10px] font-mono text-slate-500 mt-1 uppercase tracking-widest">Hash ID: {selectedLog.id}</p>
+                </div>
+                <button onClick={() => setSelectedLog(null)} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+                   <Shield className="w-6 h-6 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-black/40 border border-slate-900 p-4 rounded-2xl">
+                       <p className="text-[9px] font-black text-[#00E5FF] uppercase tracking-widest mb-1">Actor Principal</p>
+                       <p className="text-sm font-bold text-white mb-0.5">{selectedLog.userEmail}</p>
+                       <p className="text-[10px] font-mono text-slate-600">UID: {selectedLog.userId || 'N/A'}</p>
+                    </div>
+                    <div className="bg-black/40 border border-slate-900 p-4 rounded-2xl">
+                       <p className="text-[9px] font-black text-[#FF0055] uppercase tracking-widest mb-1">Vector de Tiempo</p>
+                       <p className="text-sm font-bold text-white mb-0.5">
+                         {selectedLog.timestamp?.toDate ? selectedLog.timestamp.toDate().toLocaleString() : new Date().toLocaleString()}
+                       </p>
+                       <p className="text-[10px] font-mono text-slate-600">Sync: Quantum Ledger</p>
+                    </div>
+                 </div>
+
+                 <div className="bg-black/40 border border-slate-900 p-6 rounded-2xl">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-3">Acción Ejecutada</p>
+                    <div className="flex items-center gap-4">
+                       <div className="p-3 bg-[#FF0055]/10 border border-[#FF0055]/20 rounded-xl text-[#FF0055]">
+                          <Activity className="w-6 h-6" />
+                       </div>
+                       <div>
+                          <p className="text-lg font-black text-white italic uppercase tracking-tighter">{selectedLog.action}</p>
+                          <p className="text-xs text-slate-400 mt-1 font-mono">{(selectedLog as any).details || 'Sin metadatos adicionales'}</p>
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-black/20 p-4 rounded-2xl border border-slate-900">
+                       <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Localización</p>
+                       <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                          <MapPin className="w-3 h-3 text-[#00E5FF]" /> {selectedLog.location || 'Unknown'}
+                       </div>
+                    </div>
+                    <div className="bg-black/20 p-4 rounded-2xl border border-slate-900">
+                       <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Dirección IP</p>
+                       <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300">
+                          <Globe className="w-3 h-3 text-[#00E5FF]" /> {selectedLog.ip || '0.0.0.0'}
+                       </div>
+                    </div>
+                    <div className="bg-black/20 p-4 rounded-2xl border border-slate-900">
+                       <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Terminal</p>
+                       <div className="flex items-center gap-2 text-[10px] font-bold text-slate-300 truncate">
+                          <Monitor className="w-3 h-3 text-[#00E5FF]" /> {selectedLog.browser ? selectedLog.browser.split(' ')[0] : 'N/A'}
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              <div className="p-8 pt-0 flex justify-end">
+                 <button 
+                   onClick={() => setSelectedLog(null)}
+                   className="px-8 py-4 bg-white/5 border border-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-[#FF0055] hover:text-black hover:border-[#FF0055] transition-all"
+                 >
+                   Cerrar Registro
+                 </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Footer Info */}
       <div className="p-4 bg-black border-t border-slate-900 flex justify-between items-center px-8">
