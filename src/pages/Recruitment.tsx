@@ -6,7 +6,7 @@ import {
   Edit2, Save, X, Plus, Trash2, Briefcase, UserPlus, Sparkles, UserCheck,
   Clock, Linkedin, ShieldAlert, Zap, History, MessageCircle, Phone, Monitor,
   FileText, Handshake, BookOpen, MapPin, Coffee, FileSearch, Download, Upload,
-  Users, Lock, Info, AlertTriangle, Fingerprint, MousePointer2
+  Users, Lock, Info, AlertTriangle, Fingerprint, MousePointer2, ArrowLeft, FileCheck
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,6 +15,7 @@ const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Co
 
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
+  const [isUploading, setIsUploading] = useState(false);
   const navigate = useNavigate();
   
   // Candidates State
@@ -192,14 +193,49 @@ export default function Recruitment() {
     }
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.length) return;
+    setIsUploading(true);
+    // Simulate AI extraction
+    setTimeout(async () => {
+      const newCandidate = {
+        name: 'Candidato Extraído IA',
+        role: 'Por Definir',
+        status: 'Nuevo',
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        email: 'ia.extract@nucleus.test',
+        phone: '+00 000 000 000',
+        createdAt: new Date().toISOString(),
+        aiSummary: 'Perfil extraído automáticamente mediante el motor Nucleus Core.'
+      };
+      
+      try {
+        await addDoc(collection(db, 'candidates'), newCandidate);
+      } catch (error) {
+        console.error("Error seeding extracted candidate", error);
+      }
+      
+      setIsUploading(false);
+      alert('Analizando CV con IA: Extracción completada. El perfil ha sido catalogado en el Pipeline.');
+    }, 2500);
+  };
+
   if (loadingCandidates || loadingJobs) return <div>Cargando...</div>;
 
   return (
-    <div className="space-y-6 flex flex-col h-full relative">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Reclutamiento y Selección</h2>
-          <p className="text-sm text-gray-500 mt-1">Gestión de talento y portal de vacantes</p>
+    <div className="space-y-4 flex flex-col h-full relative">
+      <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => navigate('/')}
+            className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Reclutamiento y Selección</h2>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Gestión de Talento Gibbor N-Core</p>
+          </div>
         </div>
       </div>
 
@@ -546,34 +582,44 @@ export default function Recruitment() {
         </div>
       )}
       {activeTab === 'candidates' && (
-        <div className="space-y-6 flex-1 flex flex-col overflow-hidden">
-          {/* AI Intake Board */}
-          <div className="bg-white rounded-[3.5rem] p-10 border border-gray-100 shadow-2xl relative overflow-hidden group mb-4 shrink-0 transition-all hover:shadow-[#00F0FF]/5">
-            <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity">
-               <Bot className="w-32 h-32 text-[#00F0FF]" />
+        <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
+          {/* AI Intake Board - Reduced Size */}
+          <div className="bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl relative overflow-hidden group mb-2 shrink-0 transition-all hover:shadow-[#00F0FF]/5">
+            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
+               <Bot className="w-16 h-16 text-[#00F0FF]" />
             </div>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-10 relative z-10">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
                <div className="max-w-2xl">
-                  <div className="flex items-center gap-4 mb-6">
-                     <div className="h-14 w-14 bg-gray-900 rounded-[1.5rem] flex items-center justify-center shadow-2xl group-hover:rotate-6 transition-transform">
-                        <Sparkles className="w-7 h-7 text-[#00F0FF] animate-pulse" />
+                  <div className="flex items-center gap-3 mb-2">
+                     <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-xl group-hover:rotate-6 transition-transform">
+                        <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
                      </div>
                      <div>
-                        <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">Nucleus Talent Classifier</h3>
-                        <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Extracción y Catalogación IA Multi-Factor</p>
+                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Clasificador de Talento Nucleus</h3>
+                        <p className="text-[9px] font-black text-[#00F0FF] uppercase tracking-widest mt-0.5 italic">Extracción y Catalogación IA Multi-Factor</p>
                      </div>
                   </div>
-                  <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Culture Fit Score</b> basado en los valores de Gibbor Center, vinculando el perfil al nodo operativo correcto.
+                  <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic pr-8">
+                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Ajuste Cultural</b> basado en los valores de Gibbor Center.
                   </p>
                </div>
                <div className="flex-1 max-w-sm">
-                  <div className="border-4 border-dashed border-gray-100 rounded-[2.5rem] p-10 bg-gray-50/50 hover:bg-white hover:border-[#00F0FF]/50 transition-all cursor-pointer text-center group/uploader relative overflow-hidden shadow-inner">
-                     <div className="absolute top-0 left-0 w-full h-1 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
-                     <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4 group-hover/uploader:text-[#00F0FF] group-hover/uploader:scale-110 transition-all" />
-                     <p className="text-[11px] font-black text-gray-400 uppercase tracking-widest">Importar Batch CVs</p>
-                     <p className="text-[9px] font-black text-gray-300 mt-2 uppercase tracking-tight">PDF • WORD • LINKEDIN • AI DRIVEN</p>
-                  </div>
+                  <label className="block">
+                     <div className={`border-2 border-dashed border-gray-100 rounded-3xl p-6 bg-gray-50/50 hover:bg-white hover:border-[#00F0FF]/50 transition-all cursor-pointer text-center group/uploader relative overflow-hidden shadow-inner ${isUploading ? 'animate-pulse opacity-50 pointer-events-none' : ''}`}>
+                        <input 
+                           type="file" 
+                           className="hidden" 
+                           accept=".pdf,.doc,.docx"
+                           onChange={handleFileUpload}
+                        />
+                        <div className="absolute top-0 left-0 w-full h-0.5 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
+                        <Upload className={`w-8 h-8 text-gray-400 mx-auto mb-2 group-hover/uploader:text-[#00F0FF] group-hover/uploader:scale-110 transition-all ${isUploading ? 'animate-bounce' : ''}`} />
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                           {isUploading ? 'Extrayendo Datos...' : 'Importar Lote de CVs'}
+                        </p>
+                        <p className="text-[8px] font-black text-gray-300 mt-1 uppercase tracking-tight">PDF • WORD • LINKEDIN • AI DRIVEN</p>
+                     </div>
+                  </label>
                </div>
             </div>
           </div>
@@ -634,7 +680,7 @@ export default function Recruitment() {
                           (candidate.aiScore || 0) >= 90 ? 'bg-green-500 text-white' :
                           (candidate.aiScore || 0) >= 70 ? 'bg-blue-500 text-white' : 'bg-amber-100 text-amber-700'
                         }`}>
-                          {candidate.aiScore || 0}% MATCH
+                          {candidate.aiScore || 0}% AJUSTE
                         </div>
                       </div>
                     </motion.div>
@@ -679,7 +725,7 @@ export default function Recruitment() {
                      <div>
                         <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">{selectedCandidate.name}</h2>
                         <div className="flex items-center gap-2 mt-1">
-                           <span className="text-[10px] font-black text-[#00F0FF] bg-[#00F0FF]/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">Candidate ID: {selectedCandidate.id.slice(0,8)}</span>
+                           <span className="text-[10px] font-black text-[#00F0FF] bg-[#00F0FF]/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">ID CANDIDATO: {selectedCandidate.id.slice(0,8)}</span>
                         </div>
                      </div>
                   </div>
@@ -737,7 +783,7 @@ export default function Recruitment() {
                      <a href={selectedCandidate.linkedin} target="_blank" rel="noreferrer" className="flex items-center gap-4 p-6 bg-gray-50 rounded-[2rem] border border-gray-100 hover:border-[#00F0FF]/30 transition-all hover:bg-white group">
                         <Linkedin className="w-6 h-6 text-[#00F0FF] group-hover:scale-110 transition-transform" />
                         <div>
-                           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">LinkedIn Profile</p>
+                           <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Perfil de LinkedIn</p>
                            <p className="text-xs font-bold text-gray-900 truncate">Ver Perfil</p>
                         </div>
                      </a>
