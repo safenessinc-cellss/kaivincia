@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, updateDoc, doc, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
   ShieldCheck, XCircle, ShieldAlert, Activity, Users, 
   Key, UserPlus, Eye, Lock, Globe, AlertTriangle, CheckCircle2,
-  Search, Filter, MoreVertical, X, Mail
+  Search, Filter, MoreVertical, X, Mail, ArrowLeft
 } from 'lucide-react';
 
 export default function SuperAdmin() {
   const [activeTab, setActiveTab] = useState('users');
+  const navigate = useNavigate();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -76,16 +78,24 @@ export default function SuperAdmin() {
 
   return (
     <div className="space-y-6 flex flex-col h-full">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Centro de Control de Seguridad (CISO)</h2>
-          <p className="text-sm text-gray-500 mt-1">Gestión de accesos, roles (RBAC) y auditoría del sistema.</p>
+      <div className="flex justify-between items-center bg-white/50 p-6 rounded-[2rem] border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => navigate(-1)}
+            className="p-3 bg-gray-900 text-white rounded-2xl hover:bg-[#00F0FF] transition-all group shadow-xl active:scale-90"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Centro de Control de Seguridad (CISO)</h2>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Gestión de accesos • Roles (RBAC) • Auditoría</p>
+          </div>
         </div>
         <button 
           onClick={() => setIsInviteModalOpen(true)}
-          className="bg-[#00F0FF] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2 shadow-sm"
+          className="bg-[#00F0FF] text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black hover:text-[#00F0FF] transition-all shadow-xl flex items-center gap-2 group"
         >
-          <UserPlus className="h-4 w-4" /> Invitar Usuario
+          <UserPlus className="h-4 w-4" /> Invitar Nodo
         </button>
       </div>
 
