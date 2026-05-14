@@ -6,7 +6,7 @@ import {
   CheckCircle2, Clock, 
   BrainCircuit, BarChart3, BookOpen, ChevronRight, 
   History, RefreshCw, FileText,
-  Cpu, Layers, Network
+  Cpu, Layers, Network, ShieldCheck
 } from 'lucide-react';
 import { 
   AreaChart, Area, Tooltip, 
@@ -29,10 +29,12 @@ interface SystemEvent {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { userData } = useOutletContext<{ userData: any }>();
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
   
   // System Events Feed
   const [events, setEvents] = useState<SystemEvent[]>([
@@ -62,14 +64,21 @@ export default function Dashboard() {
     }
   ]);
 
+  const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending' || u.role === 'none'), [users]);
+
   useEffect(() => {
     // Listeners for real database connection test
     const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
       setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
     return () => {
       unsubClients();
+      unsubUsers();
     };
   }, []);
 
@@ -175,6 +184,41 @@ export default function Dashboard() {
             </div>
          </div>
       </div>
+
+      {/* Pending Authorizations Alert for SuperAdmins */}
+      <AnimatePresence>
+        {userData?.role === 'superadmin' && pendingUsers.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-8"
+          >
+            <div className="bg-amber-100 border-2 border-amber-500 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
+               <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <ShieldCheck className="w-24 h-24 text-amber-600" />
+               </div>
+               <div className="flex items-center gap-6 relative z-10">
+                  <div className="h-14 w-14 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-xl animate-pulse">
+                     <Users className="w-8 h-8" />
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black text-amber-900 uppercase tracking-tighter italic">Alerta de Seguridad: Autorizaciones Pendientes</h3>
+                     <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mt-1">
+                        Hay {pendingUsers.length} Nodo(s) solicitando acceso a la Red Kaivincia.
+                     </p>
+                  </div>
+               </div>
+               <button 
+                onClick={() => navigate('/crm/superadmin')}
+                className="bg-gray-900 text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all shadow-xl relative z-10"
+               >
+                 Gestionar Nodos
+               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
@@ -319,7 +363,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
