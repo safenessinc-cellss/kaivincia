@@ -23,6 +23,16 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
+  const [showResults, setShowResults] = useState(false);
+
+  const eliteClients = [
+    { name: 'Royal Prestige', industry: 'Ventas Directas', focus: 'High Ticket Sales', icon: '💎' },
+    { name: 'Rena Ware', industry: 'Sistemas Térmicos', focus: 'Direct Distribution', icon: '🔋' },
+    { name: 'Kitchen Craft', industry: 'Utensilios de Cocina', focus: 'Sales Recruitment', icon: '🍳' },
+    { name: 'Global Health', industry: 'Bienestar Social', focus: 'Agent Formation', icon: '🏥' },
+    { name: 'Prestige Group', industry: 'Marketing Directo', focus: 'Neural Operations', icon: '👑' },
+    { name: 'Master Cook', industry: 'Gastronomía Élite', focus: 'Training Academy', icon: '👨‍🍳' }
+  ];
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -92,15 +102,21 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            {['Sistemas', 'Academia', 'Resultados'].map((item) => (
+            {['Sistemas', 'Academia'].map((item) => (
               <a key={item} href={`#${item.toLowerCase()}`} className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#00F0FF] transition-colors">
                 {item}
               </a>
             ))}
+            <button 
+              onClick={() => setShowResults(true)}
+              className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#00F0FF] transition-colors"
+            >
+              Resultados
+            </button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -313,6 +329,80 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       </section>
 
       <Footer />
+
+      {/* Elite Clients / Results Modal */}
+      <AnimatePresence>
+        {showResults && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-2xl"
+          >
+             <motion.div 
+               initial={{ scale: 0.9, y: 50, opacity: 0 }}
+               animate={{ scale: 1, y: 0, opacity: 1 }}
+               exit={{ scale: 0.9, y: 50, opacity: 0 }}
+               className="bg-[#0a0c10] border border-white/10 rounded-[4rem] max-w-5xl w-full p-12 lg:p-16 relative shadow-[0_0_100px_rgba(0,240,255,0.1)] overflow-hidden"
+             >
+                <div className="absolute top-0 right-0 p-12 opacity-5 pointer-events-none">
+                  <Star className="w-64 h-64 text-[#00F0FF]" />
+                </div>
+
+                <button 
+                  onClick={() => setShowResults(false)}
+                  className="absolute top-10 right-10 text-white/40 hover:text-white transition-colors"
+                >
+                  <X className="w-8 h-8" />
+                </button>
+
+                <div className="relative z-10 text-center mb-16">
+                  <motion.div 
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-[#00F0FF]/10 rounded-full mb-6 border border-[#00F0FF]/20"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#00F0FF]" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00F0FF]">Impacto Real en el Mundo Kaivincia</span>
+                  </motion.div>
+                  <h2 className="text-5xl lg:text-7xl font-serif font-bold text-white mb-6">Partners de Élite</h2>
+                  <p className="text-gray-400 text-lg max-w-2xl mx-auto font-medium">Empresas líderes han transformado su infraestructura operativa y de ventas con nuestros sistemas inteligentes.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+                  {eliteClients.map((client, idx) => (
+                    <motion.div
+                      key={client.name}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1 + idx * 0.05 }}
+                      className="group p-8 rounded-[3rem] bg-white/[0.03] border border-white/5 hover:bg-[#00F0FF]/5 hover:border-[#00F0FF]/20 transition-all duration-500 cursor-default"
+                    >
+                      <div className="text-4xl mb-6 grayscale group-hover:grayscale-0 transition-all transform group-hover:scale-110 duration-500">
+                        {client.icon}
+                      </div>
+                      <h4 className="text-xl font-bold text-white mb-2 uppercase tracking-tighter">{client.name}</h4>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest">{client.industry}</span>
+                        <p className="text-xs text-gray-500 font-medium">{client.focus}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-16 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-600 mb-8">+ 100 ORGANIZACIONES OPTIMIZADAS GLOBALES</p>
+                  <div className="flex justify-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all">
+                     <div className="h-6 w-32 bg-white/10 rounded-full animate-pulse" />
+                     <div className="h-6 w-32 bg-white/10 rounded-full animate-pulse" />
+                     <div className="h-6 w-32 bg-white/10 rounded-full animate-pulse" />
+                  </div>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Course Video Modal */}
       <AnimatePresence>
