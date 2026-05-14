@@ -1,17 +1,16 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Users, Activity, DollarSign, ShieldAlert, Clock, ChevronRight, 
   Phone, CheckCircle2, Target, History, Lock, UserCircle, 
   BarChart3, Calendar, AlertTriangle, BookOpen, Star, Cpu,
-  ArrowUpRight, ArrowDownRight, ShieldCheck, Zap, X, XCircle, UserPlus, Mail, Globe, ArrowLeft
+  ArrowUpRight, ArrowDownRight, ShieldCheck, Zap, X, Save
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
-import { doc, updateDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { doc, updateDoc } from 'firebase/firestore';
 
 // Mock Data
 const TEAM_MEMBERS = [
@@ -55,39 +54,49 @@ const AUDIT_LOGS = [
 export default function TeamManagement() {
   const [activeTab, setActiveTab] = useState('directory');
   const { tasks, users } = useGlobalContext();
-  const [selectedMember, setSelectedMember] = useState<any>(null);
-  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (users.length > 0 && !selectedMember) {
-      setSelectedMember(users[0]);
+  const members = useMemo(() => {
+    if (!users || users.length === 0) return TEAM_MEMBERS;
+    
+    return users.map(user => {
+      const mockMember = TEAM_MEMBERS.find(m => m.id === user.uid) || TEAM_MEMBERS[Math.floor(Math.random() * TEAM_MEMBERS.length)];
+      return {
+        ...mockMember,
+        id: user.uid || user.id,
+        name: user.name || 'Usuario',
+        role: user.role || 'Especialista',
+        status: user.status === 'active' ? 'Online' : 'Offline',
+        avatar: (user.name || 'U').charAt(0).toUpperCase(),
+      };
+    });
+  }, [users]);
+
+  const [selectedMember, setSelectedMember] = useState(members[0] || TEAM_MEMBERS[0]);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // Update selected member when members change if it was based on an old list
+  useMemo(() => {
+    if (members.length > 0 && !members.find(m => m.id === selectedMember.id)) {
+      setSelectedMember(members[0]);
     }
-  }, [users, selectedMember]);
+  }, [members]);
 
-  const updateUserStatus = async (userId: string, status: string) => {
+  const handleUpdateRole = async () => {
+    if (!selectedMember.id || !editingRole) return;
+    setIsUpdating(true);
     try {
-      await updateDoc(doc(db, 'users', userId), { status });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
-    }
-  };
-
-  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
-    try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user.permissions || {};
-      const newPerms = { ...currentPerms, [module]: hasAccess };
-      
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
+      await updateDoc(doc(db, 'users', selectedMember.id), {
+        role: editingRole
       });
+      setIsEditModalOpen(false);
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${selectedMember.id}`);
+    } finally {
+      setIsUpdating(false);
     }
   };
-
   const taskStatsData = useMemo(() => {
     // Determine completed tasks by user
     const completedTasksRow = tasks.filter(t => t.status === 'completed' || t.status === 'done');
@@ -103,16 +112,12 @@ export default function TeamManagement() {
     })).sort((a,b) => b.Completadas - a.Completadas);
   }, [tasks]);
 
-  if (!selectedMember && users.length === 0) return <div className="p-8 text-center text-gray-500">Cargando equipo...</div>;
-
   return (
     <div className="space-y-6 flex flex-col h-full">
-      <div className="flex justify-between items-center bg-white/50 p-6 rounded-[2rem] border border-gray-100 shadow-sm">
-        <div className="flex items-center gap-6">
-          <div>
-            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Gestión de Equipo</h2>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Directorio, rendimiento y control de nodos operativos.</p>
-          </div>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Gestión de Equipo</h2>
+          <p className="text-sm text-gray-500 mt-1">Directorio, rendimiento, comisiones y auditoría del personal.</p>
         </div>
       </div>
 
@@ -206,7 +211,7 @@ export default function TeamManagement() {
                     </div>
                     
                     <div className="space-y-4 relative z-10">
-                       {TEAM_MEMBERS.sort((a,b) => b.current - a.current).map((member, index) => (
+                       {members.sort((a,b) => (b.current || 0) - (a.current || 0)).slice(0, 5).map((member, index) => (
                          <div key={member.id} className="bg-white/5 rounded-2xl p-4 flex items-center gap-4 border border-white/5 hover:bg-white/[0.08] transition-all">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm relative ${
                                index === 0 ? 'bg-[#00F0FF] text-white shadow-lg' :
@@ -245,7 +250,7 @@ export default function TeamManagement() {
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Tareas Completadas
                       </h3>
                       <div className="h-48 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                           <BarChart data={taskStatsData.slice(0, 5)} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
                             <XAxis type="number" hide />
@@ -266,16 +271,19 @@ export default function TeamManagement() {
 
               {/* Lista de Especialistas */}
               <div className="w-full xl:w-1/3 bg-white border border-gray-100 rounded-[2.5rem] shadow-xl overflow-hidden flex flex-col">
-                <div className="p-8 border-b border-gray-50 bg-gray-50/50">
+                <div className="p-8 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Directorio de Elite</h3>
+                  <span className="text-[10px] font-bold text-[#00F0FF] bg-cyan-500/10 px-2 py-1 rounded-lg">
+                    {members.length} Agentes
+                  </span>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                  {(users.length > 0 ? users : TEAM_MEMBERS).map(member => (
+                  {members.map(member => (
                     <div 
                       key={member.id}
                       onClick={() => setSelectedMember(member)}
                       className={`p-5 rounded-[2rem] border transition-all relative overflow-hidden group ${
-                        selectedMember?.id === member.id 
+                        selectedMember.id === member.id 
                           ? 'border-[#00F0FF]/30 bg-gray-50 shadow-inner' 
                           : 'border-transparent hover:border-gray-100 hover:bg-gray-50/50'
                       }`}
@@ -323,12 +331,15 @@ export default function TeamManagement() {
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{selectedMember?.name || selectedMember?.email}</h2>
-                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {selectedMember?.role || 'Nodo'}</p>
+                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{selectedMember.name}</h2>
+                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {selectedMember.role}</p>
                     </div>
                   </div>
                   <button 
-                    onClick={() => setSelectedUserForPerms(selectedMember)}
+                    onClick={() => {
+                      setEditingRole(selectedMember.role);
+                      setIsEditModalOpen(true);
+                    }}
                     className="h-14 px-8 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95"
                   >
                     Modificar Roles
@@ -645,81 +656,87 @@ export default function TeamManagement() {
         </div>
       </div>
 
-      {/* Permission Management Modal */}
-      {selectedUserForPerms && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-100 italic">
-            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <div className="flex items-center gap-4">
-                 <div className="h-12 w-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-xl">
-                    <ShieldCheck className="w-6 h-6 text-[#00F0FF]" />
-                 </div>
-                 <div>
-                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Gestionar Permisos</h3>
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Usuario: {selectedUserForPerms.email}</p>
-                 </div>
+      {/* Edit Role Modal */}
+      <AnimatePresence>
+        {isEditModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-gray-100"
+            >
+              <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center text-white">
+                    <UserCircle className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-900 italic">Modificar Rol</h3>
+                    <p className="text-[10px] text-gray-400 font-bold uppercase">{selectedMember.name}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <button onClick={() => setSelectedUserForPerms(null)} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors">
-                <X className="w-6 h-6 text-gray-400" />
-              </button>
-            </div>
-            
-            <div className="p-8 grid grid-cols-2 gap-4">
-              {[
-                { id: 'crm', label: 'CRM & Pipeline', icon: Activity },
-                { id: 'recruitment', label: 'Reclutamiento (IA)', icon: UserPlus },
-                { id: 'accounting', label: 'Contabilidad & Pagos', icon: Globe },
-                { id: 'academy', label: 'Academia & Cursos', icon: CheckCircle2 },
-                { id: 'operations', label: 'Operaciones Internas', icon: ShieldAlert },
-                { id: 'strategy', label: 'Estrategia & Blog', icon: Globe },
-              ].map(module => {
-                const updatedUser = users.find(u => u.id === selectedUserForPerms.id) || selectedUserForPerms;
-                const hasAccess = updatedUser.permissions?.[module.id];
-                return (
-                  <button 
-                    key={module.id}
-                    onClick={() => updateUserPermissions(selectedUserForPerms.id, module.id, !hasAccess)}
-                    className={`flex items-center justify-between p-5 rounded-2xl border transition-all text-left group ${
-                      hasAccess 
-                        ? 'bg-[#00F0FF]/5 border-[#00F0FF]/30 ring-1 ring-[#00F0FF]/10' 
-                        : 'bg-gray-50 border-gray-100 hover:border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                       <module.icon className={`w-5 h-5 ${hasAccess ? 'text-[#00F0FF]' : 'text-gray-400'}`} />
-                       <span className={`text-[10px] font-black uppercase tracking-widest ${hasAccess ? 'text-gray-900' : 'text-gray-500'}`}>{module.label}</span>
-                    </div>
-                    {hasAccess ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    ) : (
-                      <XCircle className="w-5 h-5 text-gray-300" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
 
-            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
-               <button 
-                onClick={() => setSelectedUserForPerms(null)}
-                className="px-8 py-3 bg-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-300 transition-all"
-               >
-                 Cerrar
-               </button>
-               <button 
-                onClick={async () => {
-                   await updateUserStatus(selectedUserForPerms.id, 'active');
-                   alert('Acceso Autorizado y Usuario Activado.');
-                   setSelectedUserForPerms(null);
-                }}
-                className="px-8 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] transition-all shadow-xl"
-               >
-                 Autorizar Acceso Total
-               </button>
-            </div>
+              <div className="p-8 space-y-6">
+                <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2 block">Seleccionar Nuevo Rol</label>
+                  <select 
+                    value={editingRole}
+                    onChange={(e) => setEditingRole(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-sm font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none transition-all"
+                  >
+                    <option value="Closer">Closer (Ventas)</option>
+                    <option value="Setter">Setter (Citas)</option>
+                    <option value="Tutor">Tutor (Academia)</option>
+                    <option value="Operaciones">Operaciones</option>
+                    <option value="Admin">Administrador</option>
+                    <option value="SuperAdmin">Super Administrador</option>
+                  </select>
+                </div>
+                
+                <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-3 italic">
+                  <ShieldCheck className="w-5 h-5 text-blue-500 shrink-0" />
+                  <p className="text-[10px] text-blue-600 font-bold leading-relaxed">
+                    Cambiar el rol afectará los permisos de acceso y las métricas de rendimiento trackeadas por el sistema.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-8 border-t border-gray-50 bg-gray-50/50 flex gap-3">
+                <button 
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="flex-1 py-4 text-xs font-black uppercase text-gray-400 hover:text-gray-900 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleUpdateRole}
+                  disabled={isUpdating}
+                  className="flex-1 py-4 bg-gray-900 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl hover:bg-[#00F0FF] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
+                >
+                  {isUpdating ? 'Actualizando...' : (
+                    <>
+                      <Save className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      Confirmar
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
