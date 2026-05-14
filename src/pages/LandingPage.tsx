@@ -5,14 +5,13 @@ import {
   BarChart3, X, Zap, ShieldCheck, 
   Globe, Cpu, Layers, Sparkles, Navigation,
   Play, Users, Star, Lock, ChevronRight, User, Settings, UserPlus,
-  MapPin, Briefcase, FileText, Clock, ChevronLeft
+  MapPin, Briefcase, FileText, Clock, ChevronLeft, Bot
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../firebase';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
 import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
-import Footer from '../components/Footer';
 
 interface LandingPageProps {
   onGuestMode: () => void;
@@ -37,7 +36,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
+    }, (error) => handleFirestoreError(error, OperationType.GET, 'jobs'));
     return () => unsubscribe();
   }, []);
 
@@ -117,12 +116,12 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
+            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
-            {['Sistemas', 'Academia'].map((item) => (
+            {['Sistemas', 'Academia', 'Carreras'].map((item) => (
               <a key={item} href={`#${item.toLowerCase()}`} className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-[#00F0FF] transition-colors">
                 {item}
               </a>
@@ -205,7 +204,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Dashboard Preview (WOW Factor) */}
+      {/* Dashboard Preview */}
       <section className="relative px-6 py-20 z-10 overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -216,7 +215,6 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
           >
             <div className="absolute inset-0 bg-gradient-to-b from-[#00F0FF]/5 to-transparent pointer-events-none" />
             
-            {/* Blurred Mock UI */}
             <div className="filter blur-[8px] opacity-20 transition-all group-hover:blur-[2px] duration-1000 scale-105">
                <div className="grid grid-cols-4 gap-6 mb-8">
                  {[1,2,3,4].map(i => (
@@ -226,7 +224,6 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                <div className="h-[400px] bg-white/5 rounded-[3rem]" />
             </div>
 
-            {/* Content Overlay */}
             <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center pointer-events-none">
               <div className="h-20 w-20 bg-[#00F0FF] rounded-full flex items-center justify-center mb-6 shadow-2xl shadow-[#00F0FF]/40 animate-bounce">
                 <Lock className="w-8 h-8 text-white" />
@@ -344,18 +341,21 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Dynamic Careers Section (Carousel) */}
-      <section id="careers" className="relative py-32 px-6 z-10 overflow-hidden bg-black/40">
+      {/* AI Powered Careers Section */}
+      <section id="carreras" className="relative py-32 px-6 z-10 overflow-hidden bg-black/40">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
             <div className="max-w-2xl">
-              <h3 className="text-xs font-black text-[#00F0FF] uppercase tracking-[0.4em] mb-6 animate-pulse">Kaivincia Talent Node</h3>
+              <div className="inline-flex items-center gap-3 px-4 py-2 bg-[#00F0FF]/10 rounded-full mb-6 border border-[#00F0FF]/20 animate-pulse">
+                <Bot className="w-4 h-4 text-[#00F0FF]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-[#00F0FF]">Ecosistema Reclutamiento IA</span>
+              </div>
               <h4 className="text-5xl lg:text-7xl font-serif font-bold text-white mb-8 leading-[0.9]">
-                Construye el <br />
-                <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Ecosistema.</span>
+                Nodos de Talento <br />
+                <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Automatizados.</span>
               </h4>
               <p className="text-xl text-gray-400 font-medium leading-relaxed">
-                No buscamos empleados, buscamos arquitectos operativos. Explora nuestras vacantes estratégicas ofrecidas por <b className="text-white">RRHH KAIVINCIACORP</b>.
+                Nuestra Inteligencia Artificial busca arquitectos operativos. Explora las vacantes estratégicas indexadas por el motor <b className="text-white">Kaivincia Talent AI</b>.
               </p>
             </div>
             
@@ -380,66 +380,100 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
             className="flex gap-8 overflow-x-auto pb-12 snap-x no-scrollbar scroll-smooth"
             style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
           >
-            {jobs.length > 0 ? jobs.map((job) => (
+            {(jobs.length > 0 ? jobs : [
+              {
+                id: 'f-1',
+                title: 'Arquitecto de Sistemas IA',
+                department: 'Tecnología',
+                location: 'Remoto',
+                type: 'Tiempo Completo',
+                description: 'Diseño e implementación de flujos de automatización avanzados y modelos de lenguaje locales para optimización empresarial.',
+                image: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop',
+                createdAt: new Date().toISOString(),
+                status: 'active'
+              },
+              {
+                id: 'f-2',
+                title: 'Setter High Ticket Senior',
+                department: 'Ventas Elite',
+                location: 'Madrid / Híbrido',
+                type: 'Comisión + Base',
+                description: 'Especialista en prospección y agendamiento de llamadas para productos de alto valor. Dominio de psicología de persuasión.',
+                image: 'https://images.unsplash.com/photo-1552581234-26160f608093?q=80&w=800&auto=format&fit=crop',
+                createdAt: new Date().toISOString(),
+                status: 'active'
+              },
+              {
+                id: 'f-3',
+                title: 'Media Buyer Estratégico',
+                department: 'Marketing',
+                location: 'Global / Remoto',
+                type: 'Tiempo Completo',
+                description: 'Gestión de tráfico pago en Meta, Google y TikTok con enfoque en ROI masivo y escalabilidad de embudos híbridos.',
+                image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=800&auto=format&fit=crop',
+                createdAt: new Date().toISOString(),
+                status: 'active'
+              }
+            ]).map((job) => (
               <motion.div 
                 key={job.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 className="flex-shrink-0 w-[380px] snap-center group"
               >
                 <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-8 h-full flex flex-col justify-between hover:bg-white/[0.05] transition-all relative overflow-hidden">
-                   {/* Background Glow */}
-                   <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#00F0FF]/10 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                   <div className="absolute inset-0 bg-cover bg-center opacity-0 group-hover:opacity-10 transition-opacity" style={{ backgroundImage: `url(${job.image || 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800&auto=format&fit=crop'})` }} />
                    
-                   <div>
+                   <div className="relative z-10">
                       <div className="flex justify-between items-start mb-10">
                         <div className="h-14 w-14 bg-gray-900 rounded-[1.5rem] flex items-center justify-center text-[#00F0FF] shadow-2xl border border-white/5">
                            <Briefcase className="w-6 h-6" />
                         </div>
-                        <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-500/20">
-                          {job.department}
-                        </span>
+                        <div className="flex flex-col items-end gap-2">
+                          <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-500/20">
+                            {job.department}
+                          </span>
+                          <span className="flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-[#00F0FF]">
+                            <Sparkles className="w-2 h-2" /> AI Indexed
+                          </span>
+                        </div>
                       </div>
 
                       <h4 className="text-3xl font-serif font-bold text-white mb-4 leading-tight group-hover:text-[#00F0FF] transition-colors uppercase tracking-tighter italic">
                         {job.title}
                       </h4>
 
-                      <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-500 uppercase tracking-widest mb-8">
+                      <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest mb-8">
                          <div className="flex items-center gap-2"><MapPin className="w-3 h-3 text-[#00F0FF]" /> {job.location}</div>
                          <div className="flex items-center gap-2"><Clock className="w-3 h-3 text-[#00F0FF]" /> {job.type}</div>
                       </div>
 
-                      <p className="text-sm text-gray-400 font-medium leading-relaxed italic line-clamp-3 mb-8">
+                      <p className="text-sm text-gray-500 font-medium leading-relaxed italic line-clamp-3 mb-8">
                         {job.description}
                       </p>
                    </div>
 
-                   <div className="space-y-4">
+                   <div className="relative z-10 space-y-4">
                       <button 
                         onClick={() => setActiveJob(job)}
-                        className="w-full py-4 text-[11px] font-black uppercase border border-white/10 rounded-2xl text-gray-300 hover:text-white hover:border-white transition-all"
+                        className="w-full py-4 text-[11px] font-black uppercase border border-white/10 rounded-2xl text-gray-400 hover:text-white hover:border-white hover:bg-white/5 transition-all"
                       >
-                         Ver Vacante Detallada
+                         Analítica de la Vacante
                       </button>
                       <Link 
                         to={`/careers`}
-                        className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black text-[11px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl"
+                        className="w-full flex items-center justify-center gap-3 py-4 bg-[#00F0FF] text-white text-[11px] font-black uppercase tracking-widest rounded-2xl hover:bg-white hover:text-black transition-all shadow-xl shadow-[#00F0FF]/20"
                       >
-                         Postularse con PDF <ArrowRight className="w-4 h-4" />
+                         Postularse con IA <ArrowRight className="w-4 h-4" />
                       </Link>
                       <div className="text-center">
-                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2">Ofrecida por RRHH Kaivincia</p>
+                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2">Gestión Automatizada via Kaivincia Core</p>
                       </div>
                    </div>
                 </div>
               </motion.div>
-            )) : (
-              <div className="w-full py-20 text-center bg-white/[0.02] rounded-[3rem] border border-white/5 border-dashed">
-                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sincronizando Nodos de Talento • No hay vacantes disponibles...</p>
-              </div>
-            )}
+            ))}
           </div>
         </div>
       </section>
@@ -477,7 +511,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                    </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-12">
                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
                       <div className="lg:col-span-2 space-y-10">
                          <div>
@@ -506,7 +540,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
                             {[
                                { icon: FileText, label: 'CV en PDF Validado', color: 'text-blue-500' },
                                { icon: Users, label: 'Perfil Professional', color: 'text-[#00F0FF]' },
-                               { icon: ShieldCheck, label: 'Filtro IA Gibbor', color: 'text-emerald-500' }
+                               { icon: ShieldCheck, label: 'Filtro IA Kaivincia', color: 'text-emerald-500' }
                             ].map((step, i) => (
                               <div key={i} className="flex items-center gap-4">
                                  <div className={`h-10 w-10 bg-white/5 rounded-xl flex items-center justify-center ${step.color}`}>
@@ -533,9 +567,34 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         )}
       </AnimatePresence>
 
-      <Footer />
+      {/* Footer */}
+      <footer className="py-20 px-6 border-t border-white/5 z-10 bg-black">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-10">
+          <div className="flex items-center gap-3">
+            <img src="/images/logo.png" alt="Kaivincia Logo" className="h-8 w-auto object-contain" />
+            <span className="text-2xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
+          </div>
+          <div className="flex gap-10">
+            <Link to="/guest-academy" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
+              Academia
+            </Link>
+            <Link to="/strategy-blog" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
+              Blog Estratégico
+            </Link>
+            <Link to="/careers" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
+              Carreras
+            </Link>
+            <a href="#" className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors">
+              Soporte
+            </a>
+          </div>
+          <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest italic">
+            Est. 2026 - Mastered by AI
+          </p>
+        </div>
+      </footer>
 
-      {/* Elite Clients / Results Modal */}
+      {/* Elite Clients Modal */}
       <AnimatePresence>
         {showResults && (
           <motion.div 
