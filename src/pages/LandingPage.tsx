@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   ArrowRight, CheckCircle2, BookOpen, MonitorPlay, 
   BarChart3, X, Zap, ShieldCheck, 
   Globe, Cpu, Layers, Sparkles, Navigation,
-  Play, Users, Star, Lock, ChevronRight, User, Settings, UserPlus
+  Play, Users, Star, Lock, ChevronRight, User, Settings, UserPlus,
+  MapPin, Briefcase, FileText, Clock, ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import DataEcosystemParticles from '../components/DataEcosystemParticles';
 import Footer from '../components/Footer';
 
@@ -24,6 +25,21 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
   const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [showResults, setShowResults] = useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [activeJob, setActiveJob] = useState<any | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'jobs'),
+      where('status', '==', 'active'),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setJobs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsubscribe();
+  }, []);
 
   const eliteClients = [
     { name: 'Royal Prestige', industry: 'Ventas Directas', focus: 'High Ticket Sales', icon: '💎' },
@@ -102,7 +118,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
             <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
-            <span className="text-2xl font-black tracking-tighter text-white uppercase italic"></span>
+            <span className="text-2xl font-black tracking-tighter text-white uppercase italic">Kaivincia</span>
           </div>
 
           <div className="hidden md:flex items-center gap-8">
@@ -328,41 +344,194 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
         </div>
       </section>
 
-      {/* Careers CTA Section */}
-      <section className="relative py-32 px-6 z-10 overflow-hidden">
+      {/* Dynamic Careers Section (Carousel) */}
+      <section id="careers" className="relative py-32 px-6 z-10 overflow-hidden bg-black/40">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-gradient-to-br from-[#00F0FF]/20 via-blue-500/10 to-transparent border border-[#00F0FF]/30 rounded-[4rem] p-12 lg:p-20 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-20 opacity-5 group-hover:opacity-10 transition-opacity">
-               <UserPlus className="w-64 h-64 text-[#00F0FF]" />
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
+            <div className="max-w-2xl">
+              <h3 className="text-xs font-black text-[#00F0FF] uppercase tracking-[0.4em] mb-6 animate-pulse">Kaivincia Talent Node</h3>
+              <h4 className="text-5xl lg:text-7xl font-serif font-bold text-white mb-8 leading-[0.9]">
+                Construye el <br />
+                <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Ecosistema.</span>
+              </h4>
+              <p className="text-xl text-gray-400 font-medium leading-relaxed">
+                No buscamos empleados, buscamos arquitectos operativos. Explora nuestras vacantes estratégicas ofrecidas por <b className="text-white">RRHH Gibbor</b>.
+              </p>
             </div>
             
-            <div className="max-w-3xl relative z-10">
-              <h3 className="text-xs font-black text-[#00F0FF] uppercase tracking-[0.4em] mb-6 animate-pulse">Join the Revolution</h3>
-              <h4 className="text-5xl lg:text-7xl font-serif font-bold text-white mb-8 leading-[0.9]">
-                ¿Quieres ser parte de <br />
-                <span className="italic bg-clip-text text-transparent bg-gradient-to-r from-white to-[#00F0FF]">Kaivincia?</span>
-              </h4>
-              <p className="text-xl text-gray-400 font-medium leading-relaxed mb-12">
-                Buscamos a los mejores setters, closers y arquitectos de sistemas para dominar el mercado hispano. Si tienes el hambre de ganar y la disciplina de un ejecutor, tenemos un lugar para ti.
-              </p>
-              <Link 
-                to="/careers" 
-                className="inline-flex items-center gap-4 bg-white text-black px-12 py-6 rounded-full font-black text-sm uppercase tracking-[0.2em] hover:bg-[#00F0FF] hover:text-white transition-all shadow-[0_0_50px_rgba(255,255,255,0.1)] group/btn"
+            <div className="flex gap-4">
+              <button 
+                onClick={() => carouselRef.current?.scrollBy({ left: -400, behavior: 'smooth' })}
+                className="h-14 w-14 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-[#00F0FF] hover:text-black hover:border-[#00F0FF] transition-all group"
               >
-                Trabaje con Nosotros <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-2 transition-transform" />
-              </Link>
+                <ChevronLeft className="w-6 h-6 group-active:scale-90" />
+              </button>
+              <button 
+                onClick={() => carouselRef.current?.scrollBy({ left: 400, behavior: 'smooth' })}
+                className="h-14 w-14 rounded-full border border-white/10 flex items-center justify-center text-white hover:bg-[#00F0FF] hover:text-black hover:border-[#00F0FF] transition-all group"
+              >
+                <ChevronRight className="w-6 h-6 group-active:scale-90" />
+              </button>
             </div>
+          </div>
 
-            <div className="flex gap-8 mt-16 opacity-30">
-               {['Sistemas IA', 'Ventas High Ticket', 'Operations Management', 'Customer Success'].map(tag => (
-                 <span key={tag} className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] border border-[#00F0FF]/20 px-4 py-2 rounded-full">
-                   {tag}
-                 </span>
-               ))}
-            </div>
+          <div 
+            ref={carouselRef}
+            className="flex gap-8 overflow-x-auto pb-12 snap-x no-scrollbar scroll-smooth"
+            style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}
+          >
+            {jobs.length > 0 ? jobs.map((job) => (
+              <motion.div 
+                key={job.id}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="flex-shrink-0 w-[380px] snap-center group"
+              >
+                <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-8 h-full flex flex-col justify-between hover:bg-white/[0.05] transition-all relative overflow-hidden">
+                   {/* Background Glow */}
+                   <div className="absolute -top-20 -right-20 w-40 h-40 bg-[#00F0FF]/10 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                   
+                   <div>
+                      <div className="flex justify-between items-start mb-10">
+                        <div className="h-14 w-14 bg-gray-900 rounded-[1.5rem] flex items-center justify-center text-[#00F0FF] shadow-2xl border border-white/5">
+                           <Briefcase className="w-6 h-6" />
+                        </div>
+                        <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-blue-500/20">
+                          {job.department}
+                        </span>
+                      </div>
+
+                      <h4 className="text-3xl font-serif font-bold text-white mb-4 leading-tight group-hover:text-[#00F0FF] transition-colors uppercase tracking-tighter italic">
+                        {job.title}
+                      </h4>
+
+                      <div className="flex flex-wrap gap-4 text-[10px] font-black text-gray-500 uppercase tracking-widest mb-8">
+                         <div className="flex items-center gap-2"><MapPin className="w-3 h-3 text-[#00F0FF]" /> {job.location}</div>
+                         <div className="flex items-center gap-2"><Clock className="w-3 h-3 text-[#00F0FF]" /> {job.type}</div>
+                      </div>
+
+                      <p className="text-sm text-gray-400 font-medium leading-relaxed italic line-clamp-3 mb-8">
+                        {job.description}
+                      </p>
+                   </div>
+
+                   <div className="space-y-4">
+                      <button 
+                        onClick={() => setActiveJob(job)}
+                        className="w-full py-4 text-[11px] font-black uppercase border border-white/10 rounded-2xl text-gray-300 hover:text-white hover:border-white transition-all"
+                      >
+                         Ver Vacante Detallada
+                      </button>
+                      <Link 
+                        to={`/careers`}
+                        className="w-full flex items-center justify-center gap-2 py-4 bg-white text-black text-[11px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl"
+                      >
+                         Postularse con PDF <ArrowRight className="w-4 h-4" />
+                      </Link>
+                      <div className="text-center">
+                        <p className="text-[9px] font-black text-gray-600 uppercase tracking-widest mt-2">Ofrecida por RRHH Kaivincia</p>
+                      </div>
+                   </div>
+                </div>
+              </motion.div>
+            )) : (
+              <div className="w-full py-20 text-center bg-white/[0.02] rounded-[3rem] border border-white/5 border-dashed">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Sincronizando Nodos de Talento • No hay vacantes disponibles...</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
+
+      {/* Vacancy Detail Modal */}
+      <AnimatePresence>
+        {activeJob && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-black/90 backdrop-blur-3xl"
+          >
+             <motion.div 
+               initial={{ scale: 0.9, y: 20 }}
+               animate={{ scale: 1, y: 0 }}
+               exit={{ scale: 0.9, y: 20 }}
+               className="bg-[#0a0c10] border border-white/10 rounded-[4rem] max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col relative shadow-[0_0_100px_rgba(0,240,255,0.1)]"
+             >
+                <div className="p-10 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
+                   <div className="flex items-center gap-6 text-left">
+                      <div className="h-16 w-16 bg-gray-900 rounded-[2rem] flex items-center justify-center text-[#00F0FF] shadow-2xl">
+                         <UserPlus className="w-8 h-8" />
+                      </div>
+                      <div>
+                         <h3 className="text-3xl font-serif font-bold text-white uppercase italic tracking-tighter leading-none">{activeJob.title}</h3>
+                         <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-2">{activeJob.department} • RRHH Kaivincia</p>
+                      </div>
+                   </div>
+                   <button 
+                     onClick={() => setActiveJob(null)}
+                     className="p-4 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors"
+                   >
+                     <X className="w-6 h-6 text-white" />
+                   </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                      <div className="lg:col-span-2 space-y-10">
+                         <div>
+                            <h4 className="text-xs font-black text-[#00F0FF] uppercase tracking-[0.3em] mb-6">Misión Operativa</h4>
+                            <p className="text-lg text-gray-300 font-medium leading-relaxed italic">{activeJob.description}</p>
+                         </div>
+                         
+                         <div className="grid grid-cols-2 gap-8">
+                            <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
+                               <MapPin className="w-5 h-5 text-[#00F0FF] mb-3" />
+                               <h5 className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Ubicación</h5>
+                               <p className="text-sm text-gray-400 font-medium italic">{activeJob.location}</p>
+                            </div>
+                            <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
+                               <Briefcase className="w-5 h-5 text-[#00F0FF] mb-3" />
+                               <h5 className="text-[10px] font-black text-white uppercase tracking-widest mb-1">Tipo de Nodo</h5>
+                               <p className="text-sm text-gray-400 font-medium italic">{activeJob.type}</p>
+                            </div>
+                         </div>
+                      </div>
+
+                      <div className="space-y-8 bg-white/[0.02] p-8 rounded-[3rem] border border-white/5">
+                         <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center border-b border-white/5 pb-4">Protocolo de Aplicación</h4>
+                         
+                         <div className="space-y-6">
+                            {[
+                               { icon: FileText, label: 'CV en PDF Validado', color: 'text-blue-500' },
+                               { icon: Users, label: 'Perfil Professional', color: 'text-[#00F0FF]' },
+                               { icon: ShieldCheck, label: 'Filtro IA Gibbor', color: 'text-emerald-500' }
+                            ].map((step, i) => (
+                              <div key={i} className="flex items-center gap-4">
+                                 <div className={`h-10 w-10 bg-white/5 rounded-xl flex items-center justify-center ${step.color}`}>
+                                    <step.icon className="w-5 h-5" />
+                                 </div>
+                                 <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">{step.label}</span>
+                              </div>
+                            ))}
+                         </div>
+
+                         <div className="pt-6">
+                            <Link 
+                              to={`/apply?jobId=${activeJob.id}`}
+                              className="w-full h-16 bg-white text-black rounded-2xl flex items-center justify-center font-black text-xs uppercase tracking-widest hover:bg-[#00F0FF] hover:text-white transition-all shadow-xl"
+                            >
+                               Postularme Ahora
+                            </Link>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Footer />
 
