@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { collection, onSnapshot, query, where, doc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function UserPortal() {
   const { userData } = useOutletContext<{ userData: any }>();
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -40,11 +41,6 @@ export default function UserPortal() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !userData?.uid || !auth.currentUser) return;
-
-    if (!storage) {
-      alert("El servicio de almacenamiento no está disponible actualmente.");
-      return;
-    }
 
     setUploadingAvatar(true);
     try {
@@ -108,14 +104,6 @@ export default function UserPortal() {
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10"
       >
         <div className="flex items-center gap-6">
-          {/* Logo de la empresa */}
-          <img 
-            src="/logo.png" 
-            alt="Logo" 
-            className="h-16 w-auto object-contain hover:scale-105 transition-transform duration-300" 
-          />
-          
-          {/* Avatar del usuario */}
           <div className="relative group">
              {userData?.avatarUrl ? (
                <img src={userData.avatarUrl} alt={userData?.name} className="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-500/30" />
@@ -132,7 +120,6 @@ export default function UserPortal() {
              </button>
              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} />
           </div>
-          
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-4xl font-black text-white italic tracking-tighter uppercase leading-none">
@@ -361,7 +348,7 @@ export default function UserPortal() {
             </p>
             
             <button 
-              onClick={() => window.location.href = '/crm/tasks'}
+              onClick={() => navigate('/crm/tasks')}
               className="w-full bg-white text-black py-5 rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-emerald-500 transition-all text-[10px] italic shadow-2xl"
             >
               Open Global Protocol
