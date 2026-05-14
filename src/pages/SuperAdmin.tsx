@@ -16,6 +16,46 @@ export default function SuperAdmin() {
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('none');
+  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
+
+  const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+
+  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      const currentPerms = user.permissions || {};
+      const newPerms = { ...currentPerms, [module]: hasAccess };
+      
+      await updateDoc(doc(db, 'users', userId), { 
+        permissions: newPerms,
+        status: 'active' // Auto-activate if we are setting perms
+      });
+      
+      alert(`Permisos actualizados para el módulo: ${module}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+  const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
+
+  const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+
+  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+    try {
+      const user = users.find(u => u.id === userId);
+      const currentPerms = user.permissions || {};
+      const newPerms = { ...currentPerms, [module]: hasAccess };
+      
+      await updateDoc(doc(db, 'users', userId), { 
+        permissions: newPerms,
+        status: 'active' // Auto-activate if we are setting perms
+      });
+      
+      alert(`Permisos actualizados para el módulo: ${module}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -91,12 +131,20 @@ export default function SuperAdmin() {
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Gestión de accesos • Roles (RBAC) • Auditoría</p>
           </div>
         </div>
-        <button 
-          onClick={() => setIsInviteModalOpen(true)}
-          className="bg-[#00F0FF] text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black hover:text-[#00F0FF] transition-all shadow-xl flex items-center gap-2 group"
-        >
-          <UserPlus className="h-4 w-4" /> Invitar Nodo
-        </button>
+        <div className="flex items-center gap-4">
+          {pendingUsers.length > 0 && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-4 py-2 rounded-2xl animate-bounce">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">{pendingUsers.length} Pendientes</span>
+            </div>
+          )}
+          <button 
+            onClick={() => setIsInviteModalOpen(true)}
+            className="bg-[#00F0FF] text-black px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black hover:text-[#00F0FF] transition-all shadow-xl flex items-center gap-2 group"
+          >
+            <UserPlus className="h-4 w-4" /> Invitar Nodo
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex-1 flex flex-col">
@@ -226,8 +274,12 @@ export default function SuperAdmin() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <button title="Impersonar (Entrar como)" className="p-1 text-gray-400 hover:text-[#00F0FF] transition-colors">
-                              <Eye className="w-4 h-4" />
+                            <button 
+                              onClick={() => setSelectedUserForPerms(user)}
+                              title="Gestionar Permisos por Módulo" 
+                              className="p-2 bg-gray-50 text-gray-400 hover:text-[#00F0FF] hover:bg-[#00F0FF]/10 rounded-xl transition-all"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
                             </button>
                             <button title="Resetear Password" className="p-1 text-gray-400 hover:text-[#00F0FF] transition-colors">
                               <Lock className="w-4 h-4" />
@@ -423,6 +475,80 @@ export default function SuperAdmin() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Permission Management Modal */}
+      {selectedUserForPerms && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden border border-gray-100 italic">
+            <div className="p-8 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-4">
+                 <div className="h-12 w-12 bg-gray-900 rounded-2xl flex items-center justify-center shadow-xl">
+                    <ShieldCheck className="w-6 h-6 text-[#00F0FF]" />
+                 </div>
+                 <div>
+                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter">Gestionar Permisos</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Usuario: {selectedUserForPerms.email}</p>
+                 </div>
+              </div>
+              <button onClick={() => setSelectedUserForPerms(null)} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors">
+                <X className="w-6 h-6 text-gray-400" />
+              </button>
+            </div>
+            
+            <div className="p-8 grid grid-cols-2 gap-4">
+              {[
+                { id: 'crm', label: 'CRM & Pipeline', icon: Activity },
+                { id: 'recruitment', label: 'Reclutamiento (IA)', icon: UserPlus },
+                { id: 'accounting', label: 'Contabilidad & Pagos', icon: Globe },
+                { id: 'academy', label: 'Academia & Cursos', icon: CheckCircle2 },
+                { id: 'operations', label: 'Operaciones Internas', icon: ShieldAlert },
+                { id: 'strategy', label: 'Estrategia & Blog', icon: Globe },
+              ].map(module => {
+                const hasAccess = selectedUserForPerms.permissions?.[module.id];
+                return (
+                  <button 
+                    key={module.id}
+                    onClick={() => updateUserPermissions(selectedUserForPerms.id, module.id, !hasAccess)}
+                    className={`flex items-center justify-between p-5 rounded-2xl border transition-all text-left group ${
+                      hasAccess 
+                        ? 'bg-[#00F0FF]/5 border-[#00F0FF]/30 ring-1 ring-[#00F0FF]/10' 
+                        : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                       <module.icon className={`w-5 h-5 ${hasAccess ? 'text-[#00F0FF]' : 'text-gray-400'}`} />
+                       <span className={`text-[10px] font-black uppercase tracking-widest ${hasAccess ? 'text-gray-900' : 'text-gray-500'}`}>{module.label}</span>
+                    </div>
+                    {hasAccess ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <XCircle className="w-5 h-5 text-gray-300" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-8 bg-gray-50 border-t border-gray-100 flex justify-end gap-4">
+               <button 
+                onClick={() => setSelectedUserForPerms(null)}
+                className="px-8 py-3 bg-gray-200 text-gray-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-300 transition-all"
+               >
+                 Cerrar
+               </button>
+               <button 
+                onClick={async () => {
+                   await updateUserStatus(selectedUserForPerms.id, 'active');
+                   alert('Acceso Autorizado y Usuario Activado.');
+                   setSelectedUserForPerms(null);
+                }}
+                className="px-8 py-3 bg-gray-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] transition-all shadow-xl"
+               >
+                 Autorizar Acceso Total
+               </button>
+            </div>
           </div>
         </div>
       )}
