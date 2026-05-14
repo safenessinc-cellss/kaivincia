@@ -43,7 +43,10 @@ export default function Tasks() {
     const unsubTasks = onSnapshot(qTasks, (snapshot) => {
       setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'tasks');
+      setLoading(false);
+    });
 
     // Fetch Users for assignment
     const unsubUsers = onSnapshot(query(collection(db, 'users')), (snapshot) => {
@@ -194,8 +197,23 @@ export default function Tasks() {
 
   // Compute Notifications/Reminders
   const myTasks = tasks.filter(t => t.assignedTo === auth.currentUser?.uid && t.status !== 'completed');
-  const overdueTasks = myTasks.filter(t => isBefore(parseISO(t.dueDate), today));
-  const upcomingTasks = myTasks.filter(t => !isBefore(parseISO(t.dueDate), today) && isBefore(parseISO(t.dueDate), addDays(today, 3)));
+  const overdueTasks = myTasks.filter(t => {
+    if (!t.dueDate) return false;
+    try {
+      return isBefore(parseISO(t.dueDate), today);
+    } catch {
+      return false;
+    }
+  });
+  const upcomingTasks = myTasks.filter(t => {
+    if (!t.dueDate) return false;
+    try {
+      const date = parseISO(t.dueDate);
+      return !isBefore(date, today) && isBefore(date, addDays(today, 3));
+    } catch {
+      return false;
+    }
+  });
 
   if (loading) return <div className="p-8 text-center text-gray-500">Cargando tareas...</div>;
 
@@ -376,9 +394,9 @@ export default function Tasks() {
 
                         <div className="mt-4 flex flex-col gap-2">
                           <div className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
-                            task.status !== 'completed' && isBefore(parseISO(task.dueDate), today) ? 'text-red-500' : 'text-gray-400'
+                            task.status !== 'completed' && task.dueDate && isBefore(parseISO(task.dueDate), today) ? 'text-red-500' : 'text-gray-400'
                           }`}>
-                            <CalendarIcon className="w-3.5 h-3.5" /> VENCE: {format(parseISO(task.dueDate), 'dd/MM/yyyy')}
+                            <CalendarIcon className="w-3.5 h-3.5" /> VENCE: {task.dueDate ? format(parseISO(task.dueDate), 'dd/MM/yyyy') : 'SIN FECHA'}
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-[9px] font-black text-gray-400 uppercase tracking-tighter flex items-center gap-1">
