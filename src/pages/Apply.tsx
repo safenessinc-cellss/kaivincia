@@ -84,8 +84,8 @@ export default function Apply() {
 
   const analyzeResumeWithAI = async (resumeText: string, role: string) => {
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY is not defined. Please set it in Settings > Secrets.");
+      const apiKey = process.env.GEMINI_API_KEY || ((import.meta as any).env && (import.meta as any).env.VITE_GEMINI_API_KEY);
+      if (!apiKey || apiKey === "undefined") throw new Error("GEMINI_API_KEY is not defined. Please set it in Settings > Secrets in AI Studio.");
       const ai = new GoogleGenAI({ apiKey });
       
       const prompt = `
@@ -195,7 +195,7 @@ export default function Apply() {
             <ArrowLeft className="w-5 h-5" />
             <span>Volver</span>
           </button>
-          <img src={LOGO_FULL} alt="Kaivincia Corp" className="h-12 object-contain" referrerPolicy="no-referrer" />
+          <img src="/images/logo.png" alt="Kaivincia Logo" className="h-10 w-auto object-contain" />
           <div className="w-20" /> {/* Spacer to balance the logo */}
         </div>
         
