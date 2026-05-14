@@ -35,8 +35,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
-        // Stub para Gemini - evita errores de API Key
-        '@google/genai': path.resolve(__dirname, './src/lib/gemini-stub.ts'),
+        // ❌ ELIMINADO: '@google/genai': path.resolve(__dirname, './src/lib/gemini-stub.ts'),
       },
     },
   };
