@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, useNavigate } from 'react-router-dom';
 import { 
   collection, onSnapshot, addDoc, doc, updateDoc, query, orderBy, setDoc 
 } from 'firebase/firestore';
@@ -8,13 +8,14 @@ import {
   Receipt, FileText, Settings, DollarSign, AlertTriangle, 
   TrendingUp, Users, Plus, Download, Send, Activity,
   Calculator, PieChart, Sparkles, Loader2, X, Briefcase,
-  ArrowRight, Save, Zap, RefreshCw, CreditCard
+  ArrowRight, Save, Zap, RefreshCw, CreditCard, MapPin
 } from 'lucide-react';
 import { GoogleGenAI } from '@google/genai';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 export default function Billing() {
+  const navigate = useNavigate();
   const { userData } = useOutletContext<{ userData: any }>();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -278,6 +279,12 @@ export default function Billing() {
           <p className="text-sm text-gray-500 mt-1">Automatización, cotizaciones y control de cartera</p>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={() => navigate('/crm/cobranza')}
+            className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-2"
+          >
+            <MapPin className="h-4 w-4 text-purple-600" /> Cobranza GPS
+          </button>
           <button 
             onClick={handleBulkGenerateInvoices}
             disabled={isBulkLoading}
