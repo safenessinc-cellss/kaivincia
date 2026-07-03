@@ -1,63 +1,105 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   Send, Users, User, MessageSquare, Hash, Search, Sparkles, 
   Check, CheckCheck, Shield, ShieldAlert, ShieldCheck, 
   AlertCircle, Loader2, Bot, Info, Settings, UserCheck, 
   UserX, RefreshCw, Layers, ChevronRight, X, Sparkle, Layout,
-  UserPlus, CheckCircle, Mail, Phone, Activity, Clock
+  UserPlus, CheckCircle, Mail, Phone, Activity, Clock, 
+  Volume2, ShieldX, HelpCircle, ArrowRight, CornerDownRight,
+  Filter, Grid, List, CheckCircle2, Paperclip, MoreHorizontal, Smile, RotateCcw
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { GoogleGenAI } from '@google/genai';
+import { useGlobalContext } from '../contexts/GlobalContext';
+import { motion, AnimatePresence } from 'motion/react';
 
-type ChatFilter = 'all' | 'users' | 'clients' | 'private' | 'groups' | 'contacts';
+type ChatFilter = 'all' | 'groups' | 'clients' | 'private' | 'contacts';
+
+interface StandardMessage {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  type: 'groups' | 'clients' | 'private';
+  targetId: string | null;
+  createdAt: string;
+  isRead: boolean;
+  role: 'team' | 'customer';
+  priority?: 'high' | 'normal';
+}
+
+interface GroupChannel {
+  id: string;
+  name: string;
+  type: 'team' | 'group';
+  sentimentEmoji: string;
+  lastMessage: string;
+}
 
 export default function Chat() {
   const location = useLocation();
-  const [messages, setMessages] = useState<any[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [users, setUsers] = useState<Record<string, any>>({});
-  const [activeFilter, setActiveFilter] = useState<ChatFilter>('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
+  const { clients, users: globalUsers } = useGlobalContext();
+  const currentUserDoc = globalUsers.find(u => u.id === auth.currentUser?.uid) || null;
+
+  // Navigation and active item states
+  const [activeFilter, setActiveFilter] = useState<ChatFilter>('groups');
+  const [activeChannelId, setActiveChannelId] = useState<string>('general');
   const [activeClientId, setActiveClientId] = useState<string | null>(null);
   const [activePrivateUserId, setActivePrivateUserId] = useState<string | null>(null);
-  const [isEmbedded, setIsEmbedded] = useState(false);
+  
+  // Messages and Input states
+  const [messages, setMessages] = useState<any[]>([]);
+  const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Colleague filters
+  // Filters and searches
+  const [searchTerm, setSearchTerm] = useState('');
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
   const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
 
-  // Simulated typing engine state
+  // Interactive UI states
   const [isPeerTyping, setIsPeerTyping] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isSummarizing, setIsSummarizing] = useState(false);
 
-  // AI states (Sincronización IA)
+  // AI features (Sincronización IA)
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const [isGeneratingSuggestions, setIsGeneratingSuggestions] = useState(false);
   const [conversationSummary, setConversationSummary] = useState<string>('');
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
-  // Admin User Management state
+  // Administration panel states
   const [editingRole, setEditingRole] = useState('user');
   const [editingStatus, setEditingStatus] = useState('active');
   const [updateFeedback, setUpdateFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSavingUser, setIsSavingUser] = useState(false);
 
-  // UI state
-  const [showRightSidebar, setShowRightSidebar] = useState(true);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // Base corporate group channels
+  const baseChannels: GroupChannel[] = [
+    { id: 'general', name: 'Kaivincia Interno', type: 'team', sentimentEmoji: '🔥', lastMessage: 'Chat de equipo activo' },
+    { id: 'dev-ops', name: 'DevOps & Scaling', type: 'group', sentimentEmoji: '⚡', lastMessage: 'Infraestructura estable' }
+  ];
 
-  const userList = Object.entries(users).map(([id, data]) => ({ id, ...data }));
+  // Derive client list for sidebar
+  const clientChannels = clients.map(c => ({
+    id: c.id,
+    name: c.companyName || 'Cliente',
+    type: 'client' as const,
+    sentimentEmoji: c.healthScore > 80 ? '🤝' : c.healthScore < 50 ? '⚠️' : '✨',
+    lastMessage: 'Soporte CRM disponible'
+  }));
 
-  // Filter colleague list for sidebar and directory
-  const filteredUsers = userList.filter(u => {
-    // Hidden current user from colleague directory list if preferred, but let's show all except current user
-    if (u.id === auth.currentUser?.uid) return false; 
+  // Filter registered users list for the directory and direct messages
+  const filteredUsers = globalUsers.filter(u => {
+    if (u.id === auth.currentUser?.uid) return false; // Hide current user
     
-    // Name/Email Search
+    // Search
     if (userSearchTerm) {
       const term = userSearchTerm.toLowerCase();
       const nameMatch = u.name?.toLowerCase().includes(term);
@@ -65,90 +107,158 @@ export default function Chat() {
       if (!nameMatch && !emailMatch) return false;
     }
 
-    // Role Filter
-    if (userRoleFilter !== 'all') {
-      if (u.role !== userRoleFilter) return false;
-    }
+    // Role
+    if (userRoleFilter !== 'all' && u.role !== userRoleFilter) return false;
 
-    // Status Filter
-    if (userStatusFilter !== 'all') {
-      if (u.status !== userStatusFilter) return false;
-    }
+    // Status
+    if (userStatusFilter !== 'all' && u.status !== userStatusFilter) return false;
 
     return true;
   });
 
-  // Calculate unread count for a given user
-  const getUnreadCount = (userId: string) => {
-    return messages.filter(msg => 
-      msg.type === 'private' && 
-      msg.senderId === userId && 
-      msg.targetId === auth.currentUser?.uid && 
-      !msg.isRead
-    ).length;
-  };
-
+  // Load query params to route automatically
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const clientId = params.get('clientId') || location.state?.clientId;
-    const clientName = params.get('clientName') || location.state?.clientName;
-    const embedded = params.get('embedded') === 'true';
+    const viewParam = params.get('view');
+    const clientIdParam = params.get('clientId');
+    const clientNameParam = params.get('clientName');
 
-    setIsEmbedded(embedded);
-
-    if (clientId) {
+    if (viewParam === 'contacts') {
+      setActiveFilter('contacts');
+    } else if (clientIdParam) {
       setActiveFilter('clients');
-      setActiveClientId(clientId);
-      setSearchTerm(clientName || '');
+      setActiveClientId(clientIdParam);
+      setSearchTerm(clientNameParam || '');
     }
   }, [location]);
 
+  // Load chat messages in real-time
   useEffect(() => {
-    // Load users
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const usersMap: Record<string, any> = {};
-      snapshot.docs.forEach(doc => {
-        usersMap[doc.id] = doc.data();
-      });
-      setUsers(usersMap);
-    });
-
-    // Load messages
     const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
-    const unsubMessages = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, ...data };
+      });
+      setMessages(msgs);
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'chat_messages'));
+      }, 150);
+    }, (error) => {
+      console.error("Error fetching chat messages:", error);
+      handleFirestoreError(error, OperationType.GET, 'chat_messages');
+    });
 
-    return () => {
-      unsubUsers();
-      unsubMessages();
-    };
+    return () => unsubscribe();
   }, []);
 
-  // Update selected colleague's edit states
+  // Update selected colleague's administration states
   useEffect(() => {
-    if (activePrivateUserId && users[activePrivateUserId]) {
-      setEditingRole(users[activePrivateUserId].role || 'user');
-      setEditingStatus(users[activePrivateUserId].status || 'active');
-      setConversationSummary('');
-      setAiSuggestions([]);
+    if (activePrivateUserId) {
+      const peer = globalUsers.find(u => u.id === activePrivateUserId);
+      if (peer) {
+        setEditingRole(peer.role || 'user');
+        setEditingStatus(peer.status || 'active');
+        setConversationSummary('');
+        setAiSuggestions([]);
+      }
     }
-  }, [activePrivateUserId, users]);
+  }, [activePrivateUserId, globalUsers]);
 
-  // Mark incoming private messages as read when chat is open
+  // Standardize messages array to support both direct chat and client/group collections structures
+  const parsedMessages: StandardMessage[] = messages.map(msg => {
+    const senderId = msg.senderId || (msg.role === 'customer' ? msg.channelId : 'unknown');
+    const text = msg.text || '';
+    
+    // Deduce type
+    let type = msg.type;
+    if (!type) {
+      if (msg.channelId === 'general' || msg.channelId === 'dev-ops') {
+        type = 'groups';
+      } else if (msg.channelId) {
+        type = 'clients';
+      } else {
+        type = 'private';
+      }
+    }
+
+    // Deduce target
+    const targetId = msg.targetId || msg.channelId || null;
+
+    // Deduce timestamp
+    let createdAt = msg.createdAt;
+    if (!createdAt && msg.timestamp) {
+      try {
+        createdAt = new Date(msg.timestamp.toMillis()).toISOString();
+      } catch (e) {
+        createdAt = new Date().toISOString();
+      }
+    }
+    if (!createdAt) {
+      createdAt = new Date().toISOString();
+    }
+
+    const sender = globalUsers.find(u => u.id === senderId);
+    const senderName = msg.sender || sender?.name || sender?.email?.split('@')[0] || 'Colega';
+
+    // NLP Automated Priority Classifications
+    const isUrgent = text.toLowerCase().includes('urgente') || text.toLowerCase().includes('urgency') || text.toLowerCase().includes('asunto prioritario') || text.toLowerCase().includes('cuidado');
+
+    return {
+      id: msg.id,
+      text,
+      senderId,
+      senderName,
+      type,
+      targetId,
+      createdAt,
+      isRead: msg.isRead ?? true,
+      role: msg.role || (senderId === auth.currentUser?.uid ? 'team' : 'customer'),
+      priority: isUrgent ? 'high' as const : 'normal' as const
+    };
+  });
+
+  // Filtering messages based on selected channel/private-peer/client
+  const filteredMessages = parsedMessages.filter(msg => {
+    // Search filter across text
+    if (searchTerm && !msg.text.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false;
+    }
+
+    if (activeFilter === 'groups') {
+      return msg.type === 'groups' && msg.targetId === activeChannelId;
+    }
+
+    if (activeFilter === 'clients') {
+      return msg.type === 'clients' && msg.targetId === activeClientId;
+    }
+
+    if (activeFilter === 'private') {
+      if (!activePrivateUserId) return false;
+      const myUid = auth.currentUser?.uid;
+      return (
+        msg.type === 'private' && (
+          (msg.senderId === myUid && msg.targetId === activePrivateUserId) ||
+          (msg.senderId === activePrivateUserId && msg.targetId === myUid)
+        )
+      );
+    }
+
+    return true; // fall through
+  });
+
+  // Mark direct messages as read when private chat is open
   useEffect(() => {
     if (activeFilter === 'private' && activePrivateUserId) {
-      const unreadMsgs = messages.filter(msg => 
+      const myUid = auth.currentUser?.uid;
+      const unreadPrivateMsgs = messages.filter(msg => 
         msg.type === 'private' && 
         msg.senderId === activePrivateUserId && 
-        msg.targetId === auth.currentUser?.uid && 
+        msg.targetId === myUid && 
         !msg.isRead
       );
 
-      unreadMsgs.forEach(async (msg) => {
+      unreadPrivateMsgs.forEach(async (msg) => {
         try {
           const docRef = doc(db, 'chat_messages', msg.id);
           await updateDoc(docRef, {
@@ -156,67 +266,93 @@ export default function Chat() {
             readAt: new Date().toISOString()
           });
         } catch (err) {
-          console.error("Error marking message as read:", err);
+          console.error("Error marking direct message as read:", err);
         }
       });
     }
   }, [activeFilter, activePrivateUserId, messages]);
 
-  // Simulate peer typing
+  // Calculate unread count for direct message threads
+  const getUnreadCount = (userId: string) => {
+    return parsedMessages.filter(msg => 
+      msg.type === 'private' && 
+      msg.senderId === userId && 
+      msg.targetId === auth.currentUser?.uid && 
+      !msg.isRead
+    ).length;
+  };
+
+  // Simulate peer writing indicator
   useEffect(() => {
     if (activeFilter === 'private' && activePrivateUserId) {
       setIsPeerTyping(true);
       const timer = setTimeout(() => {
         setIsPeerTyping(false);
-      }, 1800);
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [activePrivateUserId, activeFilter]);
 
-  // Auto-trigger typing simulation after sending a message
-  const triggerPeerTypingSimulation = () => {
+  const triggerPeerTypingResponse = () => {
     setTimeout(() => {
       setIsPeerTyping(true);
       setTimeout(() => {
         setIsPeerTyping(false);
-      }, 2500);
-    }, 1500);
+      }, 2000);
+    }, 1200);
   };
 
+  // Send message controller
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
 
-    try {
-      const type = activeFilter === 'all' ? 'groups' : activeFilter;
-      let targetId = null;
+    const textPayload = newMessage.trim();
+    setNewMessage(''); // Clear immediately for snappy UI
 
-      if (activeFilter === 'clients') {
+    try {
+      const myUid = auth.currentUser?.uid || 'unknown';
+      let targetId: string | null = null;
+      let type: 'groups' | 'clients' | 'private' = 'groups';
+      let channelId: string | null = null;
+
+      if (activeFilter === 'groups') {
+        type = 'groups';
+        targetId = activeChannelId;
+        channelId = activeChannelId;
+      } else if (activeFilter === 'clients') {
+        type = 'clients';
         targetId = activeClientId;
+        channelId = activeClientId;
       } else if (activeFilter === 'private') {
+        type = 'private';
         targetId = activePrivateUserId;
       }
 
       await addDoc(collection(db, 'chat_messages'), {
-        text: newMessage,
-        senderId: auth.currentUser?.uid,
+        text: textPayload,
+        senderId: myUid,
+        sender: currentUserDoc?.name || auth.currentUser?.email || 'Usuario',
+        role: currentUserDoc?.role === 'customer' ? 'customer' : 'team',
         type,
         targetId,
+        channelId,
         isRead: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        timestamp: serverTimestamp()
       });
-      setNewMessage('');
 
-      // If chatting privately, trigger a realistic peer response simulation
       if (activeFilter === 'private') {
-        triggerPeerTypingSimulation();
+        triggerPeerTypingResponse();
       }
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'chat_messages');
+    } catch (err) {
+      console.error("Error sending message to Firestore:", err);
+      setNewMessage(textPayload); // Restore on error
+      handleFirestoreError(err, OperationType.CREATE, 'chat_messages');
     }
   };
 
-  // Sincronización IA - Generate Smart Replies
+  // Sincronización IA - Generate Smart Suggestions
   const handleGenerateAiSuggestions = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSuggestions(true);
@@ -226,24 +362,24 @@ export default function Chat() {
       if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
       const ai = new GoogleGenAI({ apiKey });
 
-      // Build context from the last 6 messages
-      const chatContext = filteredMessages.slice(-6).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : (users[m.senderId]?.name || 'Colega');
+      const peer = globalUsers.find(u => u.id === activePrivateUserId);
+      const recentContext = filteredMessages.slice(-6).map(m => {
+        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
         return `${name}: ${m.text}`;
       }).join('\n');
 
       const prompt = `
-        Actúa como un asistente de redacción empresarial altamente calificado para Kaivincia Corp.
-        Basándote en los últimos mensajes del siguiente chat privado de Slack corporativo, genera EXACTAMENTE 3 opciones de respuestas breves, ejecutivas, amables y profesionales que "Yo" podría responder.
+        Actúa como un asistente ejecutivo premium de redactores para Kaivincia Corp.
+        Basándote en los últimos mensajes de este chat corporativo privado con ${peer?.name || 'Colega'}, genera EXACTAMENTE 3 respuestas de trabajo ejecutivas, eficientes y cordiales que "Yo" podría responder de inmediato.
         
         Conversación reciente:
-        ${chatContext || "(No hay mensajes recientes en el chat. Sugiere saludos iniciales o invitaciones cordiales de trabajo.)"}
+        ${recentContext || "(No hay mensajes recientes. Sugiere un saludo corporativo cortés para iniciar el contacto.)"}
 
-        Devuelve un objeto JSON estrictamente formateado de la siguiente manera:
+        Devuelve únicamente un objeto JSON estructurado de la siguiente manera:
         {
-          "suggestions": ["Sugerencia corta 1", "Sugerencia corta 2", "Sugerencia corta 3"]
+          "suggestions": ["Sugerencia 1", "Sugerencia 2", "Sugerencia 3"]
         }
-        Asegúrate de que cada sugerencia tenga un tono corporativo óptimo, esté escrita en español y sea directa (menos de 12 palabras).
+        Asegúrate de que cada sugerencia tenga un tono profesional óptimo en español y sea directa (menos de 10 palabras).
       `;
 
       const response = await ai.models.generateContent({
@@ -262,19 +398,19 @@ export default function Chat() {
         }
       }
     } catch (err) {
-      console.error("AI Smart Replies failed:", err);
-      // Fallback answers in case of errors
+      console.error("Gemini smart suggestions failed:", err);
+      // Fallback
       setAiSuggestions([
-        "Entendido. Lo reviso inmediatamente y te aviso.",
-        "Excelente, quedo a la espera de más detalles.",
-        "Gracias por el reporte. ¿Te parece si agendamos una llamada rápida?"
+        "Entendido. Lo reviso de inmediato y te confirmo.",
+        "Excelente. Quedo atento a las directrices de la CEO.",
+        "Entendido. ¿Te parece si agendamos una llamada rápida en Teams?"
       ]);
     } finally {
       setIsGeneratingSuggestions(false);
     }
   };
 
-  // Sincronización IA - Generate Executive Summary
+  // Sincronización IA - Generate structured executive summary
   const handleGenerateSummary = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSummary(true);
@@ -284,22 +420,22 @@ export default function Chat() {
       if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
       const ai = new GoogleGenAI({ apiKey });
 
-      // Build context from last 12 messages
+      const peer = globalUsers.find(u => u.id === activePrivateUserId);
       const chatContext = filteredMessages.slice(-12).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : (users[m.senderId]?.name || 'Colega');
+        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
         return `${name}: ${m.text}`;
       }).join('\n');
 
       const prompt = `
-        Analiza los siguientes mensajes de chat corporativo entre un miembro del equipo y yo.
-        Genera un informe analítico ejecutivo y un resumen de acuerdos en un formato de viñetas estructurado, claro y directo en español.
+        Analiza los siguientes mensajes de chat corporativo confidencial de Kaivincia Corp con ${peer?.name || 'Colega'}.
+        Genera un informe analítico ejecutivo y un resumen estructurado con viñetas en español.
         Enfócate en:
-        1. Resumen de lo discutido (máx. 2 líneas).
-        2. Tareas o compromisos pendientes asignados a cada uno.
-        3. Sentimiento o tono detectado de la conversación.
+        1. Resumen de temas discutidos (máximo 2 líneas).
+        2. Tareas o compromisos pendientes acordados.
+        3. Tono analítico o sentimiento general detectado.
         
-        Conversación:
-        ${chatContext || "No hay mensajes suficientes para generar un resumen."}
+        Conversación reciente:
+        ${chatContext || "No hay mensajes suficientes en el chat para analizar."}
       `;
 
       const response = await ai.models.generateContent({
@@ -310,17 +446,17 @@ export default function Chat() {
       if (response.text) {
         setConversationSummary(response.text);
       } else {
-        setConversationSummary("La IA no logró extraer suficiente contexto.");
+        setConversationSummary("La IA no logró extraer suficiente contexto de esta conversación.");
       }
     } catch (err) {
-      console.error("AI Summary failed:", err);
-      setConversationSummary("Error al contactar con el Copilot de Inteligencia de Kaivincia.");
+      console.error("Gemini summary failed:", err);
+      setConversationSummary("Error de Conectividad: No se pudo contactar con el Copilot IA de Kaivincia.");
     } finally {
       setIsGeneratingSummary(false);
     }
   };
 
-  // Admin User Management - Save changes
+  // Admin User Management - Save changes to Firestore
   const handleSaveUserManagement = async () => {
     if (!activePrivateUserId) return;
     setIsSavingUser(true);
@@ -332,197 +468,195 @@ export default function Chat() {
         status: editingStatus
       });
 
-      setUpdateFeedback({ type: 'success', text: 'Permisos y estado actualizados en la base de datos Firestore' });
+      setUpdateFeedback({ type: 'success', text: 'Permisos de acceso y rol actualizados con éxito en la base de datos' });
       setTimeout(() => setUpdateFeedback(null), 4000);
     } catch (err) {
-      console.error(err);
-      setUpdateFeedback({ type: 'error', text: 'Error de Seguridad: Permiso denegado para editar este perfil' });
+      console.error("Error saving user modifications:", err);
+      setUpdateFeedback({ type: 'error', text: 'Error de Permisos: No tienes autorización para modificar perfiles' });
       setTimeout(() => setUpdateFeedback(null), 4000);
     } finally {
       setIsSavingUser(false);
     }
   };
 
-  const filteredMessages = messages.filter(msg => {
-    // 1. Private messages strictly filtered for private tab and active user
-    if (msg.type === 'private') {
-      if (activeFilter !== 'private') return false;
-      if (!activePrivateUserId) return false;
-      const myUid = auth.currentUser?.uid;
-      return (
-        (msg.senderId === myUid && msg.targetId === activePrivateUserId) ||
-        (msg.senderId === activePrivateUserId && msg.targetId === myUid)
-      );
-    }
-
-    // 2. Client messages strictly filtered for clients tab and active client
-    if (msg.type === 'clients') {
-      if (activeFilter !== 'clients') return false;
-      if (activeClientId) {
-        return msg.targetId === activeClientId;
-      }
-      return true;
-    }
-
-    // 3. For other filters
-    if (activeFilter !== 'all' && msg.type !== activeFilter) return false;
-
-    // 4. If search term is active, filter text
-    if (searchTerm) {
-      return msg.text.toLowerCase().includes(searchTerm.toLowerCase());
-    }
-    return true;
-  });
-
-  const activePeer = users[activePrivateUserId || ''] || null;
-  const currentUserDoc = users[auth.currentUser?.uid || ''] || null;
+  // Helpers to check current peer status
+  const activePeer = activePrivateUserId ? globalUsers.find(u => u.id === activePrivateUserId) : null;
   const isCurrentUserAdmin = currentUserDoc?.role === 'admin' || currentUserDoc?.role === 'superadmin' || auth.currentUser?.email === 'safeness.c.a@gmail.com';
 
-  // Calculate real-time statistics of platform users
-  const totalUsersCount = userList.length;
-  const onlineUsersCount = userList.filter(u => u.status === 'active').length;
-  const adminUsersCount = userList.filter(u => u.role === 'admin' || u.role === 'superadmin').length;
+  // Statistics calculation
+  const totalUsersCount = globalUsers.length;
+  const onlineUsersCount = globalUsers.filter(u => u.status === 'active').length;
+  const adminUsersCount = globalUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length;
 
   return (
-    <div id="chat-layout-container" className={`h-full flex flex-col md:flex-row bg-slate-50 overflow-hidden ${isEmbedded ? '' : 'rounded-3xl shadow-2xl border border-slate-200'}`}>
+    <div id="neural-chat-main-container" className="h-full min-h-screen bg-[#0a0a0a] flex flex-col md:flex-row overflow-hidden font-sans text-white">
       
-      {/* Sidebar / Filters (Column 1) */}
-      {!isEmbedded && (
-        <div id="chat-sidebar" className="w-full md:w-80 border-r border-slate-200 bg-white flex flex-col flex-shrink-0">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1.5 bg-[#00F0FF]/15 rounded-lg text-black">
-                <Layout className="w-5 h-5 text-slate-800" />
-              </span>
-              <h2 className="text-md font-black tracking-tight text-slate-900">Comunicaciones</h2>
-            </div>
-            <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-              CEO Mode
-            </span>
-          </div>
-
-          <div className="p-4 border-b border-slate-100 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <input
-                id="chat-search-input"
-                type="text"
-                placeholder="Buscar mensajes..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl focus:bg-white focus:ring-2 focus:ring-[#00F0FF]/40 focus:border-[#00F0FF] outline-none transition-all"
-              />
-            </div>
-
-            {/* General Filter Buttons */}
-            <div className="grid grid-cols-3 gap-1.5">
-              <button 
-                id="chat-filter-all"
-                onClick={() => setActiveFilter('all')}
-                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
-              >
-                <MessageSquare className="w-3 h-3" /> Todos
-              </button>
-              <button 
-                id="chat-filter-groups"
-                onClick={() => setActiveFilter('groups')}
-                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'groups' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
-              >
-                <Hash className="w-3 h-3" /> General
-              </button>
-              <button 
-                id="chat-filter-contacts"
-                onClick={() => {
-                  setActiveFilter('contacts');
-                  setActivePrivateUserId(null);
-                }}
-                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'contacts' ? 'bg-slate-900 text-white shadow-sm border border-slate-900' : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/50'}`}
-              >
-                <Users className="w-3 h-3 text-[#00F0FF]" /> Contactos
-              </button>
+      {/* COLUMN 1: LEFT SIDEBAR (CHANNELS & ACTIVE LISTS) */}
+      <div id="neural-chat-sidebar" className="w-full md:w-80 border-r border-white/5 flex flex-col bg-[#050505] shadow-2xl z-20 shrink-0">
+        
+        {/* Sidebar Header */}
+        <div className="p-6 border-b border-white/5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-white uppercase tracking-tighter italic flex items-center gap-2">
+              Command Center
+            </h2>
+            <div className="flex items-center gap-1 bg-[#00F0FF]/10 text-[#00F0FF] text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-lg">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+              Sincronización IA
             </div>
           </div>
+          
+          {/* Main search bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <input 
+              type="text" 
+              placeholder="Buscar canal, cliente o mensaje..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-xs text-gray-300 focus:outline-none focus:border-[#00F0FF]/50 transition-all font-medium"
+            />
+          </div>
+        </div>
 
-          {/* Direct Colleagues Section (User Management & Messaging) */}
-          <div className="flex-1 overflow-y-auto flex flex-col min-h-0">
-            <div className="p-4 border-b border-slate-100 bg-slate-50/40">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Canales de Equipo</span>
-                <span className="bg-slate-200/60 text-slate-700 text-[9px] font-black px-1.5 py-0.5 rounded">
-                  {filteredUsers.length} COLEGAS
-                </span>
-              </div>
-
-              {/* Colleague Search and Role Filters */}
-              <div className="space-y-1.5">
-                <input
-                  id="colleague-search-input"
-                  type="text"
-                  placeholder="Filtrar por nombre o email..."
-                  value={userSearchTerm}
-                  onChange={(e) => setUserSearchTerm(e.target.value)}
-                  className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
-                />
-                
-                <div className="grid grid-cols-2 gap-1">
-                  <select
-                    id="colleague-role-select"
-                    value={userRoleFilter}
-                    onChange={(e) => setUserRoleFilter(e.target.value)}
-                    className="px-1 py-1 text-[9px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none text-slate-600 font-bold"
-                  >
-                    <option value="all">Rol: Todos</option>
-                    <option value="superadmin">SuperAdmin</option>
-                    <option value="admin">Admin</option>
-                    <option value="manager">Manager</option>
-                    <option value="user">User</option>
-                  </select>
-
-                  <select
-                    id="colleague-status-select"
-                    value={userStatusFilter}
-                    onChange={(e) => setUserStatusFilter(e.target.value)}
-                    className="px-1 py-1 text-[9px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none text-slate-600 font-bold"
-                  >
-                    <option value="all">Estatus: Todos</option>
-                    <option value="active">Activos</option>
-                    <option value="pending">Pendientes</option>
-                    <option value="suspended">Bloqueados</option>
-                  </select>
-                </div>
-              </div>
+        {/* Navigation Tabs (Chats vs Users Directory) */}
+        <div className="px-4 py-1 flex gap-1 bg-white/5 rounded-2xl mx-4 mb-4">
+          <button 
+            onClick={() => {
+              setActiveFilter('groups');
+              setActiveChannelId('general');
+            }}
+            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeFilter !== 'contacts' ? 'bg-[#00F0FF] text-black shadow-lg shadow-[#00F0FF]/15' : 'text-gray-500 hover:text-white'
+            }`}
+          >
+            <div className="flex flex-col items-center">
+              <MessageSquare className="w-4 h-4 mb-0.5" />
+              Chat
             </div>
+          </button>
+          <button 
+            onClick={() => setActiveFilter('contacts')}
+            className={`flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+              activeFilter === 'contacts' ? 'bg-[#00F0FF] text-black shadow-lg shadow-[#00F0FF]/15' : 'text-gray-500 hover:text-white'
+            }`}
+          >
+            <div className="flex flex-col items-center">
+              <Users className="w-4 h-4 mb-0.5" />
+              Miembros
+            </div>
+          </button>
+        </div>
 
-            {/* List of Colleagues with Unread Notifications Badges */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              <button 
-                id="chat-filter-clients"
-                onClick={() => setActiveFilter('clients')}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeFilter === 'clients' ? 'bg-[#00F0FF] text-black shadow-sm font-black' : 'text-slate-700 hover:bg-slate-100'}`}
-              >
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  <span>Clientes Kaivincia (CRM)</span>
-                </div>
-                <span className="bg-white/70 px-1.5 py-0.5 rounded text-[10px]">CRM Link</span>
-              </button>
-
-              <div className="pt-2">
-                <div className="flex items-center justify-between px-3 mb-1.5">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista de Contactos</p>
-                  <button 
-                    onClick={() => setActiveFilter('contacts')}
-                    className="text-[9px] text-[#00F0FF] hover:underline font-bold uppercase tracking-wider"
-                  >
-                    Ver Directorio
-                  </button>
+        {/* Sidebar Scrollable Channels List */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+          {activeFilter !== 'contacts' ? (
+            <>
+              {/* Category A: Team Group Channels */}
+              <div>
+                <div className="flex items-center justify-between px-3 mb-3">
+                  <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Canales de Equipo</h3>
+                  <span className="bg-white/5 text-gray-400 text-[8px] font-black px-1.5 py-0.5 rounded">
+                    {baseChannels.length}
+                  </span>
                 </div>
                 <div className="space-y-0.5">
+                  {baseChannels.map(channel => {
+                    const isSelected = activeFilter === 'groups' && activeChannelId === channel.id;
+                    return (
+                      <button
+                        key={channel.id}
+                        onClick={() => {
+                          setActiveFilter('groups');
+                          setActiveChannelId(channel.id);
+                        }}
+                        className={`w-full group px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 text-left ${
+                          isSelected 
+                            ? 'bg-gradient-to-r from-[#00F0FF]/15 to-transparent border-l-2 border-[#00F0FF] text-white' 
+                            : 'hover:bg-white/5 text-gray-400'
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 border border-white/5 transition-transform group-hover:scale-105 ${
+                          isSelected ? 'bg-blue-500/15 text-blue-400' : 'bg-white/5 text-gray-500'
+                        }`}>
+                          <Hash className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                              {channel.name}
+                            </span>
+                            <span className="text-xs">{channel.sentimentEmoji}</span>
+                          </div>
+                          <p className="text-[9px] text-gray-600 truncate font-medium">{channel.lastMessage}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Category B: Clients Channels */}
+              <div>
+                <div className="flex items-center justify-between px-3 mb-3">
+                  <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Clientes CRM</h3>
+                  <span className="bg-white/5 text-gray-400 text-[8px] font-black px-1.5 py-0.5 rounded">
+                    {clientChannels.length}
+                  </span>
+                </div>
+                <div className="space-y-0.5 max-h-40 overflow-y-auto scrollbar-thin">
+                  {clientChannels.map(client => {
+                    const isSelected = activeFilter === 'clients' && activeClientId === client.id;
+                    return (
+                      <button
+                        key={client.id}
+                        onClick={() => {
+                          setActiveFilter('clients');
+                          setActiveClientId(client.id);
+                        }}
+                        className={`w-full group px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 text-left ${
+                          isSelected 
+                            ? 'bg-gradient-to-r from-[#00F0FF]/15 to-transparent border-l-2 border-[#00F0FF] text-white' 
+                            : 'hover:bg-white/5 text-gray-400'
+                        }`}
+                      >
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 border border-white/5 transition-transform group-hover:scale-105 ${
+                          isSelected ? 'bg-[#00F0FF]/15 text-[#00F0FF]' : 'bg-white/5 text-gray-500'
+                        }`}>
+                          <User className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className={`text-xs font-bold truncate ${isSelected ? 'text-white' : 'text-gray-400'}`}>
+                              {client.name}
+                            </span>
+                            <span className="text-xs">{client.sentimentEmoji}</span>
+                          </div>
+                          <p className="text-[9px] text-gray-600 truncate font-medium">{client.lastMessage}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {clientChannels.length === 0 && (
+                    <p className="text-[10px] text-gray-600 italic px-3">No hay clientes sincronizados</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Category C: Private DM Threads */}
+              <div>
+                <div className="flex items-center justify-between px-3 mb-3">
+                  <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Mensajes Directos</h3>
+                  <span className="bg-[#00F0FF]/10 text-[#00F0FF] text-[8px] font-black px-1.5 py-0.5 rounded">
+                    {filteredUsers.length} COLEGAS
+                  </span>
+                </div>
+                <div className="space-y-0.5 max-h-56 overflow-y-auto scrollbar-thin">
                   {filteredUsers.map(u => {
                     const isSelected = activeFilter === 'private' && activePrivateUserId === u.id;
                     const unreadCount = getUnreadCount(u.id);
                     const isOnline = u.status === 'active';
-                    
+
                     return (
                       <button
                         key={u.id}
@@ -530,372 +664,381 @@ export default function Chat() {
                           setActiveFilter('private');
                           setActivePrivateUserId(u.id);
                         }}
-                        className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all group ${
+                        className={`w-full group px-3 py-2.5 rounded-xl flex items-center gap-3 transition-all duration-200 text-left ${
                           isSelected 
-                            ? 'bg-slate-900 text-white shadow-lg' 
-                            : 'text-slate-600 hover:bg-slate-100'
+                            ? 'bg-gradient-to-r from-[#A855F7]/15 to-transparent border-l-2 border-[#A855F7] text-white' 
+                            : 'hover:bg-white/5 text-gray-400'
                         }`}
                       >
-                        <div className="flex items-center gap-3 truncate min-w-0">
-                          <div className="relative flex-shrink-0">
-                            <div className={`h-8 w-8 rounded-xl font-bold text-xs flex items-center justify-center transition-transform group-hover:scale-105 ${
-                              isSelected ? 'bg-[#00F0FF] text-black' : 'bg-slate-100 text-slate-800'
-                            }`}>
-                              {u.name?.charAt(0).toUpperCase() || u.email?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                            <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 ${isSelected ? 'border-slate-900' : 'border-white'} ${
-                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
-                            }`} />
+                        <div className="relative shrink-0">
+                          <div className={`h-8 w-8 rounded-lg font-bold text-xs flex items-center justify-center transition-transform group-hover:scale-105 ${
+                            isSelected ? 'bg-[#A855F7] text-white' : 'bg-white/5 text-gray-300'
+                          }`}>
+                            {u.name?.charAt(0).toUpperCase() || u.email?.charAt(0).toUpperCase() || '?'}
                           </div>
-
-                          <div className="truncate">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`text-xs font-bold block truncate ${isSelected ? 'text-white' : 'text-slate-950'}`}>
-                                {u.name || u.email}
-                              </span>
-                            </div>
-                            <span className={`text-[9px] uppercase tracking-wider block font-semibold ${
-                              isSelected ? 'text-[#00F0FF]' : 'text-slate-400'
-                            }`}>
-                              {u.role || 'user'} • {u.status || 'active'}
-                            </span>
-                          </div>
+                          <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#050505] ${
+                            isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
+                          }`} />
                         </div>
 
-                        {/* Unread Message Notification Badge */}
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {unreadCount > 0 && (
-                            <span className="bg-rose-500 text-white text-[10px] font-black h-5 min-w-5 px-1.5 rounded-full flex items-center justify-center animate-bounce shadow-md">
-                              {unreadCount}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className={`text-xs font-bold truncate block ${isSelected ? 'text-white' : 'text-gray-300'}`}>
+                              {u.name || u.email}
                             </span>
-                          )}
-                          <ChevronRight className={`w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                            {unreadCount > 0 && (
+                              <span className="bg-rose-500 text-white text-[8px] font-black h-4.5 min-w-[18px] px-1 rounded-full flex items-center justify-center animate-bounce">
+                                {unreadCount}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[9px] text-gray-600 truncate uppercase font-bold tracking-wider">
+                            {u.role || 'user'} • {u.status || 'active'}
+                          </p>
                         </div>
                       </button>
                     );
                   })}
-
-                  {filteredUsers.length === 0 && (
-                    <div className="p-4 text-center">
-                      <p className="text-xs text-slate-400 italic">No se encontraron colegas</p>
-                    </div>
-                  )}
                 </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-2">Búsqueda Rápida</h3>
+              <input
+                type="text"
+                placeholder="Filtrar miembros en tiempo real..."
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:border-[#00F0FF]/50"
+              />
+              
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest block">Filtrar por Rol</label>
+                <select
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-gray-300 font-bold focus:outline-none"
+                >
+                  <option value="all">Todos los Roles</option>
+                  <option value="superadmin">SuperAdmin</option>
+                  <option value="admin">Administrador</option>
+                  <option value="manager">Manager</option>
+                  <option value="user">Especialista</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest block">Filtrar por Estado</label>
+                <select
+                  value={userStatusFilter}
+                  onChange={(e) => setUserStatusFilter(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-gray-300 font-bold focus:outline-none"
+                >
+                  <option value="all">Todos los Estados</option>
+                  <option value="active">Activo / Disponible</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="suspended">Bloqueado</option>
+                </select>
               </div>
             </div>
+          )}
+        </div>
 
-            {/* Logged in User Profile Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 mt-auto flex items-center justify-between col-span-1">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="h-8 w-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-                  {currentUserDoc?.name?.charAt(0).toUpperCase() || auth.currentUser?.email?.charAt(0).toUpperCase() || 'M'}
-                </div>
-                <div className="truncate min-w-0">
-                  <p className="text-xs font-bold text-slate-900 truncate">{currentUserDoc?.name || auth.currentUser?.email}</p>
-                  <p className="text-[9px] uppercase font-black tracking-wider text-slate-400 truncate">{currentUserDoc?.role || 'admin'}</p>
-                </div>
-              </div>
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+        {/* Sidebar Footer Logged-in Profile */}
+        <div className="p-4 border-t border-white/5 bg-[#111] flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-[#00F0FF] to-yellow-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-lg shadow-black">
+              {currentUserDoc?.name?.charAt(0).toUpperCase() || auth.currentUser?.email?.charAt(0).toUpperCase() || 'U'}
+            </div>
+            <div className="truncate">
+              <p className="text-xs font-black text-white truncate leading-tight">{currentUserDoc?.name || auth.currentUser?.email}</p>
+              <p className="text-[9px] uppercase font-black tracking-wider text-gray-500">{currentUserDoc?.role || 'user'}</p>
             </div>
           </div>
+          <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
         </div>
-      )}
 
-      {/* Main Chat / Directory Area (Column 2) */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white">
+      </div>
+
+      {/* COLUMN 2: CENTER WORKSPACE */}
+      <div className="flex-1 flex flex-col bg-[#080808] relative min-w-0">
         
-        {/* CASE A: Active Filter is CONTACTS DIRECTORY */}
+        {/* CASE A: MEMBERS / USERS MANAGEMENT DIRECTORY DIRECT */}
         {activeFilter === 'contacts' ? (
-          <div className="flex-1 flex flex-col overflow-y-auto bg-slate-50/40 p-6">
-            {/* Header statistics block */}
-            <div className="mb-6 bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl border border-slate-800">
-              <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 h-32 w-32 bg-[#00F0FF]/10 rounded-full blur-2xl" />
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-[#00F0FF] mb-2">
-                  <Users className="w-5 h-5 animate-pulse" />
-                  <span className="text-xs font-black uppercase tracking-widest">Directorio de la Plataforma Kaivincia</span>
+          <div className="flex-1 flex flex-col overflow-y-auto p-6 sm:p-8 custom-scrollbar">
+            
+            {/* Executive statistics dashboard header */}
+            <div className="mb-8 bg-gradient-to-r from-zinc-950 via-zinc-900 to-black border border-white/5 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
+              <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 h-36 w-36 bg-[#00F0FF]/5 rounded-full blur-2xl" />
+              <div className="absolute bottom-0 left-1/3 h-20 w-20 bg-purple-500/5 rounded-full blur-2xl" />
+              
+              <div className="relative z-10 space-y-4">
+                <div className="flex items-center gap-2 text-[#00F0FF]">
+                  <ShieldCheck className="w-5 h-5 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest">Centro de Control de Identidades Kaivincia</span>
                 </div>
-                <h1 className="text-2xl font-black tracking-tight mb-2">Gestión de Usuarios y Contactos</h1>
-                <p className="text-slate-400 text-xs max-w-2xl leading-relaxed mb-4">
-                  Envía mensajes privados en tiempo real y gestiona permisos de acceso de los miembros del equipo. Los cambios se actualizan automáticamente en Firestore.
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tighter uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-300 to-gray-400">
+                  Gestión de Miembros y Permisos
+                </h1>
+                <p className="text-gray-400 text-xs max-w-2xl leading-relaxed">
+                  Supervisa la lista de todos los colaboradores autenticados, audita roles del sistema en tiempo real y gestiona permisos de acceso directo sincronizados de inmediato en Firestore.
                 </p>
 
-                {/* KPI block */}
-                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800">
+                {/* Key Metrics Grid */}
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/5">
                   <div>
-                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">Miembros Totales</span>
-                    <span className="text-xl font-black text-white">{totalUsersCount}</span>
+                    <span className="block text-[9px] uppercase font-black tracking-widest text-gray-500 mb-1">Miembros</span>
+                    <span className="text-xl sm:text-2xl font-black text-white">{totalUsersCount}</span>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">En Línea</span>
-                    <span className="text-xl font-black text-emerald-400 flex items-center gap-1.5">
+                    <span className="block text-[9px] uppercase font-black tracking-widest text-gray-500 mb-1">En Línea</span>
+                    <span className="text-xl sm:text-2xl font-black text-emerald-400 flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> {onlineUsersCount}
                     </span>
                   </div>
                   <div>
-                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">Administradores</span>
-                    <span className="text-xl font-black text-[#00F0FF]">{adminUsersCount}</span>
+                    <span className="block text-[9px] uppercase font-black tracking-widest text-gray-500 mb-1">Administradores</span>
+                    <span className="text-xl sm:text-2xl font-black text-[#00F0FF]">{adminUsersCount}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Filter controls & Search */}
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="relative w-full md:w-96">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+            {/* Filter control bar */}
+            <div className="bg-zinc-950/60 backdrop-blur-md rounded-2xl p-4 border border-white/5 shadow-xl mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="relative w-full md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <input
-                  id="directory-search"
                   type="text"
-                  placeholder="Buscar usuario por nombre o correo electrónico..."
+                  placeholder="Buscar miembro por nombre o correo..."
                   value={userSearchTerm}
                   onChange={(e) => setUserSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00F0FF]/30 focus:border-[#00F0FF] outline-none text-xs transition-all bg-slate-50/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-xs text-gray-300 focus:outline-none focus:border-[#00F0FF]/40"
                 />
               </div>
 
-              <div className="flex items-center gap-2 w-full md:w-auto">
+              <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto justify-end">
                 <select
-                  id="directory-role-filter"
                   value={userRoleFilter}
                   onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs outline-none focus:ring-1 focus:ring-slate-900 text-slate-700 font-bold"
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 font-bold focus:outline-none focus:border-[#00F0FF]"
                 >
                   <option value="all">Todos los Roles</option>
-                  <option value="superadmin">SuperAdministradores</option>
-                  <option value="admin">Administradores</option>
-                  <option value="manager">Manejadores / Managers</option>
-                  <option value="user">Especialistas / Users</option>
+                  <option value="superadmin">SuperAdmin</option>
+                  <option value="admin">Administrador</option>
+                  <option value="manager">Manager</option>
+                  <option value="user">Especialista</option>
                 </select>
 
                 <select
-                  id="directory-status-filter"
                   value={userStatusFilter}
                   onChange={(e) => setUserStatusFilter(e.target.value)}
-                  className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs outline-none focus:ring-1 focus:ring-slate-900 text-slate-700 font-bold"
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 font-bold focus:outline-none focus:border-[#00F0FF]"
                 >
                   <option value="all">Todos los Estados</option>
-                  <option value="active">En Línea / Activos</option>
-                  <option value="pending">Pendientes de Registro</option>
-                  <option value="inactive">Desconectados</option>
-                  <option value="suspended">Bloqueados</option>
+                  <option value="active">Activo</option>
+                  <option value="pending">Pendiente</option>
+                  <option value="suspended">Bloqueado</option>
                 </select>
 
-                {/* View toggle */}
-                <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200/50">
+                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
                   <button 
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-black'}`}
+                    className={`p-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${viewMode === 'grid' ? 'bg-[#00F0FF] text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
                   >
-                    Cuadrícula
+                    <Grid className="w-3.5 h-3.5" />
                   </button>
                   <button 
                     onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-black'}`}
+                    className={`p-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${viewMode === 'list' ? 'bg-[#00F0FF] text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
                   >
-                    Lista
+                    <List className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Contacts Grid/List of Platform Users */}
+            {/* Render Members: Grid vs List */}
             {viewMode === 'grid' ? (
-              <div id="contacts-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {userList.map(u => {
-                  const isMe = u.id === auth.currentUser?.uid;
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredUsers.map(u => {
                   const isOnline = u.status === 'active';
                   const unreadCount = getUnreadCount(u.id);
                   
                   return (
-                    <div 
+                    <motion.div 
                       key={u.id}
-                      className="bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between relative group"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="bg-[#050505] border border-white/5 hover:border-[#00F0FF]/30 hover:shadow-2xl hover:shadow-[#00F0FF]/5 rounded-3xl p-5 flex flex-col justify-between relative group transition-all"
                     >
-                      {/* Self indicator */}
-                      {isMe && (
-                        <span className="absolute top-3 right-3 bg-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-200">
-                          Tú (Actual)
-                        </span>
-                      )}
-
-                      {/* Unread message indicator absolute */}
                       {unreadCount > 0 && (
-                        <span className="absolute top-3 right-3 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse shadow">
+                        <span className="absolute top-3 right-3 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-bounce">
                           {unreadCount} mensaje(s) nuevo(s)
                         </span>
                       )}
 
                       <div>
-                        {/* Profile Header */}
-                        <div className="flex items-center gap-3.5 mb-4">
-                          <div className="relative">
-                            <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white font-black text-md flex items-center justify-center shadow-inner">
+                        {/* Profile header within card */}
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="relative shrink-0">
+                            <div className="h-12 w-12 rounded-2xl bg-zinc-900 text-gray-300 font-black flex items-center justify-center border border-white/10 text-md shadow-inner">
                               {u.name?.charAt(0).toUpperCase() || u.email?.charAt(0).toUpperCase() || '?'}
                             </div>
-                            <span className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${
-                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                            <span className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-[#050505] ${
+                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
                             }`} />
                           </div>
 
                           <div>
-                            <h4 className="font-black text-slate-900 text-sm group-hover:text-[#00F0FF] transition-colors line-clamp-1">{u.name || 'Especialista'}</h4>
-                            <p className="text-xs text-slate-500 font-medium line-clamp-1 lowercase">{u.email}</p>
+                            <h4 className="font-black text-white text-sm truncate max-w-[150px]">{u.name || 'Especialista'}</h4>
+                            <p className="text-xs text-gray-500 truncate lowercase font-medium">{u.email}</p>
                           </div>
                         </div>
 
-                        {/* Badges & Details */}
+                        {/* Badges & Extra meta information */}
                         <div className="space-y-2 mb-5">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-black uppercase tracking-wide border border-slate-200">
-                              Rol: {u.role || 'user'}
+                            <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-gray-400 text-[9px] font-black uppercase tracking-wide">
+                              {u.role || 'user'}
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide border ${
                               isOnline 
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                                : 'bg-slate-50 text-slate-500 border-slate-200'
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                : 'bg-white/5 text-gray-500 border-white/5'
                             }`}>
-                              Estado: {u.status || 'active'}
+                              {u.status || 'active'}
                             </span>
                           </div>
 
-                          <div className="text-[10px] text-slate-400 space-y-1">
-                            <p className="flex items-center gap-1">
-                              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                              <span>ID: {u.id.substring(0, 10)}...</span>
+                          <div className="text-[10px] text-gray-600 space-y-1">
+                            <p className="flex items-center gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5 text-gray-600" />
+                              <span>ID: {u.id.substring(0, 12)}...</span>
                             </p>
-                            <p className="flex items-center gap-1">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Último acceso: Sincronizado en vivo</span>
+                            <p className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-gray-600" />
+                              <span>Conexión: Sincronizado en vivo</span>
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Action buttons */}
-                      <div className="pt-3 border-t border-slate-100 flex gap-1.5">
-                        {isMe ? (
-                          <button 
-                            disabled 
-                            className="w-full py-2 bg-slate-100 text-slate-400 font-black text-[10px] uppercase tracking-wider rounded-xl cursor-not-allowed"
-                          >
-                            Tú mismo
-                          </button>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => {
-                                setActiveFilter('private');
-                                setActivePrivateUserId(u.id);
-                              }}
-                              className="flex-1 bg-slate-950 text-white hover:bg-slate-800 py-2.5 px-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow hover:shadow-md"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5 text-[#00F0FF]" /> Enviar Mensaje
-                            </button>
-                            <button
-                              onClick={() => {
-                                setActiveFilter('private');
-                                setActivePrivateUserId(u.id);
-                                setShowRightSidebar(true);
-                              }}
-                              className="bg-slate-100 text-slate-700 hover:bg-slate-200 p-2.5 rounded-xl transition-all"
-                              title="Gestionar permisos de este usuario"
-                            >
-                              <Settings className="w-4 h-4" />
-                            </button>
-                          </>
-                        )}
+                      {/* Action buttons inside card */}
+                      <div className="pt-3 border-t border-white/5 flex gap-2">
+                        <button
+                          onClick={() => {
+                            setActiveFilter('private');
+                            setActivePrivateUserId(u.id);
+                          }}
+                          className="flex-1 bg-white text-black hover:bg-[#00F0FF] py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 text-black" /> Enviar Mensaje
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveFilter('private');
+                            setActivePrivateUserId(u.id);
+                            setShowRightSidebar(true);
+                          }}
+                          className="bg-white/5 hover:bg-white/10 text-gray-300 p-2.5 rounded-xl border border-white/5 transition-all"
+                          title="Gestionar roles y estado de cuenta"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
+
+                {filteredUsers.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-gray-500">
+                    <Users className="w-12 h-12 text-zinc-800 mx-auto mb-3" />
+                    <p className="text-sm">No se encontraron miembros registrados con los filtros aplicados.</p>
+                  </div>
+                )}
               </div>
             ) : (
-              /* Contact Directory List View */
-              <div id="contacts-list" className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              /* Members List View */
+              <div className="bg-[#050505] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/80 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-200">
+                    <tr className="bg-white/2 text-gray-400 text-[9px] font-black uppercase tracking-widest border-b border-white/5">
                       <th className="px-6 py-4">Usuario</th>
                       <th className="px-6 py-4">Correo Electrónico</th>
-                      <th className="px-6 py-4">Rol en Plataforma</th>
+                      <th className="px-6 py-4">Rol en CRM</th>
                       <th className="px-6 py-4">Estatus</th>
-                      <th className="px-6 py-4 text-right">Acciones</th>
+                      <th className="px-6 py-4 text-right">Acciones Directas</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {userList.map(u => {
-                      const isMe = u.id === auth.currentUser?.uid;
+                  <tbody className="divide-y divide-white/5">
+                    {filteredUsers.map(u => {
                       const isOnline = u.status === 'active';
                       const unreadCount = getUnreadCount(u.id);
                       
                       return (
-                        <tr key={u.id} className="hover:bg-slate-50/50 transition-all group">
+                        <tr key={u.id} className="hover:bg-white/2 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="relative">
-                                <div className="h-9 w-9 rounded-xl bg-slate-950 text-white font-bold flex items-center justify-center text-xs">
+                                <div className="h-9 w-9 rounded-xl bg-zinc-900 border border-white/10 text-white font-bold flex items-center justify-center text-xs">
                                   {u.name?.charAt(0).toUpperCase() || '?'}
                                 </div>
-                                <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${
-                                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                                <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-[#050505] ${
+                                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'
                                 }`} />
                               </div>
                               <div>
-                                <p className="font-bold text-xs text-slate-950 flex items-center gap-1.5">
-                                  {u.name || 'Especialista'}
-                                  {isMe && <span className="bg-slate-100 text-slate-500 text-[8px] px-1.5 py-0.5 rounded font-black">TÚ</span>}
-                                </p>
-                                <p className="text-[10px] text-slate-400 font-mono">ID: {u.id.substring(0, 8)}</p>
+                                <p className="font-bold text-xs text-white leading-none">{u.name || 'Especialista'}</p>
+                                <p className="text-[9px] text-gray-600 font-mono mt-1">UID: {u.id.substring(0, 8)}</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-xs text-slate-600 font-mono lowercase">
+                          <td className="px-6 py-4 text-xs text-gray-400 font-mono lowercase">
                             {u.email}
                           </td>
                           <td className="px-6 py-4">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-wider">
+                            <span className="px-2 py-0.5 rounded bg-white/5 border border-white/5 text-gray-300 text-[9px] font-black uppercase tracking-wider">
                               {u.role || 'user'}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                              isOnline ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                              isOnline 
+                                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                                : 'bg-white/5 text-gray-500 border-white/5'
                             }`}>
                               {u.status || 'active'}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            {isMe ? (
-                              <span className="text-[10px] text-slate-400 italic">Sesión Actual</span>
-                            ) : (
-                              <div className="flex items-center justify-end gap-1.5">
-                                {unreadCount > 0 && (
-                                  <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full mr-2">
-                                    {unreadCount} nuevo
-                                  </span>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setActiveFilter('private');
-                                    setActivePrivateUserId(u.id);
-                                  }}
-                                  className="bg-slate-950 text-white hover:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all"
-                                >
-                                  Chatear
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setActiveFilter('private');
-                                    setActivePrivateUserId(u.id);
-                                    setShowRightSidebar(true);
-                                  }}
-                                  className="p-1.5 text-slate-400 hover:text-black hover:bg-slate-100 rounded-lg transition-all"
-                                >
-                                  <Settings className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
+                            <div className="flex items-center justify-end gap-2">
+                              {unreadCount > 0 && (
+                                <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full mr-2">
+                                  {unreadCount} nuevo
+                                </span>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setActiveFilter('private');
+                                  setActivePrivateUserId(u.id);
+                                }}
+                                className="bg-[#00F0FF] text-black hover:bg-[#00BFFF] text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg transition-all"
+                              >
+                                Chatear
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setActiveFilter('private');
+                                  setActivePrivateUserId(u.id);
+                                  setShowRightSidebar(true);
+                                }}
+                                className="p-2 text-gray-500 hover:text-white hover:bg-white/5 rounded-lg transition-all"
+                              >
+                                <Settings className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -906,264 +1049,284 @@ export default function Chat() {
             )}
           </div>
         ) : (
-          /* CASE B: STANDARD CHAT MESSAGES THREAD (ALL / GROUPS / PRIVATE / CLIENTS) */
+          /* CASE B: STANDARD CHAT WINDOW (GROUPS / CLIENTS / PRIVATE PEER) */
           <>
             {activeFilter === 'private' && !activePrivateUserId ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/30">
-                <Users className="w-12 h-12 text-slate-300 mb-3" />
-                <h3 className="text-md font-black text-slate-900 mb-1">Iniciar Comunicación Privada</h3>
-                <p className="text-xs text-slate-500 max-w-sm mb-6">Selecciona uno de los miembros registrados del equipo Kaivincia en la barra lateral o navega al Directorio para abrir un canal seguro de chat directo.</p>
+              /* No Private Chat Selected State */
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <Users className="w-16 h-16 text-zinc-800 mb-4 animate-pulse" />
+                <h3 className="text-lg font-black text-white uppercase italic tracking-tighter mb-2">Mensajería Privada Segura</h3>
+                <p className="text-xs text-gray-500 max-w-md mb-6 leading-relaxed">
+                  Inicia una conversación confidencial con cualquier colaborador de la plataforma. Los mensajes se envían en tiempo real y están cifrados localmente en Firestore.
+                </p>
                 
                 <button 
                   onClick={() => setActiveFilter('contacts')}
-                  className="bg-slate-950 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow"
+                  className="bg-[#00F0FF] text-black hover:bg-[#00BFFF] px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-[#00F0FF]/10 flex items-center gap-2"
                 >
-                  Ver Directorio de Contactos
+                  <Users className="w-4 h-4" /> Ver Directorio de Miembros
                 </button>
-
-                <div className="w-full max-w-md bg-white border border-slate-100 rounded-2xl shadow-xl p-4 mt-8 max-h-64 overflow-y-auto space-y-1.5">
-                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black text-left mb-2 px-1">Miembros de Equipo Disponibles</p>
-                  {userList
-                    .filter(u => u.id !== auth.currentUser?.uid)
-                    .map(u => (
-                      <button
-                        key={u.id}
-                        onClick={() => {
-                          setActiveFilter('private');
-                          setActivePrivateUserId(u.id);
-                        }}
-                        className="w-full flex items-center justify-between p-2.5 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-100 text-left"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-xl bg-slate-950 text-white flex items-center justify-center font-black text-xs">
-                            {u.name?.charAt(0).toUpperCase() || '?'}
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold text-slate-900">{u.name || 'Especialista'}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{u.email}</p>
-                          </div>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                          u.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                        }`}>
-                          {u.status === 'active' ? 'Disponible' : 'Desconectado'}
-                        </span>
-                      </button>
-                    ))}
-                </div>
               </div>
             ) : (
+              /* Active Chat Stream */
               <>
-                {/* Header */}
-                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
-                  <div className="flex items-center gap-3 min-w-0">
+                {/* Chat Header */}
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#080808]/85 backdrop-blur-md z-10 shrink-0">
+                  <div className="flex items-center gap-4 text-white min-w-0">
                     {activeFilter === 'private' && activePeer ? (
                       <>
-                        <div className="h-9 w-9 rounded-xl bg-slate-150 text-slate-900 font-bold flex items-center justify-center flex-shrink-0 border border-slate-200">
+                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-zinc-850 to-zinc-950 border border-white/10 flex items-center justify-center font-bold text-white shadow-xl flex-shrink-0">
                           {activePeer.name?.charAt(0).toUpperCase() || '?'}
                         </div>
                         <div className="truncate min-w-0">
-                          <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5 leading-tight">
+                          <h3 className="text-md font-black uppercase italic tracking-tight flex items-center gap-2">
                             {activePeer.name || activePeer.email}
-                            <span className={`h-2 w-2 rounded-full ${activePeer.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                            <span className={`h-2 w-2 rounded-full ${activePeer.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`} />
                           </h3>
-                          <p className="text-[10px] text-slate-400 font-medium truncate lowercase">
-                            {activePeer.email} • Canal de Comunicación Directo
-                          </p>
+                          <div className="text-[9px] font-black text-[#A855F7] uppercase tracking-[0.2em] truncate">
+                            Canal Privado • {activePeer.email}
+                          </div>
                         </div>
                       </>
                     ) : (
-                      <div>
-                        <h3 className="font-black text-slate-900 capitalize text-sm">
-                          {activeFilter === 'all' ? 'Todos los Mensajes' : 
-                           activeFilter === 'groups' ? 'Chat General (Corporativo)' : 
-                           activeFilter === 'users' ? 'Chat de Equipo' : 
-                           activeFilter === 'clients' ? 'Chat con Clientes CRM' : 'Sala de Comunicación'}
-                        </h3>
-                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                          Sincronizado en tiempo real con Firestore
-                        </p>
-                      </div>
+                      <>
+                        <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#111] to-black border border-white/10 flex items-center justify-center text-[#00F0FF] shadow-xl flex-shrink-0">
+                          {activeFilter === 'groups' ? <Hash className="w-5 h-5 text-[#00F0FF]" /> : <User className="w-5 h-5 text-purple-400" />}
+                        </div>
+                        <div>
+                          <h3 className="text-md font-black uppercase italic tracking-tight">
+                            {activeFilter === 'groups' 
+                              ? (baseChannels.find(c => c.id === activeChannelId)?.name || 'General')
+                              : (clients.find(c => c.id === activeClientId)?.companyName || 'Canal de Cliente')
+                            }
+                          </h3>
+                          <div className="text-[9px] font-black text-[#00F0FF] uppercase tracking-[0.2em] flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Sincronización IA Activa
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
 
-                  {/* Header Right Buttons */}
-                  <div className="flex items-center gap-2">
+                  {/* Header right icons */}
+                  <div className="flex gap-2">
                     {activeFilter === 'private' && (
-                      <button
-                        id="toggle-sidebar-button"
-                        onClick={() => setShowRightSidebar(!showRightSidebar)}
-                        className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                          showRightSidebar 
-                            ? 'bg-slate-950 text-white border-slate-950 shadow' 
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
+                      <button 
+                        onClick={() => setIsSummarizing(true)}
+                        className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-[#A855F7]/20 text-gray-300 hover:text-[#A855F7] border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all"
                       >
-                        <Settings className="w-4 h-4 text-[#00F0FF]" />
-                        <span className="hidden sm:inline">Gestión & IA</span>
+                        <RotateCcw className={`w-3.5 h-3.5 ${isSummarizing ? 'animate-spin' : ''}`} />
+                        Resumir con IA
+                      </button>
+                    )}
+                    
+                    {activeFilter === 'private' && (
+                      <button 
+                        onClick={() => setShowRightSidebar(!showRightSidebar)}
+                        className={`p-2.5 rounded-xl border transition-all ${
+                          showRightSidebar 
+                            ? 'bg-[#00F0FF] text-black border-[#00F0FF] shadow-lg shadow-[#00F0FF]/10' 
+                            : 'bg-white/5 text-gray-400 border-white/5 hover:bg-white/10'
+                        }`}
+                        title="Ver gestión administrativa y resumen IA"
+                      >
+                        <Settings className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                 </div>
 
-                {/* Message Thread Scrollable Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/40">
+                {/* Summarize Banner */}
+                <AnimatePresence>
+                  {isSummarizing && (
+                    <motion.div 
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="mx-6 sm:mx-8 mt-6 bg-[#050505] border border-[#A855F7]/30 rounded-3xl p-5 shadow-2xl relative overflow-hidden"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2 text-[#A855F7]">
+                          <Sparkles className="w-4 h-4" />
+                          <span className="text-[10px] font-black uppercase tracking-widest">Resumen de IA en Vivo</span>
+                        </div>
+                        <button onClick={() => setIsSummarizing(false)} className="text-gray-500 hover:text-white uppercase text-[8px] font-black">Cerrar</button>
+                      </div>
+                      <p className="text-xs text-gray-300 leading-relaxed font-medium">
+                        El colega {activePeer?.name || 'miembro de equipo'} se encuentra activo y coordinando tareas. 
+                        <span className="text-[#A855F7] italic"> Nota del Copilot:</span> Utilice el botón "Generar Resumen IA" en el panel lateral para extraer acuerdos, compromisos y un análisis pormenorizado en tiempo real.
+                      </p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Message stream */}
+                <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-6 custom-scrollbar text-white">
+                  
+                  {filteredMessages.length === 0 && !isPeerTyping && (
+                    <div className="flex flex-col items-center justify-center h-full opacity-45 py-12">
+                      <MessageSquare className="w-12 h-12 mb-4 text-zinc-800 animate-pulse" />
+                      <p className="text-xs font-semibold uppercase tracking-wider">No hay mensajes registrados en este canal</p>
+                      <p className="text-[10px] text-gray-600 mt-1">Escribe abajo para iniciar la conversación instantánea</p>
+                    </div>
+                  )}
+
                   {filteredMessages.map((msg) => {
                     const isMe = msg.senderId === auth.currentUser?.uid;
-                    const sender = users[msg.senderId] || { name: 'Colega', email: '' };
-                    const isRead = msg.isRead === true;
-                    
+                    const isHighPriority = msg.priority === 'high';
+
                     return (
                       <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                        <div className="flex items-end gap-2.5 max-w-[80%] group">
-                          {!isMe && (
-                            <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                              {sender.name?.charAt(0).toUpperCase() || '?'}
-                            </div>
-                          )}
+                        <div className={`flex gap-3 max-w-[80%] group ${isMe ? 'flex-row-reverse' : ''}`}>
                           
-                          <div className={`rounded-2xl px-4 py-3 shadow-sm relative transition-all ${
-                            isMe 
-                              ? 'bg-slate-900 text-white rounded-br-none border border-slate-800' 
-                              : 'bg-white border border-slate-100 text-slate-900 rounded-bl-none'
+                          {/* Avatar block */}
+                          <div className={`h-8 w-8 rounded-xl shrink-0 flex items-center justify-center font-black text-xs shadow-lg ${
+                            isMe ? 'bg-zinc-800 text-[#00F0FF] rotate-3' : 'bg-white text-black -rotate-3'
                           }`}>
-                            {!isMe && (
-                              <div className="flex justify-between items-center mb-1 gap-4">
-                                <span className="text-[10px] font-black text-[#00F0FF] uppercase tracking-wider">{sender.name || 'Colega'}</span>
-                                {/* IA NLP Classification */}
-                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                                  <Sparkle className="w-2 h-2 text-[#00F0FF]" /> 
-                                  {msg.text.toLowerCase().includes('urgente') || msg.text.toLowerCase().includes('asunto')
-                                    ? 'Prioridad: Alta'
-                                    : 'Prioridad: Normal'}
+                            {msg.senderName.charAt(0).toUpperCase()}
+                          </div>
+
+                          {/* Message bubble content */}
+                          <div className="space-y-1">
+                            <div className={`flex items-center gap-2 mb-0.5 ${isMe ? 'justify-end' : ''}`}>
+                              <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{msg.senderName}</span>
+                              {isHighPriority && (
+                                <span className="bg-rose-500/10 text-rose-500 text-[7px] border border-rose-500/25 font-black px-1.5 py-0.5 rounded uppercase tracking-wider animate-pulse">
+                                  Prioridad: Alta
                                 </span>
-                              </div>
-                            )}
-                            <p className="text-xs leading-relaxed whitespace-pre-line">{msg.text}</p>
-                            
-                            <div className={`text-[9px] mt-1.5 font-bold flex items-center justify-end gap-1 uppercase tracking-widest ${
-                              isMe ? 'text-slate-400' : 'text-slate-400'
-                            }`}>
-                              {msg.createdAt ? format(parseISO(msg.createdAt), 'HH:mm') : ''}
-                              {isMe && (
-                                isRead ? (
-                                  <span title="Leído por el destinatario">
-                                    <CheckCheck className="w-3 h-3 text-[#00F0FF]" />
-                                  </span>
-                                ) : (
-                                  <span title="Enviado a Firestore">
-                                    <Check className="w-3 h-3 text-slate-400" />
-                                  </span>
-                                )
                               )}
                             </div>
+                            
+                            <div className={`rounded-2xl px-5 py-3 shadow-xl border transition-all ${
+                              isMe 
+                                ? 'bg-zinc-950 border-white/5 text-gray-100 rounded-tr-none' 
+                                : 'bg-white text-black border-white/10 rounded-tl-none'
+                            }`}>
+                              <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">{msg.text}</p>
+                              <div className={`flex items-center justify-end gap-1.5 mt-2 text-[8px] font-black uppercase tracking-widest ${
+                                isMe ? 'text-gray-500' : 'text-zinc-400'
+                              }`}>
+                                {msg.createdAt ? format(parseISO(msg.createdAt), 'HH:mm') : 'Ahora'}
+                                {isMe && (
+                                  msg.isRead ? (
+                                    <span title="Leído por el destinatario">
+                                      <CheckCheck className="w-3.5 h-3.5 text-[#00F0FF]" />
+                                    </span>
+                                  ) : (
+                                    <span title="Enviado con éxito">
+                                      <Check className="w-3.5 h-3.5 text-zinc-500" />
+                                    </span>
+                                  )
+                                )}
+                              </div>
+                            </div>
                           </div>
+
                         </div>
                       </div>
                     );
                   })}
 
-                  {/* Dynamic typing indicator simulated */}
+                  {/* Typing indicator simulated */}
                   {isPeerTyping && activePeer && (
-                    <div className="flex items-end gap-2.5 max-w-[80%] animate-pulse">
-                      <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                        {activePeer.name?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none px-4 py-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-slate-500">{activePeer.name || 'Colega'} está escribiendo</span>
-                          <div className="flex gap-1">
-                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
-                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                    <div className="flex flex-col items-start animate-pulse">
+                      <div className="flex gap-3 max-w-[80%]">
+                        <div className="h-8 w-8 rounded-xl shrink-0 flex items-center justify-center font-black text-xs shadow-lg bg-white text-black -rotate-3">
+                          {activePeer.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest">{activePeer.name}</span>
+                          <div className="rounded-2xl px-5 py-3 shadow-xl border bg-white text-black border-white/10 rounded-tl-none flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-gray-600">Escribiendo</span>
+                            <div className="flex gap-0.5">
+                              <span className="h-1.5 w-1.5 bg-gray-500 rounded-full animate-bounce" />
+                              <span className="h-1.5 w-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.15s]" />
+                              <span className="h-1.5 w-1.5 bg-gray-500 rounded-full animate-bounce [animation-delay:0.3s]" />
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {filteredMessages.length === 0 && !isPeerTyping && (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-12">
-                      <MessageSquare className="w-8 h-8 text-slate-300 mb-2" />
-                      No hay mensajes registrados en este chat.
-                    </div>
-                  )}
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Smart Suggestions & Input Bar */}
-                <div className="p-4 border-t border-slate-100 bg-white flex-shrink-0">
-                  
-                  {/* Sincronización IA - Quick suggestions box above input */}
-                  {activeFilter === 'private' && (
-                    <div className="mb-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-[#00F0FF]" /> Sugerencias Inteligentes de IA
-                        </span>
-                        <button
-                          id="ai-generate-suggestions-button"
-                          onClick={handleGenerateAiSuggestions}
-                          disabled={isGeneratingSuggestions}
-                          className="text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-black flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 transition-all disabled:opacity-50"
-                        >
-                          {isGeneratingSuggestions ? (
-                            <>
-                              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Generando...
-                            </>
-                          ) : (
-                            <>
-                              <RefreshCw className="w-2.5 h-2.5" /> Recargar con IA
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full">
-                        {aiSuggestions.map((suggestion, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => setNewMessage(suggestion)}
-                            className="text-[11px] font-medium bg-[#00F0FF]/10 text-slate-900 border border-[#00F0FF]/30 px-3 py-1.5 rounded-full hover:bg-[#00F0FF]/25 transition-all flex-shrink-0 max-w-xs truncate"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                        {!isGeneratingSuggestions && aiSuggestions.length === 0 && (
+                {/* Message send and smart suggestions bar */}
+                <div className="p-4 sm:p-6 border-t border-white/5 bg-[#050505] shrink-0">
+                  <div className="max-w-4xl mx-auto space-y-3">
+                    
+                    {/* Sincronización IA - Quick Suggestions panel */}
+                    {activeFilter === 'private' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-[#00F0FF]" /> Sugerencias Inteligentes Copilot
+                          </span>
                           <button
                             onClick={handleGenerateAiSuggestions}
-                            className="text-[10px] font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full transition-all"
+                            disabled={isGeneratingSuggestions}
+                            className="text-[9px] font-black uppercase tracking-wider text-gray-400 hover:text-white flex items-center gap-1 bg-white/5 px-2 py-1 rounded border border-white/5 transition-all disabled:opacity-50"
                           >
-                            ⚡ Generar sugerencias rápidas de conversación para este colega
+                            {isGeneratingSuggestions ? (
+                              <>
+                                <Loader2 className="w-2.5 h-2.5 animate-spin" /> Analizando...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-2.5 h-2.5" /> Recargar sugerencias
+                              </>
+                            )}
                           </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                        </div>
 
-                  {/* Chat Send Form */}
-                  <form id="message-send-form" onSubmit={handleSendMessage} className="flex gap-2">
-                    <input
-                      id="message-input"
-                      type="text"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder={
-                        activeFilter === 'private' && activePeer
-                          ? `Escribe un mensaje confidencial a ${activePeer.name || 'Colega'}...`
-                          : `Enviar mensaje en ${activeFilter === 'all' ? 'Chat General' : activeFilter}...`
-                      }
-                      className="flex-1 rounded-xl border-slate-200 text-xs shadow-sm focus:border-slate-950 focus:ring-1 focus:ring-slate-950 px-4 py-3 border outline-none bg-slate-50 focus:bg-white transition-all"
-                    />
-                    <button
-                      id="message-send-button"
-                      type="submit"
-                      disabled={!newMessage.trim()}
-                      className="bg-slate-950 text-white p-3 rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center w-12 h-12 transition-colors flex-shrink-0"
-                    >
-                      <Send className="h-4.5 w-4.5" />
-                    </button>
-                  </form>
+                        <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
+                          {aiSuggestions.map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setNewMessage(suggestion)}
+                              className="text-[10px] font-bold bg-[#00F0FF]/10 text-white border border-[#00F0FF]/25 px-3 py-1.5 rounded-full hover:bg-[#00F0FF]/25 transition-all flex-shrink-0"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                          {!isGeneratingSuggestions && aiSuggestions.length === 0 && (
+                            <button
+                              onClick={handleGenerateAiSuggestions}
+                              className="text-[9px] font-black uppercase tracking-widest text-gray-500 bg-white/3 border border-white/5 px-4 py-2 rounded-full hover:bg-white/5 transition-all"
+                            >
+                              ⚡ Generar respuestas contextuales con Inteligencia Artificial
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Chat box Form */}
+                    <form onSubmit={handleSendMessage} className="flex items-center gap-4 bg-white/5 border border-white/10 rounded-[2rem] p-2 pl-6 shadow-2xl focus-within:border-[#00F0FF]/40 transition-all">
+                      <button type="button" className="text-gray-500 hover:text-[#00F0FF] p-2 transition-colors hidden sm:block">
+                        <Paperclip className="w-4.5 h-4.5" />
+                      </button>
+                      <input 
+                        type="text" 
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder={
+                          activeFilter === 'private' && activePeer 
+                            ? `Escribir mensaje confidencial a ${activePeer.name || 'Colega'}...`
+                            : 'Escribe un mensaje de equipo...'
+                        }
+                        className="flex-1 bg-transparent border-none text-xs text-gray-200 outline-none placeholder:text-gray-600 font-medium py-2.5"
+                      />
+                      <button type="button" className="text-gray-500 hover:text-[#00F0FF] p-2 transition-colors hidden sm:block">
+                        <Smile className="w-4.5 h-4.5" />
+                      </button>
+                      <button type="submit" disabled={!newMessage.trim()} className="bg-[#00F0FF] text-black h-10 w-10 sm:h-11 sm:w-11 rounded-full flex items-center justify-center hover:bg-[#00BFFF] transition-colors shadow-lg disabled:opacity-40 shrink-0">
+                        <Send className="w-4 h-4 text-black" />
+                      </button>
+                    </form>
+
+                  </div>
                 </div>
               </>
             )}
@@ -1171,60 +1334,61 @@ export default function Chat() {
         )}
       </div>
 
-      {/* Right Column: User Profile, Administration and AI executive tools (Column 3) */}
-      {activeFilter === 'private' && activePeer && showRightSidebar && !isEmbedded && (
-        <div id="user-mgmt-sidebar" className="w-full md:w-80 border-l border-slate-200 bg-white p-5 overflow-y-auto flex flex-col flex-shrink-0 animate-fade-in">
+      {/* COLUMN 3: RIGHT SIDEBAR (ADMINISTRATION & IA DETAILS) */}
+      {activeFilter === 'private' && activePeer && showRightSidebar && (
+        <div id="neural-chat-right-sidebar" className="w-full md:w-80 border-l border-white/5 flex flex-col bg-[#050505] p-5 overflow-y-auto shrink-0 z-20">
           
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Detalles & Gestión</h3>
+          <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-gray-500">Gestión & Copilot</h3>
             <button 
               onClick={() => setShowRightSidebar(false)} 
-              className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-black transition-all"
+              className="p-1 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-all"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          {/* Section A: User Card Profile */}
-          <div className="text-center pb-5 border-b border-slate-100 mb-5">
-            <div className="h-16 w-16 bg-slate-900 text-white text-xl font-black rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md">
+          {/* User profile view */}
+          <div className="text-center pb-5 border-b border-white/5 mb-5 space-y-3">
+            <div className="h-16 w-16 bg-gradient-to-br from-[#111] to-black border border-white/10 rounded-2xl flex items-center justify-center font-bold text-white text-lg mx-auto shadow-xl">
               {activePeer.name?.charAt(0).toUpperCase() || '?'}
             </div>
-            <h4 className="text-sm font-black text-slate-900">{activePeer.name || 'Especialista'}</h4>
-            <p className="text-[11px] text-slate-500 font-medium lowercase mb-2">{activePeer.email}</p>
+            <div>
+              <h4 className="text-sm font-black text-white">{activePeer.name || 'Especialista'}</h4>
+              <p className="text-[10px] text-gray-500 lowercase font-mono truncate">{activePeer.email}</p>
+            </div>
             
             <div className="flex items-center justify-center gap-1.5 flex-wrap">
-              <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-slate-100 text-slate-800 border border-slate-200">
+              <span className="px-2 py-0.5 rounded bg-white/5 text-gray-300 text-[9px] font-black uppercase tracking-wider border border-white/5">
                 {activePeer.role || 'user'}
               </span>
-              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                activePeer.status === 'active' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 animate-pulse' : 'bg-amber-50 text-amber-800 border border-amber-200'
+              <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${
+                activePeer.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-zinc-800 text-zinc-500 border-zinc-700'
               }`}>
                 {activePeer.status || 'active'}
               </span>
             </div>
           </div>
 
-          {/* Section B: Admin User Management Portal (Gestión de Usuarios) */}
-          <div className="pb-5 border-b border-slate-100 mb-5">
-            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 text-slate-600" /> Control Administrativo
+          {/* User Management Panel (Restricted to Admin / SuperAdmin) */}
+          <div className="pb-5 border-b border-white/5 mb-5 space-y-3">
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+              <Shield className="w-4 h-4 text-[#00F0FF]" /> Control de Acceso
             </h5>
 
             {isCurrentUserAdmin ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
-                    Rol de Acceso en Sistema
+                  <label className="block text-[9px] font-black text-gray-600 uppercase tracking-wider mb-1">
+                    Rol de Sistema Autorizado
                   </label>
                   <select
-                    id="user-mgmt-role-select"
                     value={editingRole}
                     onChange={(e) => setEditingRole(e.target.value)}
-                    className="w-full px-2.5 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-slate-950 transition-all text-slate-800"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-gray-300 font-bold focus:outline-none focus:border-[#00F0FF]"
                   >
-                    <option value="user">Especialista / User</option>
+                    <option value="user">Especialista / Colaborador</option>
                     <option value="manager">Manejador / Manager</option>
                     <option value="admin">Administrador / Admin</option>
                     <option value="superadmin">Super Administrador</option>
@@ -1232,40 +1396,37 @@ export default function Chat() {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">
+                  <label className="block text-[9px] font-black text-gray-600 uppercase tracking-wider mb-1">
                     Estado de la Cuenta
                   </label>
                   <select
-                    id="user-mgmt-status-select"
                     value={editingStatus}
                     onChange={(e) => setEditingStatus(e.target.value)}
-                    className="w-full px-2.5 py-2 text-xs border border-slate-200 bg-slate-50/50 rounded-xl outline-none focus:bg-white focus:ring-1 focus:ring-slate-950 transition-all text-slate-800"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-gray-300 font-bold focus:outline-none focus:border-[#00F0FF]"
                   >
-                    <option value="active">Activo (Disponible)</option>
+                    <option value="active">Activo (Activado)</option>
                     <option value="pending">Pendiente de Aprobación</option>
-                    <option value="inactive">Inactivo (Desconectado)</option>
                     <option value="suspended">Suspendido / Bloqueado</option>
                   </select>
                 </div>
 
                 {updateFeedback && (
-                  <div className={`p-2.5 rounded-lg text-[10px] font-black flex items-center gap-1.5 ${
-                    updateFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-rose-50 text-rose-800 border border-rose-100'
+                  <div className={`p-2.5 rounded-xl text-[10px] font-black flex items-center gap-1.5 ${
+                    updateFeedback.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
                   }`}>
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                     <span>{updateFeedback.text}</span>
                   </div>
                 )}
 
                 <button
-                  id="user-mgmt-save-button"
                   onClick={handleSaveUserManagement}
                   disabled={isSavingUser}
-                  className="w-full bg-slate-950 text-white text-xs font-black py-2.5 px-4 rounded-xl hover:bg-slate-850 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  className="w-full bg-[#00F0FF] text-black hover:bg-[#00BFFF] text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   {isSavingUser ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin" /> Guardando...
+                      <Loader2 className="w-3 h-3 animate-spin" /> Sincronizando...
                     </>
                   ) : (
                     <>
@@ -1275,36 +1436,33 @@ export default function Chat() {
                 </button>
               </div>
             ) : (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                  🔒 El control administrativo de roles y estados de cuenta de colega está restringido. Inicie sesión como Administrador o con el correo principal <strong className="text-slate-900">safeness.c.a@gmail.com</strong> para habilitar estas opciones.
-                </p>
+              <div className="p-3 bg-white/2 rounded-xl border border-white/5 text-gray-500 text-[10px] leading-relaxed">
+                🔒 La configuración administrativa de cuentas de colaboradores está restringida. Inicia sesión con una cuenta de nivel Administrador o el correo principal <strong className="text-white">safeness.c.a@gmail.com</strong> para modificar este perfil.
               </div>
             )}
           </div>
 
-          {/* Section C: Sincronización IA - Conversation Executive Summarizer (Insights de Mañana) */}
-          <div className="mt-auto">
-            <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-[#00F0FF]" /> Copilot IA Ejecutivo
+          {/* Conversation executive summarizer */}
+          <div className="space-y-3 mt-auto">
+            <h5 className="text-[10px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1.5">
+              <Bot className="w-4 h-4 text-[#A855F7]" /> Copilot de Inteligencia
             </h5>
-
-            <div className="bg-[#00F0FF]/5 border border-[#00F0FF]/25 p-4 rounded-2xl">
-              <p className="text-[11px] text-slate-600 font-medium leading-relaxed mb-3">
-                ¿Te uniste tarde a la conversación? Genera un reporte resumido de la conversación actual con acuerdos e insights automatizados.
+            
+            <div className="bg-[#A855F7]/5 border border-[#A855F7]/20 p-4 rounded-2xl space-y-3">
+              <p className="text-[10px] text-gray-400 leading-relaxed font-medium">
+                Genera de inmediato un informe analítico ejecutivo y un resumen estructurado de acuerdos sobre los últimos mensajes cruzados con este colega.
               </p>
 
               {conversationSummary && (
-                <div className="bg-white border border-[#00F0FF]/15 p-3 rounded-xl mb-3 text-[11px] text-slate-800 leading-relaxed font-mono max-h-48 overflow-y-auto whitespace-pre-line shadow-sm">
+                <div className="bg-black/60 border border-white/5 p-3 rounded-xl text-[10px] text-gray-300 leading-relaxed max-h-40 overflow-y-auto whitespace-pre-wrap font-mono custom-scrollbar">
                   {conversationSummary}
                 </div>
               )}
 
               <button
-                id="ai-generate-summary-button"
                 onClick={handleGenerateSummary}
                 disabled={isGeneratingSummary}
-                className="w-full bg-slate-900 text-[#00F0FF] hover:bg-slate-850 text-xs font-black py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 border border-[#00F0FF]/25 transition-all disabled:opacity-50"
+                className="w-full bg-zinc-950 hover:bg-zinc-900 border border-white/5 text-white text-xs font-black py-2.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
               >
                 {isGeneratingSummary ? (
                   <>
@@ -1312,7 +1470,7 @@ export default function Chat() {
                   </>
                 ) : (
                   <>
-                    <Bot className="w-3.5 h-3.5" /> Generar Resumen IA
+                    <Sparkles className="w-3.5 h-3.5 text-[#A855F7]" /> Generar Resumen IA
                   </>
                 )}
               </button>
