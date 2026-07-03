@@ -38,10 +38,23 @@ export default function Tasks() {
   };
 
   useEffect(() => {
-    // Fetch Tasks
-    const qTasks = query(collection(db, 'tasks'), orderBy('priority', 'desc'), orderBy('dueDate', 'asc'));
+    // Fetch Tasks without orderBy to avoid index errors, sorting in-memory instead
+    const qTasks = collection(db, 'tasks');
     const unsubTasks = onSnapshot(qTasks, (snapshot) => {
-      setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const rawTasks: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const priorityWeights = { Alta: 3, Media: 2, Baja: 1 };
+      const sorted = rawTasks.sort((a, b) => {
+        // Sort by priority desc
+        const pA = priorityWeights[a.priority as keyof typeof priorityWeights] || 0;
+        const pB = priorityWeights[b.priority as keyof typeof priorityWeights] || 0;
+        if (pB !== pA) return pB - pA;
+        
+        // Sort by dueDate asc
+        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        return dateA - dateB;
+      });
+      setTasks(sorted);
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'tasks');
