@@ -294,8 +294,11 @@ export default function Dashboard() {
           </motion.div>
         </div>
 
-        {/* NEURAL PULSE & AI OVERVIEW */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+        {/* LEFT COLUMN: NEURAL PULSE, IA OVERVIEW & 4 QUADRANTS MAP */}
+        <div className="xl:col-span-9 space-y-8">
+
+          {/* NEURAL PULSE & AI OVERVIEW */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
            <div className="lg:col-span-8">
               <IAAdvisor 
                 moduleName="Estrategia Ejecutiva"
@@ -511,8 +514,10 @@ export default function Dashboard() {
 
         </div>
 
-        {/* RIGHT SIDEBAR: SYSTEMIC EVENT FEED */}
-        <div className="xl:col-span-3 space-y-8">
+      </div>
+
+      {/* RIGHT SIDEBAR: SYSTEMIC EVENT FEED */}
+      <div className="xl:col-span-3 space-y-8">
           
           <div className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl h-full flex flex-col">
             <h3 className="text-xs font-black text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
