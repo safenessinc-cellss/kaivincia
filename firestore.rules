@@ -13,7 +13,7 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email == "safeness.c.a@gmail.com" ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ["admin", "superadmin"]
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["admin", "superadmin"]
       );
     }
 
@@ -22,7 +22,7 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Rules (todas las reglas específicas aquí)
+    // Rules
     // ===============================================================
 
     match /users/{userId} {
@@ -56,7 +56,7 @@ service cloud.firestore {
     match /chat_messages/{messageId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAdmin();
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.get('targetId', '') == request.auth.uid);
       allow delete: if isAdmin();
     }
 
@@ -68,8 +68,9 @@ service cloud.firestore {
     }
 
     match /jobs/{jobId} {
-      allow read: if true; // Publicly visible job board
-      allow write: if isAdmin();
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidJob(incoming());
+      allow delete: if isAdmin();
     }
 
     match /b2b_entities/{entityId} {
@@ -187,10 +188,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
-    
-    // ===============================================================
-    // Global Safety Net (DEBE ir al FINAL)
-    // ===============================================================
+
     match /{document=**} { 
       allow read, write: if false; 
     }
@@ -223,6 +221,11 @@ service cloud.firestore {
       return data.projectId is string &&
              data.hours is number &&
              data.userUid == request.auth.uid;
+    }
+    function isValidJob(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.department is string &&
+             data.status in ['active', 'closed'];
     }
   }
 }
