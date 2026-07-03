@@ -7,7 +7,7 @@ import {
   Link as LinkIcon, GripVertical, Activity, Lock, Eye, EyeOff, PlayCircle,
   ChevronUp, ChevronDown, MessageSquare, Mic, User, Send, ListTodo, Search,
   BrainCircuit, Zap, Sparkles, Filter, MoreVertical, PhoneIncoming, PhoneOutgoing,
-  MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock
+  MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock, Terminal
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -71,7 +71,7 @@ export default function CallSystem() {
   const [selectedLog, setSelectedLog] = useState<any | null>(null);
   const [inboxFilter, setInboxFilter] = useState('all');
 
-  // Softphone States
+  // Softphone States & Configuration
   const [softphoneOpen, setSoftphoneOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [selectedProviderId, setSelectedProviderId] = useState('1');
@@ -80,17 +80,91 @@ export default function CallSystem() {
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [showSipConsole, setShowSipConsole] = useState(false);
+  const [sipLogs, setSipLogs] = useState<string[]>([]);
+  const [connectionStage, setConnectionStage] = useState('');
+  const [liveLatency, setLiveLatency] = useState(24);
+  const [liveJitter, setLiveJitter] = useState(1.2);
   const [callHistory, setCallHistory] = useState<any[]>([
-    { id: 'h1', number: '+34 690 123 456', name: 'Miguel Rojas', timestamp: 'Hace 10 min', status: 'completed', duration: '02:45' },
-    { id: 'h2', number: '+1 415 555 2671', name: 'TechCorp CEO', timestamp: 'Hace 1 hora', status: 'missed', duration: '00:00' },
-    { id: 'h3', number: '+54 9 11 9876 5432', name: 'Ana Silva', timestamp: 'Ayer', status: 'completed', duration: '05:00' },
+    { id: 'h1', number: '+34 690 123 456', name: 'Miguel Rojas', timestamp: 'Hace 10 min', status: 'completed', duration: '02:45', provider: 'Twilio' },
+    { id: 'h2', number: '+1 415 555 2671', name: 'TechCorp CEO', timestamp: 'Hace 1 hora', status: 'missed', duration: '00:00', provider: 'Twilio' },
+    { id: 'h3', number: '+54 9 11 9876 5432', name: 'Ana Silva', timestamp: 'Ayer', status: 'completed', duration: '05:00', provider: 'Zoho Voice' },
   ]);
+
+  const playDTMFTone = (key: string) => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      const dtmfFreqs: { [key: string]: [number, number] } = {
+        '1': [697, 1209], '2': [697, 1336], '3': [697, 1477],
+        '4': [770, 1209], '5': [770, 1336], '6': [770, 1477],
+        '7': [852, 1209], '8': [852, 1336], '9': [852, 1477],
+        '*': [941, 1209], '0': [941, 1336], '#': [941, 1477]
+      };
+      
+      if (!dtmfFreqs[key]) return;
+      const [f1, f2] = dtmfFreqs[key];
+      
+      osc1.frequency.value = f1;
+      osc2.frequency.value = f2;
+      
+      gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc1.start();
+      osc2.start();
+      
+      osc1.stop(audioCtx.currentTime + 0.12);
+      osc2.stop(audioCtx.currentTime + 0.12);
+    } catch (e) {
+      console.warn('Audio Context restricted or unsupported:', e);
+    }
+  };
+
+  const addSipLog = (log: string) => {
+    const timestamp = new Date().toISOString().split('T')[1].slice(0, 8);
+    setSipLogs(prev => [...prev, `[${timestamp}] ${log}`]);
+  };
+
+  const getCostPerMinute = () => {
+    const selectedProv = providers.find(p => p.id === selectedProviderId);
+    if (!selectedProv) return 0.015;
+    const match = selectedProv.costPerMinute.match(/[\d.]+/);
+    return match ? parseFloat(match[0]) : 0.015;
+  };
 
   const formatDuration = (secs: number) => {
     const mins = Math.floor(secs / 60);
     const remainingSecs = secs % 60;
     return `${mins.toString().padStart(2, '0')}:${remainingSecs.toString().padStart(2, '0')}`;
   };
+
+  // Live Jitter and Latency updates
+  useEffect(() => {
+    let interval: any;
+    if (softphoneStatus === 'connected') {
+      interval = setInterval(() => {
+        setLiveLatency(prev => {
+          const change = Math.floor(Math.random() * 7) - 3;
+          return Math.max(12, Math.min(120, prev + change));
+        });
+        setLiveJitter(prev => {
+          const change = (Math.random() * 0.6) - 0.3;
+          return Math.max(0.2, Math.min(15, parseFloat((prev + change).toFixed(2))));
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [softphoneStatus]);
 
   useEffect(() => {
     let timer: any;
@@ -106,52 +180,109 @@ export default function CallSystem() {
 
   useEffect(() => {
     if (softphoneStatus === 'connected' && activeCall) {
+      const costRate = getCostPerMinute();
+      const currentCost = (softphoneDuration * (costRate / 60)).toFixed(4);
       setActiveCall((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
-          duration: formatDuration(softphoneDuration)
+          duration: formatDuration(softphoneDuration),
+          cost: `$${currentCost}`,
+          latency: `${liveLatency}ms`,
+          jitter: `${liveJitter}ms`,
+          isMuted,
+          isRecording
         };
       });
     }
-  }, [softphoneDuration, softphoneStatus]);
+  }, [softphoneDuration, softphoneStatus, liveLatency, liveJitter, isMuted, isRecording]);
 
   const handleDial = (numToDial?: string, name?: string) => {
     const targetNumber = numToDial || phoneNumber;
     if (!targetNumber) return;
     
     setSoftphoneStatus('calling');
+    setSipLogs([]);
+    const currentProv = providers.find(p => p.id === selectedProviderId) || { name: 'Direct VoIP Route', type: 'api', costPerMinute: '$0.015' };
+    
+    addSipLog(`SIP ENGINE INITIALIZED - Carrier: ${currentProv.name} (${currentProv.type.toUpperCase()})`);
+    setConnectionStage('Iniciando...');
     
     setTimeout(() => {
-      setSoftphoneStatus('connected');
+      setConnectionStage('Enrutando...');
+      addSipLog(`DNS lookup successful for sip.${currentProv.name.toLowerCase().replace(/\s+/g, '')}.com`);
+      addSipLog(`SIP/2.0 REGISTER sent. Transport: TLS/WSS`);
       
-      setActiveCall({
-        id: 'call_' + Date.now().toString().slice(-4),
-        customer: `${name || 'Cliente'} (${targetNumber})`,
-        agent: userData?.name || 'Marta García',
-        duration: '00:00',
-        status: 'In Progress',
-        sentiment: 'positive',
-        provider: providers.find(p => p.id === selectedProviderId)?.name || 'Twilio (Outbound)',
-        sentimentTrend: [50, 55, 60, 65, 70, 75, 80]
-      });
-    }, 2000);
+      setTimeout(() => {
+        setConnectionStage('Autenticando...');
+        addSipLog(`SIP/2.0 401 Unauthorized - Auth Challenge Received`);
+        addSipLog(`SIP/2.0 REGISTER with Auth Digest response`);
+        
+        setTimeout(() => {
+          setConnectionStage('Negociando SDP...');
+          addSipLog(`SIP/2.0 200 OK (Registered successfully)`);
+          addSipLog(`WebRTC RTCPeerConnection established. ICE gathering complete.`);
+          addSipLog(`Outbound route established with termination rate ${currentProv.costPerMinute}/min`);
+          
+          setTimeout(() => {
+            setConnectionStage('Timbrando...');
+            addSipLog(`SIP/2.0 INVITE sip:${targetNumber.replace(/\s+/g, '')} SDP Offer (Opus @ 48kHz)`);
+            addSipLog(`SIP/2.0 100 Trying | 180 Ringing`);
+            playDTMFTone('2');
+            
+            setTimeout(() => {
+              setSoftphoneStatus('connected');
+              setConnectionStage('Conectado');
+              addSipLog(`SIP/2.0 200 OK (Answered)`);
+              addSipLog(`RTP Media stream bound. Codec: OPUS 48kHz Stereo`);
+              addSipLog(`Real-time NLP stream monitoring is online.`);
+              
+              setActiveCall({
+                id: 'call_' + Date.now().toString().slice(-4),
+                customer: `${name || 'Cliente'} (${targetNumber})`,
+                agent: userData?.name || 'Marta García',
+                duration: '00:00',
+                cost: '$0.0000',
+                status: 'In Progress',
+                sentiment: 'positive',
+                provider: `${currentProv.name} (IP Route)`,
+                latency: `${liveLatency}ms`,
+                jitter: `${liveJitter}ms`,
+                sentimentTrend: [50, 55, 60, 65, 70, 75, 80],
+                isMuted: false,
+                isRecording: false
+              });
+            }, 1500);
+          }, 1000);
+        }, 1000);
+      }, 1000);
+    }, 1000);
   };
 
   const handleHangUp = () => {
     setSoftphoneStatus('ended');
+    setConnectionStage('Colgando...');
+    addSipLog(`SIP/2.0 BYE sent (Agent Hangup)`);
+    addSipLog(`RTCP PeerConnection closed.`);
+    const currentProv = providers.find(p => p.id === selectedProviderId) || { name: 'Twilio' };
+    
     setTimeout(() => {
       setSoftphoneStatus('idle');
+      const finalCost = (softphoneDuration * (getCostPerMinute() / 60)).toFixed(3);
       const newHistoryItem = {
         id: 'h_' + Date.now().toString(),
         number: phoneNumber || 'Número Desconocido',
         name: 'Llamada Saliente',
         timestamp: 'Ahora',
         status: 'completed',
-        duration: formatDuration(softphoneDuration)
+        duration: formatDuration(softphoneDuration),
+        provider: currentProv.name,
+        cost: `$${finalCost}`
       };
       setCallHistory(prev => [newHistoryItem, ...prev]);
       setActiveCall(null);
+      setIsMuted(false);
+      setIsRecording(false);
     }, 1500);
   };
 
@@ -423,19 +554,21 @@ export default function CallSystem() {
                              </div>
                           </div>
                           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Latencia</p>
-                             <p className="text-xs font-black text-gray-900 font-mono">24ms (Excelent)</p>
+                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Latencia / Jitter</p>
+                             <p className="text-xs font-black text-gray-900 font-mono">{activeCall.latency || '24ms'} ({activeCall.jitter || '1.2ms'})</p>
                           </div>
                           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
                              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Grabación</p>
                              <div className="flex items-center gap-2 text-red-500">
-                                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                                <span className="text-[10px] font-black uppercase tracking-widest">En Curso</span>
+                                <div className={`h-2 w-2 rounded-full ${activeCall.isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                   {activeCall.isRecording ? 'En Curso (REC)' : 'Pausada'}
+                                </span>
                              </div>
                           </div>
                           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Intentos Hoy</p>
-                             <p className="text-xs font-black text-gray-900 font-mono">1/3</p>
+                             <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Costo Acumulado</p>
+                             <p className="text-xs font-black text-green-600 font-mono">{activeCall.cost || '$0.0000'}</p>
                           </div>
                        </div>
                     </motion.div>
@@ -1366,7 +1499,10 @@ export default function CallSystem() {
                      {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(key => (
                        <button 
                          key={key}
-                         onClick={() => setPhoneNumber(prev => prev + key)}
+                         onClick={() => {
+                           setPhoneNumber(prev => prev + key);
+                           playDTMFTone(key);
+                         }}
                          className="h-12 bg-slate-900 hover:bg-slate-800 border border-slate-800/50 hover:border-slate-700/50 text-white font-mono font-black rounded-2xl text-base transition-all active:scale-95 flex items-center justify-center shadow-sm"
                        >
                          {key}
@@ -1387,10 +1523,38 @@ export default function CallSystem() {
 
              {softphoneStatus !== 'idle' && (
                <div className="p-5 space-y-6">
+                  {/* ZohoPhone / Iframe Webphone simulation */}
+                  {providers.find(p => p.id === selectedProviderId)?.type === 'iframe' && (
+                     <div className="p-3 bg-slate-900 border border-slate-800 rounded-2xl flex flex-col items-center justify-center text-center space-y-1.5 relative overflow-hidden">
+                        <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                           <span className="h-1.5 w-1.5 rounded-full bg-[#00F0FF] animate-pulse" />
+                           <span className="text-[6px] font-mono font-bold text-[#00F0FF]">IFRAME WEBRTC DEVICE</span>
+                        </div>
+                        <div className="w-full flex justify-between text-[7px] text-slate-500 font-mono">
+                           <span>Status: connected</span>
+                           <span>TLS 1.3 Active</span>
+                        </div>
+                        <div className="h-10 w-full bg-slate-950 rounded-lg flex items-center justify-around border border-slate-800/60 p-1">
+                           <span className="text-[7px] text-slate-400 font-mono">Input Level</span>
+                           <div className="h-2 w-16 bg-slate-800 rounded relative overflow-hidden">
+                              <motion.div 
+                                animate={{ width: ['15%', '85%', '35%', '90%', '25%'] }}
+                                transition={{ repeat: Infinity, duration: 1 }}
+                                className="h-full bg-green-500" 
+                              />
+                           </div>
+                        </div>
+                        <p className="text-[7px] text-[#00F0FF] tracking-wider uppercase font-mono leading-tight">Canal de Voz enlazado vía Zoho Phone WebRTC SDK</p>
+                     </div>
+                  )}
+
                   {/* Audio controls */}
                   <div className="grid grid-cols-3 gap-3">
                      <button 
-                       onClick={() => setIsMuted(!isMuted)}
+                       onClick={() => {
+                         setIsMuted(!isMuted);
+                         addSipLog(isMuted ? "SIP/2.0 Audio stream UNMUTED" : "SIP/2.0 Audio stream MUTED");
+                       }}
                        className={`h-14 rounded-2xl flex flex-col items-center justify-center gap-1 border transition-all ${
                          isMuted ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                        }`}
@@ -1399,7 +1563,10 @@ export default function CallSystem() {
                         <span className="text-[7px] font-black uppercase tracking-widest">Silencio</span>
                      </button>
                      <button 
-                       onClick={() => setIsSpeaker(!isSpeaker)}
+                       onClick={() => {
+                         setIsSpeaker(!isSpeaker);
+                         addSipLog(isSpeaker ? "Audio output routed to Headset" : "Audio output routed to Speakerphone (Boosted gain)");
+                       }}
                        className={`h-14 rounded-2xl flex flex-col items-center justify-center gap-1 border transition-all ${
                          isSpeaker ? 'bg-blue-500/10 border-[#00F0FF] text-[#00F0FF]' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                        }`}
@@ -1408,13 +1575,16 @@ export default function CallSystem() {
                         <span className="text-[7px] font-black uppercase tracking-widest">Altavoz</span>
                      </button>
                      <button 
-                       onClick={() => setIsRecording(!isRecording)}
+                       onClick={() => {
+                         setIsRecording(!isRecording);
+                         addSipLog(isRecording ? "NLP RECORDER STOPPED" : "NLP RECORDER ACTIVE - Real-time NLP stream transcription triggered");
+                       }}
                        className={`h-14 rounded-2xl flex flex-col items-center justify-center gap-1 border transition-all ${
                          isRecording ? 'bg-red-500/10 border-red-500 text-red-500 animate-pulse' : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
                        }`}
                      >
                         <span className="relative flex h-2 w-2">
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 animate-ping"></span>
                         </span>
                         <span className="text-[7px] font-black uppercase tracking-widest">Grabar</span>
                      </button>
@@ -1429,6 +1599,30 @@ export default function CallSystem() {
                   </button>
                </div>
              )}
+
+             {/* Collapsible SIP Console Log */}
+             <div className="border-t border-slate-900 bg-slate-950/40">
+                <button 
+                  onClick={() => setShowSipConsole(!showSipConsole)}
+                  className="w-full px-5 py-2.5 flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:bg-slate-900/10 transition-all border-none outline-none"
+                >
+                   <span className="flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5 text-[#00F0FF]" /> Consola de Registro SIP / WebRTC
+                   </span>
+                   <span className="font-mono text-[9px]">{showSipConsole ? '[-]' : '[+]'}</span>
+                </button>
+                {showSipConsole && (
+                   <div className="px-5 pb-5 max-h-32 overflow-y-auto font-mono text-[7px] text-green-400 bg-slate-950/80 p-3 space-y-1 border-t border-slate-900/50">
+                      {sipLogs.length === 0 ? (
+                         <p className="text-slate-600 italic">Esperando inicialización de canal...</p>
+                      ) : (
+                         sipLogs.map((log, index) => (
+                            <p key={index} className="leading-relaxed whitespace-pre-wrap">{log}</p>
+                         ))
+                      )}
+                   </div>
+                )}
+             </div>
 
              {/* Call History section in Softphone */}
              {softphoneStatus === 'idle' && (
