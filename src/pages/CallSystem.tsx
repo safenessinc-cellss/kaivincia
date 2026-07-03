@@ -7,7 +7,8 @@ import {
   Link as LinkIcon, GripVertical, Activity, Lock, Eye, EyeOff, PlayCircle,
   ChevronUp, ChevronDown, MessageSquare, Mic, User, Send, ListTodo, Search,
   BrainCircuit, Zap, Sparkles, Filter, MoreVertical, PhoneIncoming, PhoneOutgoing,
-  MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock, Terminal
+  MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock, Terminal,
+  MapPin, Smartphone, FileText, Download, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -32,6 +33,72 @@ interface Provider {
   dynamicLinks?: DynamicLink[];
   qualityTrend?: number[]; // Percentage quality for sparkline
 }
+
+const INITIAL_PROVIDERS: Provider[] = [
+  {
+    id: 'zadarma',
+    name: 'Zadarma (Plataforma Actual)',
+    status: 'Activo',
+    costPerMinute: '$0.012',
+    lastUpdated: new Date().toISOString(),
+    type: 'api',
+    accountId: 'jdjd.sanchez@gmail.com',
+    apiKey: 'RCmt1800**',
+    iframeUrl: 'https://my.zadarma.com/mypbx/',
+    isDefault: true,
+    dynamicLinks: [
+      { id: 'z1', label: 'Mi PBX Zadarma', url: 'https://my.zadarma.com/mypbx/' },
+      { id: 'z2', label: 'Configuración SIP', url: 'https://my.zadarma.com/mysip/' }
+    ],
+    qualityTrend: [98, 97, 99, 98, 99, 99, 98]
+  },
+  {
+    id: 'zoho_voice',
+    name: 'Zoho Voice',
+    status: 'Inactivo',
+    costPerMinute: '$0.018',
+    lastUpdated: new Date().toISOString(),
+    type: 'iframe',
+    accountId: 'zaydeli.delarosa@kaivinciacorp.com',
+    apiKey: 'Kaivinciacorp1234.!',
+    iframeUrl: 'https://voice.zoho.com/',
+    isDefault: false,
+    dynamicLinks: [
+      { id: 'zo1', label: 'Admin Zoho Voice', url: 'https://voice.zoho.com/admin' }
+    ],
+    qualityTrend: [85, 87, 88, 84, 86, 85, 87]
+  },
+  {
+    id: 'twilio',
+    name: 'Twilio API',
+    status: 'Inactivo',
+    costPerMinute: '$0.015',
+    lastUpdated: new Date().toISOString(),
+    type: 'api',
+    accountId: 'zaydeli.delarosa@kaivinciacorp.com',
+    apiKey: 'Samythob0829.!',
+    isDefault: false,
+    dynamicLinks: [
+      { id: 'tw1', label: 'Twilio Console', url: 'https://console.twilio.com/' }
+    ],
+    qualityTrend: [95, 96, 94, 95, 96, 95, 97]
+  },
+  {
+    id: 'phoneiq',
+    name: 'PhoneIQ (3 Licencias)',
+    status: 'Inactivo',
+    costPerMinute: '$0.022',
+    lastUpdated: new Date().toISOString(),
+    type: 'api',
+    accountId: 'zaydeli.delarosa@kaivinciacorp.com',
+    apiKey: 'Samythob0829.!',
+    isDefault: false,
+    dynamicLinks: [
+      { id: 'pi1', label: 'PhoneIQ Portal', url: 'https://admin.phoneiq.co/' }
+    ],
+    qualityTrend: [75, 78, 74, 76, 72, 70, 71]
+  }
+];
 
 interface ChatMessage {
   id: string;
@@ -74,7 +141,7 @@ export default function CallSystem() {
   // Softphone States & Configuration
   const [softphoneOpen, setSoftphoneOpen] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedProviderId, setSelectedProviderId] = useState('1');
+  const [selectedProviderId, setSelectedProviderId] = useState('zadarma');
   const [softphoneStatus, setSoftphoneStatus] = useState<'idle' | 'calling' | 'connected' | 'ended'>('idle');
   const [softphoneDuration, setSoftphoneDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
@@ -90,6 +157,18 @@ export default function CallSystem() {
     { id: 'h2', number: '+1 415 555 2671', name: 'TechCorp CEO', timestamp: 'Hace 1 hora', status: 'missed', duration: '00:00', provider: 'Twilio' },
     { id: 'h3', number: '+54 9 11 9876 5432', name: 'Ana Silva', timestamp: 'Ayer', status: 'completed', duration: '05:00', provider: 'Zoho Voice' },
   ]);
+
+  // Zoho Utility Bill (Receipt) Generator States
+  const [billName, setBillName] = useState('Zaydeli De La Rosa');
+  const [billCompany, setBillCompany] = useState('Kaivincia Corp');
+  const [billAddress, setBillAddress] = useState('1428 West Slauson Ave, Los Angeles, CA 90047');
+  const [billAccount, setBillAccount] = useState('9428-1156-32-1');
+  const [billDate, setBillDate] = useState('2026-06-15');
+  const [billAmount, setBillAmount] = useState('154.20');
+  const [billDueDate, setBillDueDate] = useState('2026-07-10');
+
+  // Coverage Search State
+  const [areaSearch, setAreaSearch] = useState('');
 
   const playDTMFTone = (key: string) => {
     try {
@@ -319,19 +398,27 @@ export default function CallSystem() {
     const unsub = onSnapshot(doc(db, 'settings', 'voip_providers'), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setProviders(data.list || []);
+        const list = data.list || [];
+        // Auto-inject our rich official providers list if Zadarma isn't present
+        const hasZadarma = list.some((p: any) => p.name && p.name.toLowerCase().includes('zadarma'));
+        if (!hasZadarma) {
+          // Sync with Firestore so it becomes durable
+          setDoc(doc(db, 'settings', 'voip_providers'), {
+            list: INITIAL_PROVIDERS,
+            routingRule: data.routingRule || 'cost'
+          }, { merge: true }).catch(console.error);
+          setProviders(INITIAL_PROVIDERS);
+        } else {
+          setProviders(list);
+        }
         setRoutingRule(data.routingRule || 'cost');
       } else {
-        setProviders([
-          { 
-            id: '1', name: 'Twilio', status: 'Inactivo', costPerMinute: '$0.015', lastUpdated: new Date().toISOString(), type: 'api', isDefault: false,
-            dynamicLinks: [{ id: 'l1', label: 'Billing Dashboard', url: 'https://console.twilio.com/billing' }]
-          },
-          { 
-            id: '2', name: 'Zoho Voice', status: 'Activo', costPerMinute: '$0.020', lastUpdated: new Date().toISOString(), type: 'iframe', isDefault: true,
-            dynamicLinks: [{ id: 'l2', label: 'Admin Panel', url: 'https://voice.zoho.com/admin' }]
-          }
-        ]);
+        // First-time initialization
+        setDoc(doc(db, 'settings', 'voip_providers'), {
+          list: INITIAL_PROVIDERS,
+          routingRule: 'cost'
+        }, { merge: true }).catch(console.error);
+        setProviders(INITIAL_PROVIDERS);
       }
       setLoading(false);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'settings/voip_providers'));
@@ -470,6 +557,9 @@ export default function CallSystem() {
             { id: 'inbox', label: 'Bandeja Omnicanal', icon: MessageSquare },
             { id: 'routing', label: 'Enrutamiento IA', icon: BrainCircuit },
             { id: 'directory', label: 'Proveedores', icon: Settings },
+            { id: 'cobertura', label: 'Zonas de Cobertura', icon: MapPin },
+            { id: 'softphone', label: 'Softphone & Móvil', icon: Smartphone },
+            { id: 'utilidades', label: 'Comprobante Zoho', icon: FileText },
             { id: 'logs', label: 'Auditoría', icon: Phone },
           ].map(tab => (
             <button 
@@ -1157,6 +1247,574 @@ export default function CallSystem() {
                      </div>
                   </div>
                </div>
+            </div>
+          )}
+
+          {/* ZONAS DE COBERTURA */}
+          {activeTab === 'cobertura' && (
+            <div className="space-y-6">
+              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                  <div>
+                    <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic flex items-center gap-2">
+                      <MapPin className="w-6 h-6 text-blue-600" /> Zonas de Cobertura Activas (USA)
+                    </h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
+                      Monitoreo de Códigos de Área Requeridos, Zonas Horarias y Estado de Ruteo
+                    </p>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full md:w-80">
+                    <Search className="w-4 h-4 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar por código de área o ciudad..."
+                      value={areaSearch}
+                      onChange={(e) => setAreaSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold uppercase tracking-wide focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                </div>
+
+                {/* Coverages Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    { code: '323', city: 'Los Ángeles', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '619', city: 'San Diego', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '760', city: 'Oceanside / Palm Springs', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '720', city: 'Denver', state: 'Colorado', tz: 'America/Denver', label: 'MT (Montaña)', status: 'Ruta Óptima' },
+                    { code: '562', city: 'Long Beach', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '631', city: 'Suffolk County (Long Island)', state: 'New York', tz: 'America/New_York', label: 'ET (Este)', status: 'Ruta Óptima' },
+                    { code: '856', city: 'Camden / Cherry Hill', state: 'New Jersey', tz: 'America/New_York', label: 'ET (Este)', status: 'Ruta Óptima' },
+                    { code: '213', city: 'Los Ángeles Downtown', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '909', city: 'San Bernardino', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '951', city: 'Riverside', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' },
+                    { code: '714', city: 'Anaheim / Orange County', state: 'California', tz: 'America/Los_Angeles', label: 'PT (Pacífico)', status: 'Ruta Óptima' }
+                  ]
+                    .filter(item => 
+                      item.code.includes(areaSearch) || 
+                      item.city.toLowerCase().includes(areaSearch.toLowerCase()) || 
+                      item.state.toLowerCase().includes(areaSearch.toLowerCase())
+                    )
+                    .map((item) => {
+                      // Calculate local time for each card dynamically
+                      const localTimeStr = new Date().toLocaleTimeString('es-ES', {
+                        timeZone: item.tz,
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      
+                      // Check if it is standard business calling hours (9 AM - 8 PM)
+                      const localHour = parseInt(new Date().toLocaleTimeString('en-US', { timeZone: item.tz, hour: '2-digit', hour12: false }));
+                      const isSafeToCall = localHour >= 9 && localHour < 20;
+
+                      return (
+                        <motion.div
+                          key={item.code}
+                          whileHover={{ y: -4 }}
+                          className="bg-gray-50 border border-gray-100 p-6 rounded-2xl flex flex-col justify-between hover:shadow-lg transition-all"
+                        >
+                          <div>
+                            <div className="flex justify-between items-start mb-4">
+                              <span className="text-3xl font-black text-gray-900 tracking-tighter">({item.code})</span>
+                              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                                isSafeToCall ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {isSafeToCall ? 'Horario Seguro' : 'Horario No Recomendado'}
+                              </span>
+                            </div>
+                            <h4 className="text-sm font-bold text-gray-800 uppercase tracking-tight">{item.city}</h4>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{item.state}</p>
+                          </div>
+
+                          <div className="mt-6 pt-4 border-t border-gray-200/60 flex justify-between items-center">
+                            <div>
+                              <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest">{item.label}</p>
+                              <p className="text-xs font-black font-mono text-gray-900 mt-0.5">{localTimeStr}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[8px] text-gray-400 font-black uppercase tracking-widest">Enrutador</p>
+                              <p className="text-[9px] font-black text-blue-600 uppercase tracking-tighter italic mt-0.5">{item.status}</p>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                </div>
+
+                {/* Interactive Area Code Helper */}
+                <div className="mt-10 p-8 bg-blue-50/50 rounded-3xl border border-blue-100/60 flex flex-col lg:flex-row gap-6 items-center justify-between">
+                  <div className="space-y-2 max-w-xl text-center lg:text-left">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-blue-900">Validar Número de Cliente</h4>
+                    <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                      Introduce el número completo del cliente para verificar si pertenece a uno de nuestros códigos de área cubiertos en California, Colorado, New York o New Jersey, calcular su zona horaria y comprobar si es una hora adecuada para llamar.
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-3 w-full lg:w-auto">
+                    <input
+                      type="text"
+                      placeholder="Ej: +1 323 555 0199"
+                      id="client-validator-input"
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '');
+                        const outputEl = document.getElementById('validator-output');
+                        if (!outputEl) return;
+                        
+                        if (val.length < 4) {
+                          outputEl.innerHTML = '';
+                          return;
+                        }
+
+                        // Extract area code (first 3 digits after country code if +1, otherwise first 3)
+                        let code = '';
+                        if (val.startsWith('1')) {
+                          code = val.substring(1, 4);
+                        } else {
+                          code = val.substring(0, 3);
+                        }
+
+                        const map: any = {
+                          '323': { city: 'Los Ángeles, CA', tz: 'America/Los_Angeles' },
+                          '619': { city: 'San Diego, CA', tz: 'America/Los_Angeles' },
+                          '760': { city: 'Oceanside, CA', tz: 'America/Los_Angeles' },
+                          '720': { city: 'Denver, CO', tz: 'America/Denver' },
+                          '562': { city: 'Long Beach, CA', tz: 'America/Los_Angeles' },
+                          '631': { city: 'Suffolk County, NY', tz: 'America/New_York' },
+                          '856': { city: 'Camden, NJ', tz: 'America/New_York' },
+                          '213': { city: 'Los Ángeles Downtown, CA', tz: 'America/Los_Angeles' },
+                          '909': { city: 'San Bernardino, CA', tz: 'America/Los_Angeles' },
+                          '951': { city: 'Riverside, CA', tz: 'America/Los_Angeles' },
+                          '714': { city: 'Anaheim, CA', tz: 'America/Los_Angeles' }
+                        };
+
+                        if (map[code]) {
+                          const time = new Date().toLocaleTimeString('es-ES', { timeZone: map[code].tz, hour: '2-digit', minute: '2-digit', hour12: true });
+                          outputEl.innerHTML = `<span class="text-green-600 font-bold">✓ Cobertura Activa:</span> ${map[code].city} (Zona Horaria Local: ${time})`;
+                        } else {
+                          outputEl.innerHTML = `<span class="text-red-500 font-bold">✗ Código (${code || 'N/A'}):</span> Fuera de nuestra cobertura habitual de llamadas.`;
+                        }
+                      }}
+                      className="bg-white border border-blue-200 px-5 py-3 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-blue-600/30 flex-1 lg:w-64"
+                    />
+                  </div>
+                </div>
+                <div id="validator-output" className="mt-3 text-center lg:text-left text-xs font-bold text-gray-700 px-2"></div>
+              </div>
+            </div>
+          )}
+
+          {/* SOFTPHONE & MÓVIL (PLAN DE SUPERVIVENCIA) */}
+          {activeTab === 'softphone' && (
+            <div className="space-y-6">
+              {/* Emergency Banner */}
+              <div className="bg-gradient-to-r from-amber-500/10 to-amber-600/5 border border-amber-500/20 rounded-3xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-500/20 text-amber-700 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black uppercase text-amber-900 tracking-tight">Plan de Contingencia Eléctrica e Internet</h4>
+                    <p className="text-xs text-amber-800 leading-relaxed font-medium mt-0.5">
+                      Para agentes operando en Venezuela y regiones con cortes de luz: esta guía detalla cómo mantener el 100% de la operatividad telefónica usando el Softphone en el celular con un UPS de respaldo y optimización de consumo de datos móviles.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Steps Section */}
+                <div className="lg:col-span-7 space-y-6">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Pasos para Configuración de Supervivencia</h3>
+                    
+                    {/* Step 1 */}
+                    <div className="flex gap-4">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">1</div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black text-gray-800 uppercase tracking-tight">Respaldo de Energía Eléctrica (UPS)</h4>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Conecta el módem de fibra/cable (CANTV, Netuno, Inter) y tu router principal a un **Mini-UPS de 12V** (marcas como Marsriva, Suren, etc.). Esto mantendrá el Wi-Fi activo hasta por 4 a 6 horas ininterrumpidas durante los cortes de energía.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex gap-4">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">2</div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black text-gray-800 uppercase tracking-tight">Optimización de Datos Móviles (Celular)</h4>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Si la fibra cae por completo, utiliza tus datos móviles (Movistar o Digitel). En tu aplicación de Softphone móvil, ingresa a Ajustes de Audio y desactiva codecs de alta definición. Activa únicamente el **Codec G.729** (utiliza solo 8 Kbps de ancho de banda), esto garantiza llamadas cristalinas incluso con señal 3G/LTE inestable y ahorra 85% de tus megas de navegación.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex gap-4">
+                      <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black shrink-0">3</div>
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black text-gray-800 uppercase tracking-tight">Descarga del Softphone Móvil</h4>
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                          Recomendamos descargar e instalar una de las siguientes aplicaciones certificadas en tu teléfono inteligente (Android o iPhone):
+                        </p>
+                        <div className="flex gap-3 mt-2 flex-wrap">
+                          <a href="https://play.google.com/store/apps/details?id=com.zadarma.phone" target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-gray-100 text-gray-800 text-[9px] font-black uppercase tracking-wider rounded-xl hover:bg-blue-600 hover:text-white transition-all">Zadarma Play Store</a>
+                          <a href="https://apps.apple.com/app/zadarma/id590529598" target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-gray-100 text-gray-800 text-[9px] font-black uppercase tracking-wider rounded-xl hover:bg-blue-600 hover:text-white transition-all">Zadarma App Store</a>
+                          <a href="https://www.zoiper.com/en/voip-softphone/download/zoiper-free" target="_blank" rel="noreferrer" className="px-3 py-1.5 bg-gray-100 text-gray-800 text-[9px] font-black uppercase tracking-wider rounded-xl hover:bg-blue-600 hover:text-white transition-all">Zoiper Free App</a>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configuration Sheet / copy paste */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="bg-slate-950 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 rounded-full blur-2xl" />
+                    <div>
+                      <span className="bg-blue-500/20 text-blue-400 text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">Credenciales SIP Oficiales</span>
+                      <h4 className="text-base font-black uppercase tracking-tight text-white mt-2 italic">Ficha de Conexión Zadarma</h4>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Usa estos datos para loguearte en la app de tu celular</p>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Host */}
+                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
+                        <div>
+                          <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Servidor / SIP Host</p>
+                          <p className="text-xs font-mono font-bold text-white mt-0.5">sip.zadarma.com</p>
+                        </div>
+                        <button 
+                          onClick={() => { navigator.clipboard.writeText('sip.zadarma.com'); }}
+                          className="text-[9px] font-black uppercase text-blue-400 hover:text-white transition-colors"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+
+                      {/* User */}
+                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
+                        <div>
+                          <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">ID de Usuario / SIP ID</p>
+                          <p className="text-xs font-mono font-bold text-white mt-0.5">jdjd.sanchez@gmail.com</p>
+                        </div>
+                        <button 
+                          onClick={() => { navigator.clipboard.writeText('jdjd.sanchez@gmail.com'); }}
+                          className="text-[9px] font-black uppercase text-blue-400 hover:text-white transition-colors"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+
+                      {/* Password */}
+                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex justify-between items-center group">
+                        <div>
+                          <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Contraseña SIP / Password</p>
+                          <p className="text-xs font-mono font-bold text-white mt-0.5">RCmt1800**</p>
+                        </div>
+                        <button 
+                          onClick={() => { navigator.clipboard.writeText('RCmt1800**'); }}
+                          className="text-[9px] font-black uppercase text-blue-400 hover:text-white transition-colors"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+
+                      {/* Port & Protocol */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
+                          <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Puerto SIP</p>
+                          <p className="text-xs font-mono font-bold text-white mt-0.5">5060 (UDP/TCP) o 5061 (TLS)</p>
+                        </div>
+                        <div className="bg-slate-900 p-3.5 rounded-2xl border border-slate-800">
+                          <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Protocolo de Transporte</p>
+                          <p className="text-xs font-mono font-bold text-white mt-0.5">TLS / Encriptado</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-[10px] text-blue-300 font-bold leading-relaxed">
+                      *Nota: Asegúrate de tener activa la opción de "Mantener activo en segundo plano" en la configuración de la batería de tu celular para no perder llamadas entrantes cuando la pantalla esté apagada.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VALIDADOR ZOHO (BILL BUILDER) */}
+          {activeTab === 'utilidades' && (
+            <div className="space-y-6">
+              {/* Embed helper CSS for print-preview only */}
+              <style>{`
+                @media print {
+                  body * {
+                    visibility: hidden;
+                  }
+                  #utility-bill-print, #utility-bill-print * {
+                    visibility: visible;
+                  }
+                  #utility-bill-print {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 210mm;
+                    height: 297mm;
+                    padding: 15mm;
+                    background: white !important;
+                    color: black !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                  }
+                }
+              `}</style>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Form Editor */}
+                <div className="lg:col-span-5 bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Formateador de Dirección US (Zoho)</h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Genera y Modifica un Comprobante para Validar Rutas de Zoho</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nombre del Titular</label>
+                      <input 
+                        type="text" 
+                        value={billName}
+                        onChange={e => setBillName(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nombre de la Empresa (C/O)</label>
+                      <input 
+                        type="text" 
+                        value={billCompany}
+                        onChange={e => setBillCompany(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Dirección en California, USA</label>
+                      <input 
+                        type="text" 
+                        value={billAddress}
+                        onChange={e => setBillAddress(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nro de Cuenta</label>
+                        <input 
+                          type="text" 
+                          value={billAccount}
+                          onChange={e => setBillAccount(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Monto de Consumo ($)</label>
+                        <input 
+                          type="text" 
+                          value={billAmount}
+                          onChange={e => setBillAmount(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Fecha de Facturación</label>
+                        <input 
+                          type="date" 
+                          value={billDate}
+                          onChange={e => setBillDate(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Fecha de Vencimiento</label>
+                        <input 
+                          type="date" 
+                          value={billDueDate}
+                          onChange={e => setBillDueDate(e.target.value)}
+                          className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      onClick={() => window.print()}
+                      className="w-full py-4 bg-gray-900 text-white text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-2 shadow-xl"
+                    >
+                      <Download className="w-4 h-4" /> Descargar PDF / Imprimir
+                    </button>
+                  </div>
+
+                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100/60 text-[10px] text-blue-700 leading-relaxed font-bold">
+                    💡 **Instrucciones para Zoho**: Para cambiar el titular de la factura de California de tu amigo por el tuyo, simplemente edita el "Nombre del Titular" arriba, haz clic en "Descargar PDF / Imprimir" y en la ventana de impresión del navegador selecciona la opción **"Guardar como PDF"**. Sube ese archivo PDF generado a Zoho Voice para pasar la verificación de dirección sin demoras.
+                  </div>
+                </div>
+
+                {/* Printable utility bill preview mock */}
+                <div className="lg:col-span-7 bg-gray-200 p-8 rounded-[2.5rem] border border-gray-300 flex justify-center shadow-inner overflow-x-auto">
+                  <div 
+                    id="utility-bill-print"
+                    className="w-[595px] h-[842px] bg-white text-black p-8 shadow-2xl font-sans border border-gray-300 flex flex-col justify-between"
+                    style={{ minWidth: '595px' }}
+                  >
+                    <div>
+                      {/* Logo & Header */}
+                      <div className="flex justify-between items-start border-b-2 border-orange-500 pb-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 bg-gradient-to-br from-orange-500 to-amber-400 rounded-lg flex items-center justify-center text-white font-black text-sm">P</div>
+                            <span className="text-sm font-black tracking-wider text-gray-800 font-mono">PACIFIC ENERGY</span>
+                          </div>
+                          <p className="text-[7px] text-gray-500 mt-0.5">Pacific Gas & Electric Utilities Co.</p>
+                          <p className="text-[7px] text-gray-500">77 Beale St, San Francisco, CA 94105</p>
+                        </div>
+                        <div className="text-right">
+                          <h4 className="text-xs font-black uppercase text-orange-600 tracking-wider">Electric Utility Bill</h4>
+                          <p className="text-[8px] font-mono mt-1"><span className="font-bold">Account:</span> {billAccount}</p>
+                          <p className="text-[8px] font-mono"><span className="font-bold">Statement Date:</span> {billDate}</p>
+                        </div>
+                      </div>
+
+                      {/* Billing Address Block */}
+                      <div className="mt-6 grid grid-cols-2 gap-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <div>
+                          <p className="text-[7px] font-bold uppercase text-gray-400">Customer Details</p>
+                          <p className="text-xs font-black text-gray-800 mt-1 uppercase">{billName}</p>
+                          {billCompany && <p className="text-[9px] font-bold text-gray-600 uppercase">{billCompany}</p>}
+                          <p className="text-[9px] font-medium text-gray-500 mt-1 uppercase leading-tight">{billAddress}</p>
+                        </div>
+                        <div className="text-right flex flex-col justify-between">
+                          <div>
+                            <p className="text-[7px] font-bold uppercase text-gray-400">Total Amount Due</p>
+                            <p className="text-xl font-black text-orange-600 mt-0.5">${billAmount}</p>
+                          </div>
+                          <p className="text-[8px] font-mono"><span className="font-bold">Due Date:</span> {billDueDate}</p>
+                        </div>
+                      </div>
+
+                      {/* Detailed Electric Charges */}
+                      <div className="mt-8">
+                        <h5 className="text-[8px] font-black uppercase tracking-widest text-gray-400 mb-2">Detail of Current Charges</h5>
+                        <table className="w-full text-[9px]">
+                          <thead>
+                            <tr className="border-b border-gray-300 text-gray-400 font-bold uppercase text-[7px]">
+                              <th className="py-2 text-left">Description</th>
+                              <th className="py-2 text-right">Usage</th>
+                              <th className="py-2 text-right">Rate ($)</th>
+                              <th className="py-2 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            <tr>
+                              <td className="py-2 text-gray-700 font-medium">Generation Service (Baseline Allowance)</td>
+                              <td className="py-2 text-right font-mono">420 kWh</td>
+                              <td className="py-2 text-right font-mono">$0.185</td>
+                              <td className="py-2 text-right font-mono">${(420 * 0.185).toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 text-gray-700 font-medium">Transmission & Distribution (Over Baseline)</td>
+                              <td className="py-2 text-right font-mono">180 kWh</td>
+                              <td className="py-2 text-right font-mono">$0.215</td>
+                              <td className="py-2 text-right font-mono">${(180 * 0.215).toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 text-gray-700 font-medium">Public Purpose Programs Surcharge</td>
+                              <td className="py-2 text-right font-mono">-</td>
+                              <td className="py-2 text-right font-mono">-</td>
+                              <td className="py-2 text-right font-mono">$12.45</td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 text-gray-700 font-medium">State Regulatory / Local Franchise Fees</td>
+                              <td className="py-2 text-right font-mono">-</td>
+                              <td className="py-2 text-right font-mono">-</td>
+                              <td className="py-2 text-right font-mono">$21.32</td>
+                            </tr>
+                            <tr className="border-t-2 border-gray-300 font-black text-gray-800 text-[10px]">
+                              <td className="py-2 text-left uppercase">Total Current Utility Charges</td>
+                              <td className="py-2 text-right font-mono">600 kWh</td>
+                              <td className="py-2 text-right">-</td>
+                              <td className="py-2 text-right font-mono text-orange-600">${billAmount}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Bar chart mockup */}
+                      <div className="mt-8 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <p className="text-[7px] font-bold uppercase text-gray-400 mb-2">Daily Electric Usage History (kWh/day)</p>
+                        <div className="h-16 flex items-end justify-between px-2 gap-1.5">
+                          {[12, 15, 18, 14, 19, 21, 23, 22, 17, 19, 24, 20].map((h, i) => (
+                            <div key={i} className="flex-1 bg-orange-200 rounded-t h-full flex flex-col justify-end" style={{ height: `${h * 4}%` }}>
+                              <div className="bg-orange-500 rounded-t" style={{ height: '70%' }} />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-[6px] text-gray-400 uppercase font-black tracking-widest mt-2">
+                          <span>Jul 25</span>
+                          <span>Nov 25</span>
+                          <span>Mar 26</span>
+                          <span>Jun 26 (Current)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tear-off payment slip */}
+                    <div className="border-t-2 border-dashed border-gray-300 pt-6">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="text-[6px] text-gray-400 uppercase font-black tracking-widest">Tear-Off Remittance Slip</p>
+                          <p className="text-[7px] font-bold text-gray-600">Please send this portion with your check payment made payable to Pacific Energy</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="bg-green-100 text-green-800 text-[6px] font-black px-2 py-0.5 rounded border border-green-200 uppercase tracking-widest">VERIFIED FOR ZOHO ROUTING</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex justify-between text-[8px] font-mono">
+                        <div>
+                          <p className="font-bold uppercase text-gray-500">Bill Account Number</p>
+                          <p className="text-xs font-black mt-0.5">{billAccount}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold uppercase text-gray-500">Payment Due Date</p>
+                          <p className="text-xs font-black mt-0.5">{billDueDate}</p>
+                        </div>
+                        <div>
+                          <p className="font-bold uppercase text-gray-500">Amount Due</p>
+                          <p className="text-xs font-black mt-0.5 text-orange-600">${billAmount}</p>
+                        </div>
+                      </div>
+
+                      {/* Barcode */}
+                      <div className="mt-4 flex justify-center">
+                        <div className="h-6 bg-gray-900 w-64 flex items-center justify-around px-2 relative opacity-85">
+                          <div className="absolute inset-0 bg-white/25 flex items-center justify-center text-[7px] tracking-[0.6em] font-mono font-black text-black select-none">
+                            *{billAccount.replace(/-/g, '')}*
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
