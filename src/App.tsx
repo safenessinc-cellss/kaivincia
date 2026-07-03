@@ -94,7 +94,7 @@ export default function App() {
             action: 'USER_REGISTER',
             resourceType: 'User',
             resourceId: currentUser.uid,
-            timestamp: new Date().toISOString(),
+            timestamp: serverTimestamp(),
             details: 'Nuevo registro de usuario'
           });
         } else {
@@ -274,7 +274,7 @@ export default function App() {
           <Route path="pipeline" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Pipeline />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="calendar" element={<CalendarView />} />
-          <Route path="chat" element={<Communications />} />
+          <Route path="chat" element={<Chat />} />
           <Route path="cobranza" element={<Cobranza />} />
           
           {/* New Modules */}
@@ -316,4 +316,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-
