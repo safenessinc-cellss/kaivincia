@@ -5,13 +5,14 @@ import {
   Send, Users, User, MessageSquare, Hash, Search, Sparkles, 
   Check, CheckCheck, Shield, ShieldAlert, ShieldCheck, 
   AlertCircle, Loader2, Bot, Info, Settings, UserCheck, 
-  UserX, RefreshCw, Layers, ChevronRight, X, Sparkle, Layout
+  UserX, RefreshCw, Layers, ChevronRight, X, Sparkle, Layout,
+  UserPlus, CheckCircle, Mail, Phone, Activity, Clock
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useLocation } from 'react-router-dom';
 import { GoogleGenAI } from '@google/genai';
 
-type ChatFilter = 'all' | 'users' | 'clients' | 'private' | 'groups';
+type ChatFilter = 'all' | 'users' | 'clients' | 'private' | 'groups' | 'contacts';
 
 export default function Chat() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export default function Chat() {
   // Colleague filters
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
+  const [userStatusFilter, setUserStatusFilter] = useState<string>('all');
 
   // Simulated typing engine state
   const [isPeerTyping, setIsPeerTyping] = useState(false);
@@ -46,12 +48,14 @@ export default function Chat() {
 
   // UI state
   const [showRightSidebar, setShowRightSidebar] = useState(true);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const userList = Object.entries(users).map(([id, data]) => ({ id, ...data }));
 
-  // Filter colleague list
+  // Filter colleague list for sidebar and directory
   const filteredUsers = userList.filter(u => {
-    if (u.id === auth.currentUser?.uid) return false; // Hide current user
+    // Hidden current user from colleague directory list if preferred, but let's show all except current user
+    if (u.id === auth.currentUser?.uid) return false; 
     
     // Name/Email Search
     if (userSearchTerm) {
@@ -64,6 +68,11 @@ export default function Chat() {
     // Role Filter
     if (userRoleFilter !== 'all') {
       if (u.role !== userRoleFilter) return false;
+    }
+
+    // Status Filter
+    if (userStatusFilter !== 'all') {
+      if (u.status !== userStatusFilter) return false;
     }
 
     return true;
@@ -369,6 +378,11 @@ export default function Chat() {
   const currentUserDoc = users[auth.currentUser?.uid || ''] || null;
   const isCurrentUserAdmin = currentUserDoc?.role === 'admin' || currentUserDoc?.role === 'superadmin' || auth.currentUser?.email === 'safeness.c.a@gmail.com';
 
+  // Calculate real-time statistics of platform users
+  const totalUsersCount = userList.length;
+  const onlineUsersCount = userList.filter(u => u.status === 'active').length;
+  const adminUsersCount = userList.filter(u => u.role === 'admin' || u.role === 'superadmin').length;
+
   return (
     <div id="chat-layout-container" className={`h-full flex flex-col md:flex-row bg-slate-50 overflow-hidden ${isEmbedded ? '' : 'rounded-3xl shadow-2xl border border-slate-200'}`}>
       
@@ -401,20 +415,30 @@ export default function Chat() {
             </div>
 
             {/* General Filter Buttons */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-3 gap-1.5">
               <button 
                 id="chat-filter-all"
                 onClick={() => setActiveFilter('all')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${activeFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
+                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'all' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
               >
-                <MessageSquare className="w-3.5 h-3.5" /> Todos
+                <MessageSquare className="w-3 h-3" /> Todos
               </button>
               <button 
                 id="chat-filter-groups"
                 onClick={() => setActiveFilter('groups')}
-                className={`flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all ${activeFilter === 'groups' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
+                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'groups' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 bg-slate-50 hover:bg-slate-100'}`}
               >
-                <Hash className="w-3.5 h-3.5" /> General
+                <Hash className="w-3 h-3" /> General
+              </button>
+              <button 
+                id="chat-filter-contacts"
+                onClick={() => {
+                  setActiveFilter('contacts');
+                  setActivePrivateUserId(null);
+                }}
+                className={`flex items-center justify-center gap-1 py-1.5 px-1.5 rounded-lg text-[10px] font-black uppercase transition-all ${activeFilter === 'contacts' ? 'bg-slate-900 text-white shadow-sm border border-slate-900' : 'text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/50'}`}
+              >
+                <Users className="w-3 h-3 text-[#00F0FF]" /> Contactos
               </button>
             </div>
           </div>
@@ -440,18 +464,32 @@ export default function Chat() {
                   className="w-full px-2.5 py-1.5 text-[11px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
                 />
                 
-                <select
-                  id="colleague-role-select"
-                  value={userRoleFilter}
-                  onChange={(e) => setUserRoleFilter(e.target.value)}
-                  className="w-full px-2 py-1.5 text-[11px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none text-slate-600"
-                >
-                  <option value="all">Todos los Roles</option>
-                  <option value="superadmin">Super Administradores</option>
-                  <option value="admin">Administradores</option>
-                  <option value="manager">Manejadores / Managers</option>
-                  <option value="user">Especialistas / Users</option>
-                </select>
+                <div className="grid grid-cols-2 gap-1">
+                  <select
+                    id="colleague-role-select"
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value)}
+                    className="px-1 py-1 text-[9px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none text-slate-600 font-bold"
+                  >
+                    <option value="all">Rol: Todos</option>
+                    <option value="superadmin">SuperAdmin</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="user">User</option>
+                  </select>
+
+                  <select
+                    id="colleague-status-select"
+                    value={userStatusFilter}
+                    onChange={(e) => setUserStatusFilter(e.target.value)}
+                    className="px-1 py-1 text-[9px] border border-slate-200 bg-white rounded-lg focus:ring-1 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none text-slate-600 font-bold"
+                  >
+                    <option value="all">Estatus: Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="pending">Pendientes</option>
+                    <option value="suspended">Bloqueados</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -470,7 +508,15 @@ export default function Chat() {
               </button>
 
               <div className="pt-2">
-                <p className="px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Mensajes Privados</p>
+                <div className="flex items-center justify-between px-3 mb-1.5">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lista de Contactos</p>
+                  <button 
+                    onClick={() => setActiveFilter('contacts')}
+                    className="text-[9px] text-[#00F0FF] hover:underline font-bold uppercase tracking-wider"
+                  >
+                    Ver Directorio
+                  </button>
+                </div>
                 <div className="space-y-0.5">
                   {filteredUsers.map(u => {
                     const isSelected = activeFilter === 'private' && activePrivateUserId === u.id;
@@ -539,7 +585,7 @@ export default function Chat() {
             </div>
 
             {/* Logged in User Profile Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/50 mt-auto flex items-center justify-between">
+            <div className="p-4 border-t border-slate-100 bg-slate-50/50 mt-auto flex items-center justify-between col-span-1">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="h-8 w-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
                   {currentUserDoc?.name?.charAt(0).toUpperCase() || auth.currentUser?.email?.charAt(0).toUpperCase() || 'M'}
@@ -555,261 +601,579 @@ export default function Chat() {
         </div>
       )}
 
-      {/* Main Chat Area (Column 2) */}
+      {/* Main Chat / Directory Area (Column 2) */}
       <div className="flex-1 flex flex-col min-w-0 bg-white">
-        {activeFilter === 'private' && !activePrivateUserId ? (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/30">
-            <Users className="w-12 h-12 text-slate-300 mb-3" />
-            <h3 className="text-md font-black text-slate-900 mb-1">Iniciar Comunicación Privada</h3>
-            <p className="text-xs text-slate-500 max-w-sm mb-6">Selecciona uno de los miembros registrados del equipo Kaivincia en la barra lateral para abrir un canal seguro de chat directo.</p>
-            
-            <div className="w-full max-w-md bg-white border border-slate-100 rounded-2xl shadow-xl p-4 max-h-64 overflow-y-auto space-y-1.5">
-              <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black text-left mb-2 px-1">Miembros de Equipo Disponibles</p>
-              {userList
-                .filter(u => u.id !== auth.currentUser?.uid)
-                .map(u => (
-                  <button
-                    key={u.id}
-                    onClick={() => {
-                      setActiveFilter('private');
-                      setActivePrivateUserId(u.id);
-                    }}
-                    className="w-full flex items-center justify-between p-2.5 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-100 text-left"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-xl bg-slate-950 text-white flex items-center justify-center font-black text-xs">
-                        {u.name?.charAt(0).toUpperCase() || '?'}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{u.name || 'Especialista'}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{u.email}</p>
-                      </div>
-                    </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
-                      u.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
-                    }`}>
-                      {u.status === 'active' ? 'Disponible' : 'Desconectado'}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Header */}
-            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                {activeFilter === 'private' && activePeer ? (
-                  <>
-                    <div className="h-9 w-9 rounded-xl bg-slate-150 text-slate-900 font-bold flex items-center justify-center flex-shrink-0 border border-slate-200">
-                      {activePeer.name?.charAt(0).toUpperCase() || '?'}
-                    </div>
-                    <div className="truncate min-w-0">
-                      <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5 leading-tight">
-                        {activePeer.name || activePeer.email}
-                        <span className={`h-2 w-2 rounded-full ${activePeer.status === 'active' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                      </h3>
-                      <p className="text-[10px] text-slate-400 font-medium truncate lowercase">
-                        {activePeer.email} • Canal de Comunicación Directo
-                      </p>
-                    </div>
-                  </>
-                ) : (
+        
+        {/* CASE A: Active Filter is CONTACTS DIRECTORY */}
+        {activeFilter === 'contacts' ? (
+          <div className="flex-1 flex flex-col overflow-y-auto bg-slate-50/40 p-6">
+            {/* Header statistics block */}
+            <div className="mb-6 bg-slate-900 text-white rounded-3xl p-6 relative overflow-hidden shadow-xl border border-slate-800">
+              <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 h-32 w-32 bg-[#00F0FF]/10 rounded-full blur-2xl" />
+              <div className="relative z-10">
+                <div className="flex items-center gap-2 text-[#00F0FF] mb-2">
+                  <Users className="w-5 h-5 animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest">Directorio de la Plataforma Kaivincia</span>
+                </div>
+                <h1 className="text-2xl font-black tracking-tight mb-2">Gestión de Usuarios y Contactos</h1>
+                <p className="text-slate-400 text-xs max-w-2xl leading-relaxed mb-4">
+                  Envía mensajes privados en tiempo real y gestiona permisos de acceso de los miembros del equipo. Los cambios se actualizan automáticamente en Firestore.
+                </p>
+
+                {/* KPI block */}
+                <div className="grid grid-cols-3 gap-4 pt-4 border-t border-slate-800">
                   <div>
-                    <h3 className="font-black text-slate-900 capitalize text-sm">
-                      {activeFilter === 'all' ? 'Todos los Mensajes' : 
-                       activeFilter === 'groups' ? 'Chat General (Corporativo)' : 
-                       activeFilter === 'users' ? 'Chat de Equipo' : 
-                       activeFilter === 'clients' ? 'Chat con Clientes CRM' : 'Sala de Comunicación'}
-                    </h3>
-                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
-                      Sincronizado en tiempo real con Firestore
-                    </p>
+                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">Miembros Totales</span>
+                    <span className="text-xl font-black text-white">{totalUsersCount}</span>
                   </div>
-                )}
-              </div>
-
-              {/* Header Right Buttons */}
-              <div className="flex items-center gap-2">
-                {activeFilter === 'private' && (
-                  <button
-                    id="toggle-sidebar-button"
-                    onClick={() => setShowRightSidebar(!showRightSidebar)}
-                    className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                      showRightSidebar 
-                        ? 'bg-slate-950 text-white border-slate-950' 
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span className="hidden sm:inline">Gestión & IA</span>
-                  </button>
-                )}
+                  <div>
+                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">En Línea</span>
+                    <span className="text-xl font-black text-emerald-400 flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> {onlineUsersCount}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] uppercase font-black tracking-wider text-slate-500">Administradores</span>
+                    <span className="text-xl font-black text-[#00F0FF]">{adminUsersCount}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Message Thread Scrollable Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/40">
-              {filteredMessages.map((msg) => {
-                const isMe = msg.senderId === auth.currentUser?.uid;
-                const sender = users[msg.senderId] || { name: 'Colega', email: '' };
-                const isRead = msg.isRead === true;
-                
-                return (
-                  <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
-                    <div className="flex items-end gap-2.5 max-w-[80%] group">
-                      {!isMe && (
-                        <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                          {sender.name?.charAt(0).toUpperCase() || '?'}
-                        </div>
+            {/* Filter controls & Search */}
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/60 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="relative w-full md:w-96">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-slate-400" />
+                <input
+                  id="directory-search"
+                  type="text"
+                  placeholder="Buscar usuario por nombre o correo electrónico..."
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#00F0FF]/30 focus:border-[#00F0FF] outline-none text-xs transition-all bg-slate-50/50"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 w-full md:w-auto">
+                <select
+                  id="directory-role-filter"
+                  value={userRoleFilter}
+                  onChange={(e) => setUserRoleFilter(e.target.value)}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs outline-none focus:ring-1 focus:ring-slate-900 text-slate-700 font-bold"
+                >
+                  <option value="all">Todos los Roles</option>
+                  <option value="superadmin">SuperAdministradores</option>
+                  <option value="admin">Administradores</option>
+                  <option value="manager">Manejadores / Managers</option>
+                  <option value="user">Especialistas / Users</option>
+                </select>
+
+                <select
+                  id="directory-status-filter"
+                  value={userStatusFilter}
+                  onChange={(e) => setUserStatusFilter(e.target.value)}
+                  className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs outline-none focus:ring-1 focus:ring-slate-900 text-slate-700 font-bold"
+                >
+                  <option value="all">Todos los Estados</option>
+                  <option value="active">En Línea / Activos</option>
+                  <option value="pending">Pendientes de Registro</option>
+                  <option value="inactive">Desconectados</option>
+                  <option value="suspended">Bloqueados</option>
+                </select>
+
+                {/* View toggle */}
+                <div className="flex bg-slate-100 rounded-xl p-1 border border-slate-200/50">
+                  <button 
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'grid' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-black'}`}
+                  >
+                    Cuadrícula
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all ${viewMode === 'list' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-black'}`}
+                  >
+                    Lista
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Contacts Grid/List of Platform Users */}
+            {viewMode === 'grid' ? (
+              <div id="contacts-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userList.map(u => {
+                  const isMe = u.id === auth.currentUser?.uid;
+                  const isOnline = u.status === 'active';
+                  const unreadCount = getUnreadCount(u.id);
+                  
+                  return (
+                    <div 
+                      key={u.id}
+                      className="bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 shadow-sm hover:shadow-md transition-all p-5 flex flex-col justify-between relative group"
+                    >
+                      {/* Self indicator */}
+                      {isMe && (
+                        <span className="absolute top-3 right-3 bg-slate-100 text-slate-700 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-200">
+                          Tú (Actual)
+                        </span>
                       )}
-                      
-                      <div className={`rounded-2xl px-4 py-3 shadow-sm relative transition-all ${
-                        isMe 
-                          ? 'bg-slate-900 text-white rounded-br-none border border-slate-800' 
-                          : 'bg-white border border-slate-100 text-slate-900 rounded-bl-none'
-                      }`}>
-                        {!isMe && (
-                          <div className="flex justify-between items-center mb-1 gap-4">
-                            <span className="text-[10px] font-black text-[#00F0FF] uppercase tracking-wider">{sender.name || 'Colega'}</span>
-                            {/* IA NLP Classification */}
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-500 uppercase tracking-widest flex items-center gap-1">
-                              <Sparkle className="w-2 h-2 text-[#00F0FF]" /> 
-                              {msg.text.toLowerCase().includes('urgente') || msg.text.toLowerCase().includes('asunto')
-                                ? 'Prioridad: Alta'
-                                : 'Prioridad: Normal'}
+
+                      {/* Unread message indicator absolute */}
+                      {unreadCount > 0 && (
+                        <span className="absolute top-3 right-3 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse shadow">
+                          {unreadCount} mensaje(s) nuevo(s)
+                        </span>
+                      )}
+
+                      <div>
+                        {/* Profile Header */}
+                        <div className="flex items-center gap-3.5 mb-4">
+                          <div className="relative">
+                            <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white font-black text-md flex items-center justify-center shadow-inner">
+                              {u.name?.charAt(0).toUpperCase() || u.email?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                            <span className={`absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white ${
+                              isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                            }`} />
+                          </div>
+
+                          <div>
+                            <h4 className="font-black text-slate-900 text-sm group-hover:text-[#00F0FF] transition-colors line-clamp-1">{u.name || 'Especialista'}</h4>
+                            <p className="text-xs text-slate-500 font-medium line-clamp-1 lowercase">{u.email}</p>
+                          </div>
+                        </div>
+
+                        {/* Badges & Details */}
+                        <div className="space-y-2 mb-5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[9px] font-black uppercase tracking-wide border border-slate-200">
+                              Rol: {u.role || 'user'}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wide border ${
+                              isOnline 
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                                : 'bg-slate-50 text-slate-500 border-slate-200'
+                            }`}>
+                              Estado: {u.status || 'active'}
                             </span>
                           </div>
-                        )}
-                        <p className="text-xs leading-relaxed whitespace-pre-line">{msg.text}</p>
-                        
-                        <div className={`text-[9px] mt-1.5 font-bold flex items-center justify-end gap-1 uppercase tracking-widest ${
-                          isMe ? 'text-slate-400' : 'text-slate-400'
-                        }`}>
-                          {msg.createdAt ? format(parseISO(msg.createdAt), 'HH:mm') : ''}
-                          {isMe && (
-                            isRead ? (
-                              <CheckCheck className="w-3 h-3 text-[#00F0FF]" title="Leído por el destinatario" />
-                            ) : (
-                              <Check className="w-3 h-3 text-slate-400" title="Enviado a Firestore" />
-                            )
-                          )}
+
+                          <div className="text-[10px] text-slate-400 space-y-1">
+                            <p className="flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                              <span>ID: {u.id.substring(0, 10)}...</span>
+                            </p>
+                            <p className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Último acceso: Sincronizado en vivo</span>
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
 
-              {/* Dynamic typing indicator simulated */}
-              {isPeerTyping && activePeer && (
-                <div className="flex items-end gap-2.5 max-w-[80%] animate-pulse">
-                  <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                    {activePeer.name?.charAt(0).toUpperCase() || '?'}
-                  </div>
-                  <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-bold text-slate-500">{activePeer.name || 'Colega'} está escribiendo</span>
-                      <div className="flex gap-1">
-                        <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
-                        <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
-                        <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                      {/* Action buttons */}
+                      <div className="pt-3 border-t border-slate-100 flex gap-1.5">
+                        {isMe ? (
+                          <button 
+                            disabled 
+                            className="w-full py-2 bg-slate-100 text-slate-400 font-black text-[10px] uppercase tracking-wider rounded-xl cursor-not-allowed"
+                          >
+                            Tú mismo
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => {
+                                setActiveFilter('private');
+                                setActivePrivateUserId(u.id);
+                              }}
+                              className="flex-1 bg-slate-950 text-white hover:bg-slate-800 py-2.5 px-3 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow hover:shadow-md"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5 text-[#00F0FF]" /> Enviar Mensaje
+                            </button>
+                            <button
+                              onClick={() => {
+                                setActiveFilter('private');
+                                setActivePrivateUserId(u.id);
+                                setShowRightSidebar(true);
+                              }}
+                              className="bg-slate-100 text-slate-700 hover:bg-slate-200 p-2.5 rounded-xl transition-all"
+                              title="Gestionar permisos de este usuario"
+                            >
+                              <Settings className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
+            ) : (
+              /* Contact Directory List View */
+              <div id="contacts-list" className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 text-slate-500 text-[10px] font-black uppercase tracking-widest border-b border-slate-200">
+                      <th className="px-6 py-4">Usuario</th>
+                      <th className="px-6 py-4">Correo Electrónico</th>
+                      <th className="px-6 py-4">Rol en Plataforma</th>
+                      <th className="px-6 py-4">Estatus</th>
+                      <th className="px-6 py-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {userList.map(u => {
+                      const isMe = u.id === auth.currentUser?.uid;
+                      const isOnline = u.status === 'active';
+                      const unreadCount = getUnreadCount(u.id);
+                      
+                      return (
+                        <tr key={u.id} className="hover:bg-slate-50/50 transition-all group">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="relative">
+                                <div className="h-9 w-9 rounded-xl bg-slate-950 text-white font-bold flex items-center justify-center text-xs">
+                                  {u.name?.charAt(0).toUpperCase() || '?'}
+                                </div>
+                                <span className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${
+                                  isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                                }`} />
+                              </div>
+                              <div>
+                                <p className="font-bold text-xs text-slate-950 flex items-center gap-1.5">
+                                  {u.name || 'Especialista'}
+                                  {isMe && <span className="bg-slate-100 text-slate-500 text-[8px] px-1.5 py-0.5 rounded font-black">TÚ</span>}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">ID: {u.id.substring(0, 8)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-xs text-slate-600 font-mono lowercase">
+                            {u.email}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[9px] font-black uppercase tracking-wider">
+                              {u.role || 'user'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              isOnline ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                            }`}>
+                              {u.status || 'active'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            {isMe ? (
+                              <span className="text-[10px] text-slate-400 italic">Sesión Actual</span>
+                            ) : (
+                              <div className="flex items-center justify-end gap-1.5">
+                                {unreadCount > 0 && (
+                                  <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full mr-2">
+                                    {unreadCount} nuevo
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => {
+                                    setActiveFilter('private');
+                                    setActivePrivateUserId(u.id);
+                                  }}
+                                  className="bg-slate-950 text-white hover:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all"
+                                >
+                                  Chatear
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveFilter('private');
+                                    setActivePrivateUserId(u.id);
+                                    setShowRightSidebar(true);
+                                  }}
+                                  className="p-1.5 text-slate-400 hover:text-black hover:bg-slate-100 rounded-lg transition-all"
+                                >
+                                  <Settings className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* CASE B: STANDARD CHAT MESSAGES THREAD (ALL / GROUPS / PRIVATE / CLIENTS) */
+          <>
+            {activeFilter === 'private' && !activePrivateUserId ? (
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center bg-slate-50/30">
+                <Users className="w-12 h-12 text-slate-300 mb-3" />
+                <h3 className="text-md font-black text-slate-900 mb-1">Iniciar Comunicación Privada</h3>
+                <p className="text-xs text-slate-500 max-w-sm mb-6">Selecciona uno de los miembros registrados del equipo Kaivincia en la barra lateral o navega al Directorio para abrir un canal seguro de chat directo.</p>
+                
+                <button 
+                  onClick={() => setActiveFilter('contacts')}
+                  className="bg-slate-950 text-white px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow"
+                >
+                  Ver Directorio de Contactos
+                </button>
 
-              {filteredMessages.length === 0 && !isPeerTyping && (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-12">
-                  <MessageSquare className="w-8 h-8 text-slate-300 mb-2" />
-                  No hay mensajes registrados en este chat.
-                </div>
-              )}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Smart Suggestions & Input Bar */}
-            <div className="p-4 border-t border-slate-100 bg-white flex-shrink-0">
-              
-              {/* Sincronización IA - Quick suggestions box above input */}
-              {activeFilter === 'private' && (
-                <div className="mb-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-[#00F0FF]" /> Sugerencias Inteligentes de IA
-                    </span>
-                    <button
-                      id="ai-generate-suggestions-button"
-                      onClick={handleGenerateAiSuggestions}
-                      disabled={isGeneratingSuggestions}
-                      className="text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-black flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 transition-all disabled:opacity-50"
-                    >
-                      {isGeneratingSuggestions ? (
-                        <>
-                          <Loader2 className="w-2.5 h-2.5 animate-spin" /> Generando...
-                        </>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-2.5 h-2.5" /> Recargar con IA
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full">
-                    {aiSuggestions.map((suggestion, idx) => (
+                <div className="w-full max-w-md bg-white border border-slate-100 rounded-2xl shadow-xl p-4 mt-8 max-h-64 overflow-y-auto space-y-1.5">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black text-left mb-2 px-1">Miembros de Equipo Disponibles</p>
+                  {userList
+                    .filter(u => u.id !== auth.currentUser?.uid)
+                    .map(u => (
                       <button
-                        key={idx}
-                        onClick={() => setNewMessage(suggestion)}
-                        className="text-[11px] font-medium bg-[#00F0FF]/10 text-slate-900 border border-[#00F0FF]/30 px-3 py-1.5 rounded-full hover:bg-[#00F0FF]/25 transition-all flex-shrink-0 max-w-xs truncate"
+                        key={u.id}
+                        onClick={() => {
+                          setActiveFilter('private');
+                          setActivePrivateUserId(u.id);
+                        }}
+                        className="w-full flex items-center justify-between p-2.5 hover:bg-slate-50 rounded-xl transition-all border border-transparent hover:border-slate-100 text-left"
                       >
-                        {suggestion}
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-xl bg-slate-950 text-white flex items-center justify-center font-black text-xs">
+                            {u.name?.charAt(0).toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-900">{u.name || 'Especialista'}</p>
+                            <p className="text-[10px] text-slate-400 font-medium">{u.email}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
+                          u.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {u.status === 'active' ? 'Disponible' : 'Desconectado'}
+                        </span>
                       </button>
                     ))}
-                    {!isGeneratingSuggestions && aiSuggestions.length === 0 && (
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
+                <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white flex-shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    {activeFilter === 'private' && activePeer ? (
+                      <>
+                        <div className="h-9 w-9 rounded-xl bg-slate-150 text-slate-900 font-bold flex items-center justify-center flex-shrink-0 border border-slate-200">
+                          {activePeer.name?.charAt(0).toUpperCase() || '?'}
+                        </div>
+                        <div className="truncate min-w-0">
+                          <h3 className="font-black text-slate-900 text-sm flex items-center gap-1.5 leading-tight">
+                            {activePeer.name || activePeer.email}
+                            <span className={`h-2 w-2 rounded-full ${activePeer.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                          </h3>
+                          <p className="text-[10px] text-slate-400 font-medium truncate lowercase">
+                            {activePeer.email} • Canal de Comunicación Directo
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <h3 className="font-black text-slate-900 capitalize text-sm">
+                          {activeFilter === 'all' ? 'Todos los Mensajes' : 
+                           activeFilter === 'groups' ? 'Chat General (Corporativo)' : 
+                           activeFilter === 'users' ? 'Chat de Equipo' : 
+                           activeFilter === 'clients' ? 'Chat con Clientes CRM' : 'Sala de Comunicación'}
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">
+                          Sincronizado en tiempo real con Firestore
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Header Right Buttons */}
+                  <div className="flex items-center gap-2">
+                    {activeFilter === 'private' && (
                       <button
-                        onClick={handleGenerateAiSuggestions}
-                        className="text-[10px] font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full transition-all"
+                        id="toggle-sidebar-button"
+                        onClick={() => setShowRightSidebar(!showRightSidebar)}
+                        className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          showRightSidebar 
+                            ? 'bg-slate-950 text-white border-slate-950 shadow' 
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
                       >
-                        ⚡ Generar sugerencias rápidas de conversación para este colega
+                        <Settings className="w-4 h-4 text-[#00F0FF]" />
+                        <span className="hidden sm:inline">Gestión & IA</span>
                       </button>
                     )}
                   </div>
                 </div>
-              )}
 
-              {/* Chat Send Form */}
-              <form id="message-send-form" onSubmit={handleSendMessage} className="flex gap-2">
-                <input
-                  id="message-input"
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder={
-                    activeFilter === 'private' && activePeer
-                      ? `Escribe un mensaje confidencial a ${activePeer.name || 'Colega'}...`
-                      : `Enviar mensaje en ${activeFilter === 'all' ? 'Chat General' : activeFilter}...`
-                  }
-                  className="flex-1 rounded-xl border-slate-200 text-xs shadow-sm focus:border-slate-950 focus:ring-1 focus:ring-slate-950 px-4 py-3 border outline-none bg-slate-50 focus:bg-white transition-all"
-                />
-                <button
-                  id="message-send-button"
-                  type="submit"
-                  disabled={!newMessage.trim()}
-                  className="bg-slate-950 text-white p-3 rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center w-12 h-12 transition-colors flex-shrink-0"
-                >
-                  <Send className="h-4.5 w-4.5" />
-                </button>
-              </form>
-            </div>
+                {/* Message Thread Scrollable Area */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/40">
+                  {filteredMessages.map((msg) => {
+                    const isMe = msg.senderId === auth.currentUser?.uid;
+                    const sender = users[msg.senderId] || { name: 'Colega', email: '' };
+                    const isRead = msg.isRead === true;
+                    
+                    return (
+                      <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div className="flex items-end gap-2.5 max-w-[80%] group">
+                          {!isMe && (
+                            <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                              {sender.name?.charAt(0).toUpperCase() || '?'}
+                            </div>
+                          )}
+                          
+                          <div className={`rounded-2xl px-4 py-3 shadow-sm relative transition-all ${
+                            isMe 
+                              ? 'bg-slate-900 text-white rounded-br-none border border-slate-800' 
+                              : 'bg-white border border-slate-100 text-slate-900 rounded-bl-none'
+                          }`}>
+                            {!isMe && (
+                              <div className="flex justify-between items-center mb-1 gap-4">
+                                <span className="text-[10px] font-black text-[#00F0FF] uppercase tracking-wider">{sender.name || 'Colega'}</span>
+                                {/* IA NLP Classification */}
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-50 text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                  <Sparkle className="w-2 h-2 text-[#00F0FF]" /> 
+                                  {msg.text.toLowerCase().includes('urgente') || msg.text.toLowerCase().includes('asunto')
+                                    ? 'Prioridad: Alta'
+                                    : 'Prioridad: Normal'}
+                                </span>
+                              </div>
+                            )}
+                            <p className="text-xs leading-relaxed whitespace-pre-line">{msg.text}</p>
+                            
+                            <div className={`text-[9px] mt-1.5 font-bold flex items-center justify-end gap-1 uppercase tracking-widest ${
+                              isMe ? 'text-slate-400' : 'text-slate-400'
+                            }`}>
+                              {msg.createdAt ? format(parseISO(msg.createdAt), 'HH:mm') : ''}
+                              {isMe && (
+                                isRead ? (
+                                  <span title="Leído por el destinatario">
+                                    <CheckCheck className="w-3 h-3 text-[#00F0FF]" />
+                                  </span>
+                                ) : (
+                                  <span title="Enviado a Firestore">
+                                    <Check className="w-3 h-3 text-slate-400" />
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Dynamic typing indicator simulated */}
+                  {isPeerTyping && activePeer && (
+                    <div className="flex items-end gap-2.5 max-w-[80%] animate-pulse">
+                      <div className="h-8 w-8 rounded-lg bg-slate-950 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                        {activePeer.name?.charAt(0).toUpperCase() || '?'}
+                      </div>
+                      <div className="bg-white border border-slate-100 rounded-2xl rounded-bl-none px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-500">{activePeer.name || 'Colega'} está escribiendo</span>
+                          <div className="flex gap-1">
+                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce" />
+                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                            <span className="h-1.5 w-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {filteredMessages.length === 0 && !isPeerTyping && (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 text-xs py-12">
+                      <MessageSquare className="w-8 h-8 text-slate-300 mb-2" />
+                      No hay mensajes registrados en este chat.
+                    </div>
+                  )}
+                  <div ref={messagesEndRef} />
+                </div>
+
+                {/* Smart Suggestions & Input Bar */}
+                <div className="p-4 border-t border-slate-100 bg-white flex-shrink-0">
+                  
+                  {/* Sincronización IA - Quick suggestions box above input */}
+                  {activeFilter === 'private' && (
+                    <div className="mb-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-[#00F0FF]" /> Sugerencias Inteligentes de IA
+                        </span>
+                        <button
+                          id="ai-generate-suggestions-button"
+                          onClick={handleGenerateAiSuggestions}
+                          disabled={isGeneratingSuggestions}
+                          className="text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-black flex items-center gap-1 bg-slate-50 px-2 py-0.5 rounded border border-slate-100 transition-all disabled:opacity-50"
+                        >
+                          {isGeneratingSuggestions ? (
+                            <>
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" /> Generando...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-2.5 h-2.5" /> Recargar con IA
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <div className="flex gap-1.5 overflow-x-auto pb-1 max-w-full">
+                        {aiSuggestions.map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setNewMessage(suggestion)}
+                            className="text-[11px] font-medium bg-[#00F0FF]/10 text-slate-900 border border-[#00F0FF]/30 px-3 py-1.5 rounded-full hover:bg-[#00F0FF]/25 transition-all flex-shrink-0 max-w-xs truncate"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                        {!isGeneratingSuggestions && aiSuggestions.length === 0 && (
+                          <button
+                            onClick={handleGenerateAiSuggestions}
+                            className="text-[10px] font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-full transition-all"
+                          >
+                            ⚡ Generar sugerencias rápidas de conversación para este colega
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Chat Send Form */}
+                  <form id="message-send-form" onSubmit={handleSendMessage} className="flex gap-2">
+                    <input
+                      id="message-input"
+                      type="text"
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder={
+                        activeFilter === 'private' && activePeer
+                          ? `Escribe un mensaje confidencial a ${activePeer.name || 'Colega'}...`
+                          : `Enviar mensaje en ${activeFilter === 'all' ? 'Chat General' : activeFilter}...`
+                      }
+                      className="flex-1 rounded-xl border-slate-200 text-xs shadow-sm focus:border-slate-950 focus:ring-1 focus:ring-slate-950 px-4 py-3 border outline-none bg-slate-50 focus:bg-white transition-all"
+                    />
+                    <button
+                      id="message-send-button"
+                      type="submit"
+                      disabled={!newMessage.trim()}
+                      className="bg-slate-950 text-white p-3 rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center w-12 h-12 transition-colors flex-shrink-0"
+                    >
+                      <Send className="h-4.5 w-4.5" />
+                    </button>
+                  </form>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
 
       {/* Right Column: User Profile, Administration and AI executive tools (Column 3) */}
       {activeFilter === 'private' && activePeer && showRightSidebar && !isEmbedded && (
-        <div id="user-mgmt-sidebar" className="w-full md:w-80 border-l border-slate-200 bg-white p-5 overflow-y-auto flex flex-col flex-shrink-0">
+        <div id="user-mgmt-sidebar" className="w-full md:w-80 border-l border-slate-200 bg-white p-5 overflow-y-auto flex flex-col flex-shrink-0 animate-fade-in">
           
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
@@ -835,7 +1199,7 @@ export default function Chat() {
                 {activePeer.role || 'user'}
               </span>
               <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                activePeer.status === 'active' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+                activePeer.status === 'active' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 animate-pulse' : 'bg-amber-50 text-amber-800 border border-amber-200'
               }`}>
                 {activePeer.status || 'active'}
               </span>
