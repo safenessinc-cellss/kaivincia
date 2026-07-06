@@ -54,13 +54,17 @@ function DraggableClientCard({ client, isOverlay = false, onContextMenu }: { cli
     transform: CSS.Translate.toString(transform),
   };
 
-  const isHighQ = client.healthScore > 85;
+  const isHighQ = (client.healthScore || 100) > 85;
 
   if (isDragging && !isOverlay) {
     return (
       <div ref={setNodeRef} style={style} className="opacity-20 bg-slate-800/10 h-[140px] rounded-2xl border border-dashed border-slate-700" />
     );
   }
+
+  const displayName = client.companyName || client.company || client.name || "Sin Nombre";
+  const displayValue = Number(client.contractValue !== undefined ? client.contractValue : client.amount) || 0;
+  const displayScore = client.healthScore !== undefined ? client.healthScore : 100;
 
   return (
     <div 
@@ -85,7 +89,7 @@ function DraggableClientCard({ client, isOverlay = false, onContextMenu }: { cli
 
       <div className="flex items-start justify-between mb-4">
         <div className="min-w-0">
-           <h4 className="font-black text-white text-xs leading-tight uppercase tracking-widest truncate">{client.companyName}</h4>
+           <h4 className="font-black text-white text-xs leading-tight uppercase tracking-widest truncate">{displayName}</h4>
            <div className="flex items-center gap-2 mt-1">
              <div className="w-5 h-5 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
                 <Users2 className="w-3 h-3 text-slate-400" />
@@ -102,14 +106,14 @@ function DraggableClientCard({ client, isOverlay = false, onContextMenu }: { cli
         <div className="flex items-center justify-between">
            <div className="font-mono text-xs font-black text-white flex items-center gap-1">
              <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
-             {(Number(client.contractValue) || 0).toLocaleString()}
+             {displayValue.toLocaleString()}
            </div>
            <div className={`px-2 py-0.5 rounded-md text-[9px] font-black font-mono border ${
-              client.healthScore > 80 ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
-              client.healthScore > 50 ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' :
+              displayScore > 80 ? 'bg-emerald-400/10 text-emerald-400 border-emerald-400/20' :
+              displayScore > 50 ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' :
               'bg-red-400/10 text-red-400 border-red-400/20'
            }`}>
-             IA: {client.healthScore}%
+             IA: {displayScore}%
            </div>
         </div>
         
@@ -137,7 +141,7 @@ function DroppableColumn({ stage, clients, isOverColumn, onContextMenu }: { stag
     id: stage,
   });
 
-  const totalAmount = clients.reduce((acc, c) => acc + (Number(c.contractValue) || 0), 0);
+  const totalAmount = clients.reduce((acc, c) => acc + (Number(c.contractValue !== undefined ? c.contractValue : c.amount) || 0), 0);
   const config = STAGE_CONFIG[stage] || { color: "text-slate-400", glow: "border-slate-800" };
 
   return (
@@ -235,7 +239,7 @@ export default function Pipeline() {
     return () => unsubscribe();
   }, []);
 
-  const totalValue = clients.filter(c => c.pipelineStage !== 'Cerrado Perdido').reduce((acc, c) => acc + (Number(c.contractValue) || 0), 0);
+  const totalValue = clients.filter(c => c.pipelineStage !== 'Cerrado Perdido').reduce((acc, c) => acc + (Number(c.contractValue !== undefined ? c.contractValue : c.amount) || 0), 0);
   const isVolumeDropping = totalValue < 40000; // Simulated threshold for risk alert
 
   const funnelData = useMemo(() => {
@@ -246,7 +250,7 @@ export default function Pipeline() {
         name: stage,
         fill: idx === 0 ? '#94A3B8' : idx === 1 ? '#FACC15' : idx === 2 ? '#60A5FA' : idx === 3 ? '#C084FC' : idx === 4 ? '#22D3EE' : '#34D399',
         realValue: stageClients.length,
-        totalValue: stageClients.reduce((acc, c) => acc + (Number(c.contractValue) || 0), 0)
+        totalValue: stageClients.reduce((acc, c) => acc + (Number(c.contractValue !== undefined ? c.contractValue : c.amount) || 0), 0)
       };
     }).sort((a,b) => STAGES.indexOf(a.name) - STAGES.indexOf(b.name));
   }, [clients]);
@@ -301,7 +305,7 @@ export default function Pipeline() {
       // Notify Nervous System (Neural Link)
       await addDoc(collection(db, 'system_events'), {
         type: 'PIPELINE_MOVE',
-        message: `Oportunidad "${clientData.companyName}" movida a ${newStage}. Valor: $${clientData.contractValue}.`,
+        message: `Oportunidad "${clientData.companyName || clientData.company || clientData.name || 'Sin Nombre'}" movida a ${newStage}. Valor: $${(clientData.contractValue !== undefined ? clientData.contractValue : clientData.amount) || 0}.`,
         severity: newStage === 'POST_VENTA' ? 'success' : 'info',
         timestamp: serverTimestamp()
       });
@@ -401,7 +405,7 @@ export default function Pipeline() {
           <div className="flex-1 bg-[#12161F] border border-[#1E293B] rounded-3xl p-8 relative overflow-hidden flex flex-col items-center">
             <h3 className="text-xl font-black text-white italic uppercase mb-8">Embudo de Conversión (Leads a Contratos)</h3>
             <div className="w-full max-w-4xl h-[400px]">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+              <ResponsiveContainer width="100%" height="100%">
                 <FunnelChart>
                   <RechartsTooltip 
                     contentStyle={{ backgroundColor: '#0B0E14', border: '1px solid #1E293B', borderRadius: '12px' }}
