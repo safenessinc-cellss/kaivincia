@@ -60,6 +60,21 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /omnichannel_threads/{threadId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+      
+      match /messages/{messageId} {
+        allow read, create, update: if isAuthenticated();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /voip_call_history/{callId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
     match /candidates/{candidateId} {
       allow read: if isAuthenticated();
       allow create: if true; // Public form

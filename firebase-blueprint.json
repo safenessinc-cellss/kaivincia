@@ -709,6 +709,43 @@
     "/chat_messages/{messageId}": {
       "schema": { "$ref": "ChatMessage" },
       "description": "Internal and client chat messages."
+    },
+    "/omnichannel_threads/{threadId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "lastMsg": { "type": "string" },
+          "time": { "type": "string" },
+          "priority": { "type": "string" },
+          "type": { "type": "string" },
+          "phone": { "type": "string" },
+          "email": { "type": "string" },
+          "handle": { "type": "string" }
+        }
+      },
+      "description": "Omnichannel communication threads (WhatsApp, Email, Instagram, Voicemail)."
+    },
+    "/omnichannel_threads/{threadId}/messages/{messageId}": {
+      "schema": { "$ref": "ChatMessage" },
+      "description": "Messages belonging to an omnichannel thread."
+    },
+    "/voip_call_history/{callId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "number": { "type": "string" },
+          "name": { "type": "string" },
+          "timestamp": { "type": "string" },
+          "status": { "type": "string" },
+          "duration": { "type": "string" },
+          "provider": { "type": "string" },
+          "cost": { "type": "string" }
+        }
+      },
+      "description": "Durable logs of VoIP outbound and inbound calls."
     }
   }
 }
