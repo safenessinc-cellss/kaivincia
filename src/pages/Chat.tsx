@@ -1389,6 +1389,8 @@ export default function Chat() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-2.5 py-2 text-xs text-gray-300 font-bold focus:outline-none focus:border-[#00F0FF]"
                   >
                     <option value="user">Especialista / Colaborador</option>
+                    <option value="tutor">Tutor Académico</option>
+                    <option value="telemarketing">Operador Telemarketing</option>
                     <option value="manager">Manejador / Manager</option>
                     <option value="admin">Administrador / Admin</option>
                     <option value="superadmin">Super Administrador</option>

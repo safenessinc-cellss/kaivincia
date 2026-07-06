@@ -170,6 +170,100 @@ export default function CallSystem() {
   // Coverage Search State
   const [areaSearch, setAreaSearch] = useState('');
 
+  // Web Audio Ringing Refs & Functions
+  const ringIntervalRef = useRef<any>(null);
+  const ringAudioCtxRef = useRef<AudioContext | null>(null);
+  const ringGainNodeRef = useRef<GainNode | null>(null);
+
+  const stopRinging = () => {
+    if (ringIntervalRef.current) {
+      clearInterval(ringIntervalRef.current);
+      ringIntervalRef.current = null;
+    }
+    if (ringAudioCtxRef.current) {
+      try {
+        ringAudioCtxRef.current.close();
+      } catch (e) {}
+      ringAudioCtxRef.current = null;
+      ringGainNodeRef.current = null;
+    }
+  };
+
+  const startRinging = () => {
+    try {
+      stopRinging();
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      ringAudioCtxRef.current = audioCtx;
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc1.frequency.value = 440;
+      osc2.frequency.value = 480;
+      
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc1.start();
+      osc2.start();
+      
+      ringGainNodeRef.current = gainNode;
+      
+      const playRingCycle = () => {
+        if (!ringAudioCtxRef.current || !ringGainNodeRef.current) return;
+        const now = ringAudioCtxRef.current.currentTime;
+        ringGainNodeRef.current.gain.setValueAtTime(0, now);
+        ringGainNodeRef.current.gain.linearRampToValueAtTime(0.08, now + 0.1);
+        
+        setTimeout(() => {
+          if (!ringAudioCtxRef.current || !ringGainNodeRef.current) return;
+          const stopTime = ringAudioCtxRef.current.currentTime;
+          ringGainNodeRef.current.gain.setValueAtTime(0.08, stopTime);
+          ringGainNodeRef.current.gain.linearRampToValueAtTime(0, stopTime + 0.1);
+        }, 1500);
+      };
+
+      playRingCycle();
+      ringIntervalRef.current = setInterval(playRingCycle, 4000);
+    } catch (err) {
+      console.warn('Error playing ringing sound:', err);
+    }
+  };
+
+  const playConnectedSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.frequency.value = 660;
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 0.05);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.25);
+    } catch (e) {}
+  };
+
+  // Stop ringing on unmount
+  useEffect(() => {
+    return () => {
+      stopRinging();
+    };
+  }, []);
+
   const playDTMFTone = (key: string) => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -307,9 +401,11 @@ export default function CallSystem() {
             setConnectionStage('Timbrando...');
             addSipLog(`SIP/2.0 INVITE sip:${targetNumber.replace(/\s+/g, '')} SDP Offer (Opus @ 48kHz)`);
             addSipLog(`SIP/2.0 100 Trying | 180 Ringing`);
-            playDTMFTone('2');
+            startRinging();
             
             setTimeout(() => {
+              stopRinging();
+              playConnectedSound();
               setSoftphoneStatus('connected');
               setConnectionStage('Conectado');
               addSipLog(`SIP/2.0 200 OK (Answered)`);
@@ -331,7 +427,7 @@ export default function CallSystem() {
                 isMuted: false,
                 isRecording: false
               });
-            }, 1500);
+            }, 3000); // Give it slightly more time to ring (3 seconds is standard and satisfying)
           }, 1000);
         }, 1000);
       }, 1000);
@@ -339,6 +435,7 @@ export default function CallSystem() {
   };
 
   const handleHangUp = () => {
+    stopRinging();
     setSoftphoneStatus('ended');
     setConnectionStage('Colgando...');
     addSipLog(`SIP/2.0 BYE sent (Agent Hangup)`);
