@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, setDoc, getDocs, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
+import * as pdfjsLib from 'pdfjs-dist';
+import { GoogleGenAI } from '@google/genai';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { 
   Search, Mail, Upload, FileSpreadsheet, AlertCircle, 
   CheckCircle2, Plus, X, Building2, Phone, Globe, User,
@@ -90,6 +94,8 @@ export default function Clients() {
   const [importErrors, setImportErrors] = useState<any[]>([]);
   const [importStatus, setImportStatus] = useState<{ type: 'idle' | 'loading' | 'success' | 'error', message: string }>({ type: 'idle', message: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<UpsellOpportunity | null>(null);
 
   const [activeProfileTab, setActiveProfileTab] = useState<'360' | 'info' | 'chat' | 'tasks' | 'visitas' | 'contract' | 'billing'>('360');
   const [clientIntel, setClientIntel] = useState<{
@@ -451,68 +457,219 @@ export default function Clients() {
     }
   };
 
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map((item: any) => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+      return fullText;
+    } catch (error) {
+      console.error("Error extracting PDF text:", error);
+      throw new Error("No se pudo extraer texto del archivo PDF de manera automática.");
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportStatus({ type: 'loading', message: 'Analizando patrones...' });
+    const fileType = file.name.split('.').pop()?.toLowerCase();
+    setImportStatus({ type: 'loading', message: 'Iniciando ingestión de datos...' });
 
     try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      if (fileType === 'pdf' || fileType === 'txt') {
+        setImportStatus({ type: 'loading', message: fileType === 'pdf' ? 'Extrayendo texto de PDF con OCR cognitivo...' : 'Leyendo archivo plano de texto...' });
+        
+        let textContent = '';
+        if (fileType === 'pdf') {
+          textContent = await extractTextFromPDF(file);
+        } else {
+          textContent = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result as string || '');
+            reader.onerror = () => reject(new Error("Fallo en la lectura física de texto."));
+            reader.readAsText(file);
+          });
+        }
 
-      if (jsonData.length < 2) {
-        throw new Error("El archivo está vacío o no tiene cabeceras.");
-      }
+        if (!textContent.trim()) {
+          throw new Error("El documento no contiene texto legible.");
+        }
 
-      const headers = jsonData[0];
-      const rows = jsonData.slice(1).map((row, index) => {
-        const obj: any = { _id: index };
-        headers.forEach((header: string, i: number) => {
-          obj[header] = row[i];
+        setImportStatus({ type: 'loading', message: 'Estructurando listado mediante Gemini IA...' });
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (!apiKey) {
+          throw new Error("La clave de API de Gemini no está configurada.");
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Analiza el siguiente texto de un documento e identifica a los clientes y sus datos asociados.
+Devuelve únicamente un arreglo JSON en el formato exacto de un objeto que tiene una clave llamada "clients", cuyo valor es un arreglo de objetos de cliente.
+Cada objeto de cliente debe tener exactamente los siguientes nombres de campos en minúsculas:
+- "name": Nombre completo del contacto/cliente (por ejemplo, "Juan Pérez")
+- "company": Nombre de la empresa u organización (por ejemplo, "TechCorp")
+- "email": Correo electrónico válido
+- "phone": Número de de teléfono o contacto
+- "sector": Sector o industria (por ejemplo, "Tecnología", "Salud", "Servicios", "Finanzas")
+- "amount": Monto del contrato (un número real o entero, por ejemplo, 1200)
+- "status": Debe ser exactamente uno de estos valores: "Activo", "En Riesgo", "Lead", "Inactivo"
+- "billingModel": Debe ser exactamente uno de estos valores: "Fijo", "Variable", "Híbrido"
+- "pipelineStage": Etapa de venta (por ejemplo, "Propuesta", "Contacto Inicial", "Cerrado Ganado")
+
+Texto del documento:
+${textContent}
+
+Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluyas explicaciones ni bloques de código markdown, solo el JSON puro.`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
         });
-        return obj;
-      });
 
-      // Fuzzy Mapping Logic
-      const mapping: Record<string, string> = {};
-      const targetColumns = ['name', 'company', 'email', 'phone', 'sector'];
-      
-      headers.forEach((h: string) => {
-        const header = h.toLowerCase();
-        if (header.includes('nombre') || header.includes('name')) mapping[h] = 'name';
-        else if (header.includes('empresa') || header.includes('company') || header.includes('business')) mapping[h] = 'company';
-        else if (header.includes('email') || header.includes('correo')) mapping[h] = 'email';
-        else if (header.includes('tel') || header.includes('phone')) mapping[h] = 'phone';
-        else if (header.includes('sector') || header.includes('industria')) mapping[h] = 'sector';
-      });
+        const rawText = response.text || '';
+        let cleanText = rawText.trim();
+        if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+        }
 
-      setImportRows(rows);
-      setColumnMapping(mapping);
-      setImportStep(2);
-      setImportStatus({ type: 'idle', message: '' });
+        const parsedData = JSON.parse(cleanText);
+        if (!parsedData.clients || !Array.isArray(parsedData.clients)) {
+          throw new Error("La IA no pudo estructurar los datos del documento de manera correcta.");
+        }
+
+        const clientsList = parsedData.clients.map((c: any, index: number) => ({
+          _id: index,
+          name: c.name || '',
+          company: c.company || '',
+          email: c.email || '',
+          phone: c.phone || '',
+          sector: c.sector || 'Tecnología',
+          amount: Number(c.amount) || 0,
+          status: c.status || 'Activo',
+          billingModel: c.billingModel || 'Fijo',
+          pipelineStage: c.pipelineStage || 'Propuesta'
+        }));
+
+        setImportRows(clientsList);
+        setColumnMapping({
+          'name': 'name',
+          'company': 'company',
+          'email': 'email',
+          'phone': 'phone',
+          'sector': 'sector',
+          'amount': 'amount',
+          'status': 'status',
+          'billingModel': 'billingModel',
+          'pipelineStage': 'pipelineStage'
+        });
+        setImportStep(2);
+        setImportStatus({ type: 'idle', message: '' });
+
+      } else if (fileType === 'json') {
+        const text = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string || '');
+          reader.onerror = () => reject(new Error("Error de lectura JSON."));
+          reader.readAsText(file);
+        });
+        const parsed = JSON.parse(text);
+        const dataArray = Array.isArray(parsed) ? parsed : (parsed.clients || []);
+        
+        const clientsList = dataArray.map((c: any, index: number) => ({
+          _id: index,
+          name: c.name || c.Nombre || '',
+          company: c.company || c.Empresa || '',
+          email: c.email || c.Correo || '',
+          phone: c.phone || c.Teléfono || '',
+          sector: c.sector || c.Sector || 'Tecnología',
+          amount: Number(c.amount || c.Monto) || 0,
+          status: c.status || c.Estado || 'Activo',
+          billingModel: c.billingModel || c.Modelo || 'Fijo',
+          pipelineStage: c.pipelineStage || c.Etapa || 'Propuesta'
+        }));
+
+        setImportRows(clientsList);
+        setColumnMapping({
+          'name': 'name',
+          'company': 'company',
+          'email': 'email',
+          'phone': 'phone',
+          'sector': 'sector',
+          'amount': 'amount',
+          'status': 'status',
+          'billingModel': 'billingModel',
+          'pipelineStage': 'pipelineStage'
+        });
+        setImportStep(2);
+        setImportStatus({ type: 'idle', message: '' });
+
+      } else {
+        // Excel/CSV
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data);
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+        if (jsonData.length < 2) {
+          throw new Error("El archivo está vacío o no tiene cabeceras.");
+        }
+
+        const headers = jsonData[0];
+        const rows = jsonData.slice(1).map((row, index) => {
+          const obj: any = { _id: index };
+          headers.forEach((header: string, i: number) => {
+            obj[header] = row[i];
+          });
+          return obj;
+        });
+
+        const mapping: Record<string, string> = {};
+        headers.forEach((h: string) => {
+          const header = h.toLowerCase();
+          if (header.includes('nombre') || header.includes('name')) mapping[h] = 'name';
+          else if (header.includes('empresa') || header.includes('company') || header.includes('business')) mapping[h] = 'company';
+          else if (header.includes('email') || header.includes('correo')) mapping[h] = 'email';
+          else if (header.includes('tel') || header.includes('phone')) mapping[h] = 'phone';
+          else if (header.includes('sector') || header.includes('industria')) mapping[h] = 'sector';
+          else if (header.includes('monto') || header.includes('amount')) mapping[h] = 'amount';
+          else if (header.includes('estado') || header.includes('status')) mapping[h] = 'status';
+        });
+
+        setImportRows(rows);
+        setColumnMapping(mapping);
+        setImportStep(2);
+        setImportStatus({ type: 'idle', message: '' });
+      }
     } catch (error: any) {
       console.error("Error importing file:", error);
-      setImportStatus({ type: 'error', message: error.message || 'Error al leer el archivo.' });
+      setImportStatus({ type: 'error', message: error.message || 'Error al procesar el archivo.' });
     }
   };
 
   const handleRunHealthCheck = () => {
-    setImportStatus({ type: 'loading', message: 'Eliminando duplicados y validando emails...' });
+    setImportStatus({ type: 'loading', message: 'Escrutando integridad del Dataset y normalizando campos...' });
     
     setTimeout(() => {
       const errors: any[] = [];
+      const emailField = Object.keys(columnMapping).find(k => columnMapping[k] === 'email') || 'email';
+      const nameField = Object.keys(columnMapping).find(k => columnMapping[k] === 'name') || 'name';
+
       importRows.forEach((row, idx) => {
-        const email = row[Object.keys(columnMapping).find(k => columnMapping[k] === 'email') || ''];
-        const name = row[Object.keys(columnMapping).find(k => columnMapping[k] === 'name') || ''];
+        const email = row[emailField];
+        const name = row[nameField];
         
-        if (!email || !email.includes('@')) {
-          errors.push({ rowIdx: idx, field: 'email', message: 'Email inválido o vacío' });
+        if (!email || typeof email !== 'string' || !email.includes('@')) {
+          errors.push({ rowIdx: idx, field: 'email', message: 'Email inválido o ausente.' });
         }
-        if (!name) {
-          errors.push({ rowIdx: idx, field: 'name', message: 'Falta nombre' });
+        if (!name || String(name).trim() === '') {
+          errors.push({ rowIdx: idx, field: 'name', message: 'Nombre del nodo ausente.' });
         }
       });
       setImportErrors(errors);
@@ -521,14 +678,46 @@ export default function Clients() {
     }, 1500);
   };
 
+  const handleAutoPatch = () => {
+    setImportStatus({ type: 'loading', message: 'Ejecutando parcheo automático de anomalías...' });
+    
+    setTimeout(() => {
+      const emailField = Object.keys(columnMapping).find(k => columnMapping[k] === 'email') || 'email';
+      const nameField = Object.keys(columnMapping).find(k => columnMapping[k] === 'name') || 'name';
+      const companyField = Object.keys(columnMapping).find(k => columnMapping[k] === 'company') || 'company';
+
+      const patchedRows = importRows.map((row, idx) => {
+        const updatedRow = { ...row };
+        const name = row[nameField];
+        const email = row[emailField];
+        const company = row[companyField] || 'Corp';
+
+        if (!name || String(name).trim() === '') {
+          updatedRow[nameField] = `Nodo_Importado_${idx + 1}`;
+        }
+        if (!email || typeof email !== 'string' || !email.includes('@')) {
+          const safeComp = String(company).toLowerCase().replace(/[^a-z0-9]/g, '');
+          updatedRow[emailField] = `contacto@${safeComp || 'clientenodo'}.com`;
+        }
+        return updatedRow;
+      });
+
+      setImportRows(patchedRows);
+      setImportErrors([]);
+      setImportStatus({ type: 'idle', message: '' });
+    }, 1000);
+  };
+
   const finalizeImport = async () => {
-    setImportStatus({ type: 'loading', message: 'Normalizando divisas e insertando datos...' });
+    setImportStatus({ type: 'loading', message: 'Inyectando registros en la base de datos de Kaivincia...' });
     try {
       let successCount = 0;
       for (const row of importRows) {
         const mappedData: any = {
-           status: 'Activo',
-           billingModel: 'Fijo',
+           status: row.status || 'Activo',
+           billingModel: row.billingModel || 'Fijo',
+           pipelineStage: row.pipelineStage || 'Propuesta',
+           amount: Number(row.amount) || 0,
            createdAt: new Date().toISOString()
         };
         Object.entries(columnMapping).forEach(([fileCol, dbCol]) => {
@@ -541,14 +730,15 @@ export default function Clients() {
         }
       }
       setImportStep(4);
-      setImportStatus({ type: 'success', message: `¡${successCount} clientes importados con éxito!` });
+      setImportStatus({ type: 'success', message: `¡Se han integrado ${successCount} nodos de clientes con éxito!` });
       setTimeout(() => {
         setIsImporting(false);
         setImportStep(1);
         setImportRows([]);
       }, 3000);
     } catch (error) {
-      setImportStatus({ type: 'error', message: 'Fallo crítico en la inserción.' });
+      console.error("Critical insert fail:", error);
+      setImportStatus({ type: 'error', message: 'Fallo de inserción en el ledger central.' });
     }
   };
 
@@ -577,9 +767,69 @@ export default function Clients() {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Clientes");
       
       XLSX.writeFile(workbook, `Clientes_B2B_${new Date().toISOString().split('T')[0]}.xlsx`);
+      setShowExportMenu(false);
     } catch (error) {
       console.error("Error exporting data:", error);
       alert("Hubo un error al exportar los datos. Intente nuevamente.");
+    }
+  };
+
+  const handleExportToCSV = () => {
+    try {
+      const dataToExport = filteredClients.map(c => ({
+        Nombre: c.name || '',
+        Empresa: c.company || '',
+        Email: c.email || '',
+        Teléfono: c.phone || '',
+        Sector: c.sector || '',
+        'Modelo Cobro': c.billingModel || '',
+        Estado: c.status || '',
+        'Monto Contrato': c.amount || 0,
+        'Etapa Pipeline': c.pipelineStage || '',
+        'Fecha Registro': c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ''
+      }));
+
+      if (dataToExport.length === 0) {
+        alert("No hay clientes para exportar.");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+      const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Clientes_B2B_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowExportMenu(false);
+    } catch (error) {
+      console.error("Error exporting CSV:", error);
+      alert("Hubo un error al exportar como CSV.");
+    }
+  };
+
+  const handleExportToJSON = () => {
+    try {
+      if (filteredClients.length === 0) {
+        alert("No hay clientes para exportar.");
+        return;
+      }
+
+      const blob = new Blob([JSON.stringify(filteredClients, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Clientes_B2B_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setShowExportMenu(false);
+    } catch (error) {
+      console.error("Error exporting JSON:", error);
+      alert("Hubo un error al exportar como JSON.");
     }
   };
 
@@ -1551,12 +1801,46 @@ export default function Clients() {
           </div>
         </div>
         <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-          <button 
-            onClick={handleExportToExcel}
-            className="flex-1 lg:flex-none bg-white/5 border border-white/10 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3"
-          >
-            <Download className="h-4 w-4" /> Export Ledger
-          </button>
+          <div className="relative flex-1 lg:flex-none">
+            <button 
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              className="w-full bg-white/5 border border-white/10 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3"
+            >
+              <Download className="h-4 w-4" /> Export Ledger
+            </button>
+            <AnimatePresence>
+              {showExportMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }} 
+                    animate={{ opacity: 1, y: 0 }} 
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute right-0 mt-2 w-56 bg-[#161B22] border border-white/10 rounded-2xl p-2 shadow-2xl z-50 overflow-hidden font-mono text-[10px] uppercase font-black"
+                  >
+                    <button 
+                      onClick={handleExportToExcel}
+                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-colors flex items-center gap-3"
+                    >
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-400" /> Export Excel (.xlsx)
+                    </button>
+                    <button 
+                      onClick={handleExportToCSV}
+                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-colors flex items-center gap-3"
+                    >
+                      <FileText className="w-4 h-4 text-[#00F0FF]" /> Export CSV (.csv)
+                    </button>
+                    <button 
+                      onClick={handleExportToJSON}
+                      className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-colors flex items-center gap-3"
+                    >
+                      <BrainCircuit className="w-4 h-4 text-yellow-400" /> Export JSON (.json)
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
           <button 
             onClick={() => setIsImporting(!isImporting)}
             className="flex-1 lg:flex-none bg-white/5 border border-white/10 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center justify-center gap-3"
@@ -1627,7 +1911,12 @@ export default function Clients() {
               </div>
 
               <div className="flex gap-4">
-                 <button className="flex-1 py-4 bg-white/5 border border-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all">Review Hub</button>
+                 <button 
+                   onClick={() => setSelectedOpportunity(opp)}
+                   className="flex-1 py-4 bg-white/5 border border-white/10 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"
+                 >
+                   Review Hub
+                 </button>
                  <button onClick={() => handleEscalate(opp)} className="flex-1 py-4 bg-[#00F0FF] text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-[#00F0FF]/20">Deploy Proposal</button>
               </div>
             </div>
@@ -1671,12 +1960,12 @@ export default function Clients() {
                    className="flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-[2.5rem] p-16 hover:border-[#00F0FF]/50 transition-all cursor-pointer group bg-white/[0.02]"
                    onClick={() => fileInputRef.current?.click()}
                 >
-                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls, .csv" className="hidden" />
+                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".xlsx, .xls, .csv, .pdf, .txt, .json" className="hidden" />
                    <div className="h-24 w-24 bg-white/5 rounded-full flex items-center justify-center mb-8 group-hover:scale-110 transition-transform border border-white/10 group-hover:border-[#00F0FF]/30">
                       <FileSpreadsheet className="w-10 h-10 text-gray-600 group-hover:text-[#00F0FF]" />
                    </div>
                    <p className="text-sm font-black text-white uppercase tracking-[0.3em] mb-3 font-mono">Deploy Dataset Alpha</p>
-                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">XLSX, CSV or Neural JSON supported</p>
+                   <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">XLSX, CSV, PDF, TXT or JSON supported (AI Assisted)</p>
                 </motion.div>
               )}
 
@@ -1729,7 +2018,12 @@ export default function Clients() {
                       <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#00F0FF] font-mono">Phase 03: Data Ledger Preview</h4>
                       <div className="flex gap-6">
                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">{importErrors.length} Collision Points Detected</span>
-                         <button className="text-[10px] font-black text-blue-400 uppercase tracking-widest underline decoration-2 underline-offset-4">Auto-Patch Node</button>
+                         <button 
+                           onClick={handleAutoPatch}
+                           className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest underline decoration-2 underline-offset-4 hover:text-[#00BFFF] transition-colors"
+                         >
+                           Auto-Patch Node
+                         </button>
                       </div>
                    </div>
                    
@@ -2037,6 +2331,76 @@ export default function Clients() {
                 </button>
               </div>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Opportunity Review Modal */}
+      {selectedOpportunity && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xl flex items-center justify-center z-50 p-4">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="glass-panel border-white/20 w-full max-w-2xl overflow-hidden rounded-[3rem] shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+            <div className="p-10 border-b border-white/10 flex justify-between items-center bg-white/5">
+              <div className="flex items-center gap-6">
+                <div className="p-4 bg-[#00F0FF]/10 rounded-2xl text-[#00F0FF] shadow-2xl border border-[#00F0FF]/20">
+                  <Zap className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter italic">Review Expansion Opportunity</h3>
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">{selectedOpportunity.clientName}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedOpportunity(null)} className="p-4 bg-white/5 rounded-2xl text-gray-500 hover:text-white transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-10 space-y-8 bg-cyber-dark/50">
+              <div className="grid grid-cols-2 gap-6">
+                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Target Client Node</p>
+                  <p className="text-sm font-bold text-white">{selectedOpportunity.clientName}</p>
+                </div>
+                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Expansion Service Module</p>
+                  <p className="text-sm font-bold text-[#00F0FF]">{selectedOpportunity.service}</p>
+                </div>
+              </div>
+
+              <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl space-y-3">
+                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Algorithmic Justification</p>
+                <p className="text-xs text-gray-300 leading-relaxed italic">"{selectedOpportunity.reason}"</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mb-1">Contract Potential Value</p>
+                  <p className="text-xl font-black text-white font-mono">{selectedOpportunity.potentialValue || 'High Value'}</p>
+                </div>
+                <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
+                  <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Node Comm Address</p>
+                  <p className="text-xs font-bold text-gray-300 truncate">{selectedOpportunity.email}</p>
+                </div>
+              </div>
+
+              <div className="pt-8 flex gap-4">
+                <button 
+                  type="button"
+                  onClick={() => setSelectedOpportunity(null)}
+                  className="flex-1 py-5 bg-white/5 border border-white/10 text-gray-400 rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:text-white transition-all"
+                >
+                  Dismiss Analysis
+                </button>
+                <button 
+                  onClick={() => {
+                    handleEscalate(selectedOpportunity);
+                    setSelectedOpportunity(null);
+                  }}
+                  className="flex-1 py-5 bg-[#00F0FF] text-black rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:scale-[1.02] transition-all shadow-2xl shadow-[#00F0FF]/20"
+                >
+                  Deploy Proposal Protocol
+                </button>
+              </div>
+            </div>
           </motion.div>
         </div>
       )}
