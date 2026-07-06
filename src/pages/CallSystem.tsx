@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, collection } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
   Settings, Phone, Save, X, CheckCircle2, AlertCircle, Plus, Edit2,
@@ -8,7 +8,7 @@ import {
   ChevronUp, ChevronDown, MessageSquare, Mic, User, Send, ListTodo, Search,
   BrainCircuit, Zap, Sparkles, Filter, MoreVertical, PhoneIncoming, PhoneOutgoing,
   MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock, Terminal,
-  MapPin, Smartphone, FileText, Download, AlertTriangle
+  MapPin, Smartphone, FileText, Download, AlertTriangle, Mail, Instagram, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -152,11 +152,7 @@ export default function CallSystem() {
   const [connectionStage, setConnectionStage] = useState('');
   const [liveLatency, setLiveLatency] = useState(24);
   const [liveJitter, setLiveJitter] = useState(1.2);
-  const [callHistory, setCallHistory] = useState<any[]>([
-    { id: 'h1', number: '+34 690 123 456', name: 'Miguel Rojas', timestamp: 'Hace 10 min', status: 'completed', duration: '02:45', provider: 'Twilio' },
-    { id: 'h2', number: '+1 415 555 2671', name: 'TechCorp CEO', timestamp: 'Hace 1 hora', status: 'missed', duration: '00:00', provider: 'Twilio' },
-    { id: 'h3', number: '+54 9 11 9876 5432', name: 'Ana Silva', timestamp: 'Ayer', status: 'completed', duration: '05:00', provider: 'Zoho Voice' },
-  ]);
+  const [callHistory, setCallHistory] = useState<any[]>([]);
 
   // Zoho Utility Bill (Receipt) Generator States
   const [billName, setBillName] = useState('Zaydeli De La Rosa');
@@ -195,6 +191,9 @@ export default function CallSystem() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
       ringAudioCtxRef.current = audioCtx;
 
       const osc1 = audioCtx.createOscillator();
@@ -241,6 +240,9 @@ export default function CallSystem() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
       const osc = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
       
@@ -269,6 +271,9 @@ export default function CallSystem() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const audioCtx = new AudioContextClass();
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
       const osc1 = audioCtx.createOscillator();
       const osc2 = audioCtx.createOscillator();
       const gainNode = audioCtx.createGain();
@@ -448,14 +453,17 @@ export default function CallSystem() {
       const newHistoryItem = {
         id: 'h_' + Date.now().toString(),
         number: phoneNumber || 'Número Desconocido',
-        name: 'Llamada Saliente',
+        name: activeCall?.customer?.split('(')[0]?.trim() || 'Llamada Saliente',
         timestamp: 'Ahora',
         status: 'completed',
         duration: formatDuration(softphoneDuration),
         provider: currentProv.name,
         cost: `$${finalCost}`
       };
-      setCallHistory(prev => [newHistoryItem, ...prev]);
+      
+      setDoc(doc(db, 'voip_call_history', newHistoryItem.id), newHistoryItem)
+        .catch(err => handleFirestoreError(err, OperationType.CREATE, `voip_call_history/${newHistoryItem.id}`));
+
       setActiveCall(null);
       setIsMuted(false);
       setIsRecording(false);
@@ -470,7 +478,175 @@ export default function CallSystem() {
 
   const sentimentData = activeCall?.sentimentTrend.map((val: number, i: number) => ({ time: i, value: val }));
 
-  const transcription: ChatMessage[] = [
+  // Dynamic Chat Threads for Omni Inbox
+  const [threads, setThreads] = useState<any[]>([]);
+  const [selectedThreadId, setSelectedThreadId] = useState<string>('t1');
+  const [messagesByThread, setMessagesByThread] = useState<Record<string, ChatMessage[]>>({});
+
+  // Outbound communications form states
+  const [newCommChannel, setNewCommChannel] = useState<'WhatsApp' | 'Email' | 'Instagram' | 'Voicemail'>('WhatsApp');
+  const [newCommName, setNewCommName] = useState('');
+  const [newCommTarget, setNewCommTarget] = useState('');
+  const [newCommMessage, setNewCommMessage] = useState('');
+  const [showNewCommForm, setShowNewCommForm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [chatInput, setChatInput] = useState('');
+
+  const simulateAutoReply = (threadId: string, customerName: string) => {
+    setTimeout(async () => {
+      let randomMsg = "Perfecto, quedo a la espera de las instrucciones de Kaivincia.";
+      const apiKey = process.env.GEMINI_API_KEY;
+
+      if (apiKey) {
+        try {
+          const { GoogleGenAI } = await import('@google/genai');
+          const ai = new GoogleGenAI({ apiKey });
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: `Eres el cliente llamado '${customerName}' chateando con el agente de Kaivincia Corp. Genera una respuesta corta de una sola frase (máximo 15 palabras) en español que responda de manera natural y coherente. No uses emojis exagerados ni simules respuestas de bot.`,
+          });
+          if (response.text) {
+            randomMsg = response.text.trim();
+          }
+        } catch (e) {
+          console.error("Error generating Gemini automatic reply:", e);
+        }
+      } else {
+        const responses = [
+          "Perfecto, quedo a la espera de las instrucciones de Kaivincia.",
+          "Excelente servicio. Muchísimas gracias por el seguimiento tan rápido.",
+          "Me parece excelente, ¡agendemos para avanzar con esto!",
+          "Entendido. Estaré atento a mi bandeja de entrada.",
+          "Genial, gracias por aclararme las dudas."
+        ];
+        randomMsg = responses[Math.floor(Math.random() * responses.length)];
+      }
+
+      const newReply: ChatMessage = {
+        id: `reply_${Date.now()}`,
+        sender: customerName,
+        role: 'customer',
+        text: randomMsg,
+        timestamp: 'Ahora mismo',
+        sentiment: 'positive'
+      };
+
+      setDoc(doc(db, 'omnichannel_threads', threadId, 'messages', newReply.id), newReply)
+        .catch(err => handleFirestoreError(err, OperationType.CREATE, `omnichannel_threads/${threadId}/messages`));
+
+      setDoc(doc(db, 'omnichannel_threads', threadId), {
+        lastMsg: randomMsg,
+        time: 'Ahora'
+      }, { merge: true })
+        .catch(err => handleFirestoreError(err, OperationType.UPDATE, `omnichannel_threads/${threadId}`));
+    }, 3000);
+  };
+
+  const handleSendChatMessage = () => {
+    if (!chatInput.trim()) return;
+    const activeThread = threads.find(t => t.id === selectedThreadId);
+    if (!activeThread) return;
+
+    const newMsg: ChatMessage = {
+      id: `msg_${Date.now()}`,
+      sender: 'Marta García',
+      role: 'agent',
+      text: chatInput,
+      timestamp: 'Ahora',
+      sentiment: 'positive'
+    };
+
+    setDoc(doc(db, 'omnichannel_threads', selectedThreadId, 'messages', newMsg.id), newMsg)
+      .catch(err => handleFirestoreError(err, OperationType.CREATE, `omnichannel_threads/${selectedThreadId}/messages`));
+
+    setDoc(doc(db, 'omnichannel_threads', selectedThreadId), {
+      lastMsg: chatInput,
+      time: 'Ahora'
+    }, { merge: true })
+      .catch(err => handleFirestoreError(err, OperationType.UPDATE, `omnichannel_threads/${selectedThreadId}`));
+
+    setChatInput('');
+
+    // Trigger AI or default response
+    simulateAutoReply(selectedThreadId, activeThread.name);
+  };
+
+  const handleStartNewComm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommName.trim() || !newCommTarget.trim() || !newCommMessage.trim()) {
+      alert('Por favor, rellene todos los campos.');
+      return;
+    }
+
+    const newThreadId = `t_${Date.now()}`;
+    const cleanTarget = newCommTarget.replace(/[\s+]/g, '');
+
+    const newThread = {
+      id: newThreadId,
+      name: newCommName,
+      lastMsg: newCommMessage,
+      time: 'Ahora',
+      priority: 'Medium',
+      type: newCommChannel,
+      phone: newCommChannel === 'WhatsApp' || newCommChannel === 'Voicemail' ? newCommTarget : '',
+      email: newCommChannel === 'Email' ? newCommTarget : '',
+      handle: newCommChannel === 'Instagram' ? newCommTarget : ''
+    };
+
+    const firstMsg: ChatMessage = {
+      id: `m_${Date.now()}`,
+      sender: 'Marta García',
+      role: 'agent',
+      text: newCommMessage,
+      timestamp: 'Ahora',
+      sentiment: 'positive'
+    };
+
+    // Write thread to Firestore
+    setDoc(doc(db, 'omnichannel_threads', newThreadId), newThread)
+      .catch(err => handleFirestoreError(err, OperationType.CREATE, `omnichannel_threads/${newThreadId}`));
+
+    // Write first message of the thread to Firestore subcollection
+    setDoc(doc(db, 'omnichannel_threads', newThreadId, 'messages', firstMsg.id), firstMsg)
+      .catch(err => handleFirestoreError(err, OperationType.CREATE, `omnichannel_threads/${newThreadId}/messages`));
+
+    setSelectedThreadId(newThreadId);
+    setShowNewCommForm(false);
+
+    // Dynamic actions depending on channel:
+    if (newCommChannel === 'WhatsApp') {
+      const waUrl = `https://wa.me/${cleanTarget}?text=${encodeURIComponent(newCommMessage)}`;
+      window.open(waUrl, '_blank');
+    } else if (newCommChannel === 'Email') {
+      const mailUrl = `mailto:${newCommTarget}?subject=Contacto%20Kaivincia%20Corp&body=${encodeURIComponent(newCommMessage)}`;
+      window.open(mailUrl, '_blank');
+    } else if (newCommChannel === 'Instagram') {
+      const igUrl = `https://instagram.com/direct/inbox/`;
+      window.open(igUrl, '_blank');
+    } else if (newCommChannel === 'Voicemail') {
+      // Trigger a call simulation or tell the user
+      triggerSoftphoneCall(newCommName, newCommTarget);
+    }
+
+    // Reset Form
+    setNewCommName('');
+    setNewCommTarget('');
+    setNewCommMessage('');
+  };
+
+  const filteredThreads = useMemo(() => {
+    let result = threads;
+    if (inboxFilter !== 'all') {
+      result = result.filter(t => t.type.toLowerCase() === inboxFilter.toLowerCase());
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(t => t.name.toLowerCase().includes(q) || t.lastMsg.toLowerCase().includes(q));
+    }
+    return result;
+  }, [threads, inboxFilter, searchQuery]);
+
+  const auditTranscription: ChatMessage[] = [
     { id: '1', sender: 'Marta García', role: 'agent', text: 'Hola Juan, gracias por atenderme. ¿Cómo va todo con el onboarding?', timestamp: '00:05', sentiment: 'neutral' },
     { id: '2', sender: 'Juan Pérez', role: 'customer', text: 'Hola Marta, la verdad es que bien, aunque el tema del presupuesto me tiene algo preocupado.', timestamp: '00:15', sentiment: 'negative' },
     { id: '3', sender: 'Marta García', role: 'agent', text: 'Entiendo perfectamente. Justo estuve revisando tu caso y podemos hacer un ajuste del 15% si cerramos el plan anual hoy.', timestamp: '00:45', sentiment: 'positive' },
@@ -478,18 +654,114 @@ export default function CallSystem() {
     { id: '5', sender: 'Marta García', role: 'agent', text: 'Hecho. Te lo mando mañana a primera hora. También agendamos la reunión de seguimiento para el viernes.', timestamp: '01:45', sentiment: 'positive' },
   ];
 
+  const transcription = auditTranscription;
+
   const actionItems = [
     { id: 'ai1', text: 'Enviar propuesta formal con ajuste del 15%', type: 'email', dueDate: 'Mañana', completed: false },
     { id: 'ai2', text: 'Reunión de seguimiento estratégica', type: 'event', dueDate: 'Viernes', completed: false },
   ];
 
-  const chatThreads = [
-    { id: 't1', name: 'Miguel Rojas', lastMsg: '¿Cuándo empezamos?', time: '2m ago', priority: 'High', type: 'WhatsApp' },
-    { id: 't2', name: 'Ana Silva', lastMsg: 'Gracias por el soporte.', time: '15m ago', priority: 'Low', type: 'Instagram' },
-    { id: 't3', name: 'Empresa XYZ', lastMsg: 'Solicitud de factura.', time: '1h ago', priority: 'Medium', type: 'Email' },
-  ];
-
   const isAdmin = userData?.role === 'admin' || userData?.role === 'superadmin';
+
+  // Load and Sync Call History from Firestore
+  useEffect(() => {
+    const q = collection(db, 'voip_call_history');
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        // Populate default call history
+        const defaults = [
+          { id: 'h1', number: '+34 690 123 456', name: 'Miguel Rojas', timestamp: 'Hace 10 min', status: 'completed', duration: '02:45', provider: 'Twilio' },
+          { id: 'h2', number: '+1 415 555 2671', name: 'TechCorp CEO', timestamp: 'Hace 1 hora', status: 'missed', duration: '00:00', provider: 'Twilio' },
+          { id: 'h3', number: '+54 9 11 9876 5432', name: 'Ana Silva', timestamp: 'Ayer', status: 'completed', duration: '05:00', provider: 'Zoho Voice' },
+        ];
+        defaults.forEach(item => {
+          setDoc(doc(db, 'voip_call_history', item.id), item).catch(console.error);
+        });
+      } else {
+        const list: any[] = [];
+        snapshot.forEach(docSnap => {
+          list.push(docSnap.data());
+        });
+        // Sort by id descending
+        setCallHistory(list.sort((a, b) => b.id.localeCompare(a.id)));
+      }
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'voip_call_history'));
+
+    return () => unsub();
+  }, []);
+
+  // Load and Sync Threads from Firestore
+  useEffect(() => {
+    const q = collection(db, 'omnichannel_threads');
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        // Populate default threads
+        const defaults = [
+          { id: 't1', name: 'Miguel Rojas', lastMsg: '¿Cuándo empezamos?', time: '2m ago', priority: 'High', type: 'WhatsApp', phone: '+34 690 123 456', email: 'miguel@rojas.com', handle: 'miguel_rojas' },
+          { id: 't2', name: 'Ana Silva', lastMsg: 'Gracias por el soporte.', time: '15m ago', priority: 'Low', type: 'Instagram', phone: '+54 9 11 9876 5432', email: 'ana@silva.com', handle: 'ana_silva_k' },
+          { id: 't3', name: 'Empresa XYZ', lastMsg: 'Solicitud de factura.', time: '1h ago', priority: 'Medium', type: 'Email', phone: '+34 912 345 678', email: 'facturacion@xyz.com', handle: 'empresaxyz_oficial' }
+        ];
+        defaults.forEach(item => {
+          setDoc(doc(db, 'omnichannel_threads', item.id), item).catch(console.error);
+        });
+
+        // Populate initial messages
+        const defaultMsgs: Record<string, any[]> = {
+          't1': [
+            { id: 'm1_1', sender: 'Miguel Rojas', role: 'customer', text: 'Hola, quería consultar sobre el servicio de consultoría de Kaivincia.', timestamp: '10:30 AM', sentiment: 'neutral' },
+            { id: 'm1_2', sender: 'Marta García', role: 'agent', text: 'Hola Miguel! Un placer saludarte. Sí, tenemos consultoría premium de IA y automatización disponible.', timestamp: '10:32 AM', sentiment: 'positive' },
+            { id: 'm1_3', sender: 'Miguel Rojas', role: 'customer', text: '¿Cuándo empezamos?', timestamp: '10:35 AM', sentiment: 'positive' },
+          ],
+          't2': [
+            { id: 'm2_1', sender: 'Ana Silva', role: 'customer', text: 'Hola! Vi su publicación sobre el pipeline inteligente en Instagram.', timestamp: 'Ayer', sentiment: 'positive' },
+            { id: 'm2_2', sender: 'Marta García', role: 'agent', text: 'Excelente Ana! El pipeline automatiza todo el flujo comercial.', timestamp: 'Ayer', sentiment: 'positive' },
+            { id: 'm2_3', sender: 'Ana Silva', role: 'customer', text: 'Gracias por el soporte.', timestamp: 'Ayer', sentiment: 'positive' },
+          ],
+          't3': [
+            { id: 'm3_1', sender: 'Empresa XYZ', role: 'customer', text: 'Estimados, adjuntamos la orden de compra y solicitamos la factura correspondiente.', timestamp: 'Hace 2 horas', sentiment: 'neutral' },
+            { id: 'm3_2', sender: 'Marta García', role: 'agent', text: 'Recibido. Estamos procesando la facturación en Zoho.', timestamp: 'Hace 1 hora', sentiment: 'positive' },
+            { id: 'm3_3', sender: 'Empresa XYZ', role: 'customer', text: 'Solicitud de factura.', timestamp: 'Hace 1 hora', sentiment: 'neutral' },
+          ]
+        };
+
+        Object.keys(defaultMsgs).forEach(tId => {
+          defaultMsgs[tId].forEach(msg => {
+            setDoc(doc(db, 'omnichannel_threads', tId, 'messages', msg.id), msg).catch(console.error);
+          });
+        });
+
+      } else {
+        const list: any[] = [];
+        snapshot.forEach(docSnap => {
+          list.push(docSnap.data());
+        });
+        // Sort threads by id ascending to keep standard order
+        setThreads(list.sort((a, b) => a.id.localeCompare(b.id)));
+      }
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'omnichannel_threads'));
+
+    return () => unsub();
+  }, []);
+
+  // Listen to messages for the selected thread in real-time
+  useEffect(() => {
+    if (!selectedThreadId) return;
+    const q = collection(db, 'omnichannel_threads', selectedThreadId, 'messages');
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach(docSnap => {
+        list.push(docSnap.data());
+      });
+      // Sort messages by id ascending to preserve chronological order
+      const sorted = list.sort((a, b) => a.id.localeCompare(b.id));
+      setMessagesByThread(prev => ({
+        ...prev,
+        [selectedThreadId]: sorted
+      }));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, `omnichannel_threads/${selectedThreadId}/messages`));
+
+    return () => unsub();
+  }, [selectedThreadId]);
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'voip_providers'), (docSnap) => {
@@ -837,125 +1109,320 @@ export default function CallSystem() {
           {activeTab === 'inbox' && (
             <div className="flex gap-6 h-[calc(100vh-16rem)] min-h-[600px]">
                {/* Sidebar: Threads */}
-               <div className="w-full lg:w-1/3 flex flex-col gap-4">
-                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl">
+               <div className="w-full lg:w-1/3 flex flex-col gap-4 h-full">
+                  <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl shrink-0">
                      <div className="relative mb-4">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input 
                            type="text" 
                            placeholder="Buscar conversación..."
-                           className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#00F0FF] border-none outline-none"
+                           value={searchQuery}
+                           onChange={(e) => setSearchQuery(e.target.value)}
+                           className="w-full pl-10 pr-4 py-3 bg-gray-50 rounded-2xl text-[10px] font-black uppercase tracking-widest focus:ring-2 focus:ring-[#00F0FF] border-none outline-none text-gray-700"
                         />
                      </div>
-                     <div className="flex flex-wrap gap-2">
-                        {['All', 'WhatsApp', 'Email', 'Instagram', 'Voicemail'].map(f => (
-                          <button 
-                             key={f}
-                             onClick={() => setInboxFilter(f.toLowerCase())}
-                             className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border transition-all ${
-                                inboxFilter === f.toLowerCase() ? 'bg-gray-900 text-white border-transparent' : 'bg-white text-gray-400 border-gray-100 hover:border-[#00F0FF]'
-                             }`}
-                          >
-                             {f}
-                          </button>
-                        ))}
+                     <div className="flex flex-wrap gap-1.5 items-center justify-between">
+                        <div className="flex flex-wrap gap-1">
+                           {['All', 'WhatsApp', 'Email', 'Instagram', 'Voicemail'].map(f => (
+                             <button 
+                                key={f}
+                                onClick={() => setInboxFilter(f.toLowerCase())}
+                                className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${
+                                   inboxFilter === f.toLowerCase() ? 'bg-gray-900 text-white border-transparent' : 'bg-white text-gray-400 border-gray-100 hover:border-[#00F0FF]'
+                                }`}
+                             >
+                                {f}
+                             </button>
+                           ))}
+                        </div>
+                        <button
+                           onClick={() => {
+                             setNewCommName('');
+                             setNewCommTarget('+34690123456');
+                             setNewCommMessage('Hola, ¿cómo estás? Te escribo de parte del equipo de Kaivincia.');
+                             setNewCommChannel('WhatsApp');
+                             setShowNewCommForm(true);
+                           }}
+                           className="px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-widest bg-[#00F0FF] text-gray-900 hover:bg-cyan-400 transition-all shadow-sm flex items-center gap-1"
+                           title="Iniciar Nueva Conversación"
+                        >
+                           <Plus className="w-3 h-3" /> Nuevo
+                        </button>
                      </div>
                   </div>
 
                   <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl flex-1 overflow-y-auto p-4 space-y-3">
-                     {chatThreads.map(thread => (
-                       <div key={thread.id} className="p-5 rounded-[2rem] hover:bg-gray-50 transition-all cursor-pointer group relative border border-transparent hover:border-gray-100">
-                          <div className="flex justify-between items-start mb-2">
-                             <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center font-black text-[10px] text-gray-900">{thread.name.charAt(0)}</div>
-                                <h5 className="text-xs font-black text-gray-900 uppercase tracking-tighter">{thread.name}</h5>
-                             </div>
-                             <span className="text-[9px] font-black text-gray-400 uppercase">{thread.time}</span>
-                          </div>
-                          <p className="text-[10px] text-gray-500 truncate mb-3 pl-11">{thread.lastMsg}</p>
-                          <div className="flex items-center gap-3 pl-11">
-                             <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${
-                                thread.priority === 'High' ? 'bg-red-500 text-white' : 
-                                thread.priority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
-                             }`}>
-                                {thread.priority} PRIORITY
-                             </span>
-                             <div className="flex items-center gap-1 text-[8px] font-black text-[#00F0FF] uppercase tracking-widest">
-                                <MessageCircle className="w-3 h-3" /> {thread.type}
-                             </div>
-                          </div>
-                       </div>
-                     ))}
+                     {filteredThreads.length > 0 ? (
+                       filteredThreads.map(thread => (
+                         <div 
+                           key={thread.id} 
+                           onClick={() => { setSelectedThreadId(thread.id); setShowNewCommForm(false); }}
+                           className={`p-5 rounded-[2rem] transition-all cursor-pointer group relative border ${
+                              selectedThreadId === thread.id 
+                                ? 'bg-cyan-50/40 border-[#00F0FF]' 
+                                : 'bg-white border-transparent hover:bg-gray-50 hover:border-gray-100'
+                           }`}
+                         >
+                            <div className="flex justify-between items-start mb-2">
+                               <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center font-black text-[10px] text-gray-900">{thread.name.charAt(0)}</div>
+                                  <h5 className="text-xs font-black text-gray-900 uppercase tracking-tighter">{thread.name}</h5>
+                               </div>
+                               <span className="text-[9px] font-black text-gray-400 uppercase">{thread.time}</span>
+                            </div>
+                            <p className="text-[10px] text-gray-500 truncate mb-3 pl-11">{thread.lastMsg}</p>
+                            <div className="flex items-center justify-between pl-11">
+                               <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm ${
+                                  thread.priority === 'High' ? 'bg-red-500 text-white' : 
+                                  thread.priority === 'Medium' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                               }`}>
+                                  {thread.priority}
+                               </span>
+                               <div className="flex items-center gap-1 text-[8px] font-black text-blue-600 uppercase tracking-widest">
+                                  <MessageSquare className="w-3.5 h-3.5" /> {thread.type}
+                                </div>
+                            </div>
+                         </div>
+                       ))
+                     ) : (
+                       <div className="p-8 text-center text-gray-400 text-xs font-bold uppercase">No se encontraron hilos</div>
+                     )}
                   </div>
                </div>
 
-               {/* Chat Content */}
-               <div className="hidden lg:flex flex-1 flex-col gap-4">
-                  <div className="bg-white rounded-[3rem] border border-gray-100 shadow-xl flex-1 flex flex-col p-8 overflow-hidden">
-                     <div className="flex justify-between items-center mb-8 pb-6 border-b border-gray-50 overflow-visible">
-                        <div className="flex gap-4 items-center">
-                           <div className="h-14 w-14 bg-[#00F0FF] rounded-[1.5rem] flex items-center justify-center text-white text-xl font-black italic shadow-lg rotate-3 group-hover:rotate-0 transition-transform">MR</div>
-                           <div>
-                              <h5 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Miguel Rojas</h5>
-                              <div className="text-[10px] text-green-500 font-black uppercase tracking-[0.2em] italic flex items-center gap-2">
-                                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> Escribiendo Respuesta IA...
-                              </div>
-                           </div>
-                        </div>
-                        <div className="flex gap-3">
-                           <button 
-                              onClick={() => triggerSoftphoneCall('Miguel Rojas', '+34 690 123 456')}
-                              className="h-12 w-12 flex items-center justify-center bg-gray-50 rounded-2xl text-gray-400 hover:text-[#00F0FF] transition-all hover:shadow-md"
-                            >
-                              <Phone className="w-5 h-5" />
-                            </button>
-                           <button className="h-12 w-12 flex items-center justify-center bg-gray-50 rounded-2xl text-gray-400 hover:text-blue-600 transition-all hover:shadow-md"><MoreVertical className="w-5 h-5" /></button>
-                        </div>
-                     </div>
+               {/* Chat Content or Form */}
+               <div className="hidden lg:flex flex-1 flex-col gap-4 h-full">
+                  {showNewCommForm ? (
+                    <div className="bg-white rounded-[3rem] border border-gray-100 shadow-xl flex-1 flex flex-col p-8 overflow-y-auto">
+                       <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-100">
+                          <div>
+                             <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-[#00F0FF]" /> Iniciar Nueva Comunicación
+                             </h3>
+                             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Coloque números de WhatsApp o datos de cliente para enviar o abrir la app</p>
+                          </div>
+                          <button 
+                             type="button"
+                             onClick={() => setShowNewCommForm(false)}
+                             className="h-10 w-10 bg-gray-50 text-gray-400 hover:text-gray-900 rounded-full flex items-center justify-center transition-all"
+                          >
+                             <X className="w-5 h-5" />
+                          </button>
+                       </div>
 
-                     <div className="flex-1 overflow-y-auto space-y-8 px-4 py-4 custom-scrollbar">
-                        {transcription.map(msg => (
-                          <div key={msg.id} className={`flex ${msg.role === 'customer' ? 'justify-start' : 'justify-end'}`}>
-                             <div className={`max-w-[80%] p-6 rounded-[2rem] relative group ${
-                                msg.role === 'customer' ? 'bg-gray-50 text-gray-700 rounded-bl-none border border-gray-100' : 'bg-gray-900 text-white rounded-br-none shadow-2xl'
-                             }`}>
-                                {msg.sentiment === 'negative' && (
-                                   <div className="absolute -top-3 -left-3 bg-red-600 text-white p-1 rounded-full shadow-lg">
-                                      <AlertCircle className="w-4 h-4" />
-                                   </div>
-                                )}
-                                <p className="text-sm font-medium leading-relaxed">{msg.text}</p>
-                                <div className="flex justify-between items-center mt-4">
-                                   <p className={`text-[8px] font-black uppercase tracking-widest ${msg.role === 'customer' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                      {msg.timestamp} • SENTIMIENTO: {msg.sentiment?.toUpperCase()}
-                                   </p>
-                                   {msg.role === 'agent' && <ShieldCheck className="w-3 h-3 text-blue-400" />}
-                                </div>
+                       <form onSubmit={handleStartNewComm} className="space-y-4 max-w-xl">
+                          <div>
+                             <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1.5">Canal Oficial</label>
+                             <div className="grid grid-cols-4 gap-2">
+                                {[
+                                  { id: 'WhatsApp', icon: MessageCircle, label: 'WhatsApp', color: 'border-green-500 text-green-500 bg-green-50/50' },
+                                  { id: 'Email', icon: Mail, label: 'Email', color: 'border-indigo-500 text-indigo-500 bg-indigo-50/50' },
+                                  { id: 'Instagram', icon: Instagram, label: 'Instagram', color: 'border-pink-500 text-pink-500 bg-pink-50/50' },
+                                  { id: 'Voicemail', icon: Mic, label: 'Voicemail', color: 'border-amber-500 text-amber-500 bg-amber-50/50' },
+                                ].map(ch => {
+                                   const IconComp = ch.icon;
+                                   return (
+                                     <button
+                                        key={ch.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setNewCommChannel(ch.id as any);
+                                          if (ch.id === 'WhatsApp') setNewCommTarget('+34690123456');
+                                          else if (ch.id === 'Email') setNewCommTarget('cliente@kaivincia.com');
+                                          else if (ch.id === 'Instagram') setNewCommTarget('cliente_instagram');
+                                          else if (ch.id === 'Voicemail') setNewCommTarget('+34690123456');
+                                        }}
+                                        className={`flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all ${
+                                          newCommChannel === ch.id 
+                                            ? ch.color + ' scale-105 shadow-sm' 
+                                            : 'border-gray-100 hover:border-gray-300 text-gray-400 bg-white'
+                                        }`}
+                                     >
+                                        <IconComp className="w-5 h-5 mb-1" />
+                                        <span className="text-[8px] font-black uppercase tracking-widest">{ch.label}</span>
+                                     </button>
+                                   );
+                                })}
                              </div>
                           </div>
-                        ))}
-                     </div>
 
-                     <div className="mt-8 pt-8 border-t border-gray-100 flex gap-4">
-                        <div className="relative flex-1">
-                           <div className="absolute left-6 top-1/2 -translate-y-1/2">
-                              <Sparkles className="w-4 h-4 text-[#00F0FF]" />
-                           </div>
-                           <input 
-                              type="text" 
-                              placeholder="Redactar con Kaivincia Intelligence..."
-                              className="w-full pl-14 pr-6 py-5 bg-gray-50 rounded-[2rem] text-sm font-medium border-none outline-none focus:ring-4 focus:ring-[#00F0FF]/10 transition-all"
-                           />
+                          <div>
+                             <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Nombre Completo del Cliente</label>
+                             <input 
+                                type="text"
+                                required
+                                value={newCommName}
+                                onChange={e => setNewCommName(e.target.value)}
+                                placeholder="Ej: Zaydeli De La Rosa"
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-bold focus:ring-2 focus:ring-[#00F0FF] outline-none text-gray-700"
+                             />
+                          </div>
+
+                          <div>
+                             <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">
+                                {newCommChannel === 'WhatsApp' && 'Número de Celular / WhatsApp'}
+                                {newCommChannel === 'Email' && 'Correo Electrónico Destino'}
+                                {newCommChannel === 'Instagram' && 'Instagram Handle / Usuario'}
+                                {newCommChannel === 'Voicemail' && 'Número de Teléfono'}
+                             </label>
+                             <input 
+                                type="text"
+                                required
+                                value={newCommTarget}
+                                onChange={e => setNewCommTarget(e.target.value)}
+                                placeholder={
+                                  newCommChannel === 'WhatsApp' ? 'Ej: +34690123456' :
+                                  newCommChannel === 'Email' ? 'Ej: cliente@domain.com' :
+                                  newCommChannel === 'Instagram' ? 'Ej: @cliente_kaivincia' : 'Ej: +34690123456'
+                                }
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#00F0FF] outline-none text-gray-700"
+                             />
+                          </div>
+
+                          <div>
+                             <label className="block text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">Redactar Mensaje a Enviar</label>
+                             <textarea 
+                                required
+                                rows={3}
+                                value={newCommMessage}
+                                onChange={e => setNewCommMessage(e.target.value)}
+                                placeholder="Escribe tu mensaje inicial..."
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-100 rounded-xl text-xs focus:ring-2 focus:ring-[#00F0FF] outline-none text-gray-700"
+                             />
+                          </div>
+
+                          <button 
+                             type="submit"
+                             className="w-full py-3 bg-gray-900 hover:bg-[#00F0FF] text-white hover:text-gray-900 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2"
+                          >
+                             <Send className="w-4 h-4" /> Enviar y Lanzar Canal de Comunicación
+                          </button>
+                       </form>
+                    </div>
+                  ) : (
+                    (() => {
+                      const activeThread = threads.find(t => t.id === selectedThreadId) || threads[0];
+                      if (!activeThread) return (
+                        <div className="h-full flex items-center justify-center bg-white border border-gray-100 rounded-[3rem] text-center p-12">
+                           <p className="text-gray-400 text-xs font-black uppercase tracking-widest">Seleccione una conversación</p>
                         </div>
-                        <button className="h-16 w-16 bg-gray-900 text-white rounded-[1.5rem] flex items-center justify-center hover:bg-[#00F0FF] transition-all shadow-2xl active:scale-95 group">
-                           <Send className="w-6 h-6 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-                        </button>
-                      </div>
-                  </div>
+                      );
+
+                      const threadMessages = messagesByThread[activeThread.id] || [];
+
+                      return (
+                        <div className="bg-white rounded-[3rem] border border-gray-100 shadow-xl flex-1 flex flex-col p-8 overflow-hidden h-full">
+                           <div className="flex justify-between items-center mb-6 pb-6 border-b border-gray-50 overflow-visible shrink-0">
+                              <div className="flex gap-4 items-center">
+                                 <div className="h-14 w-14 bg-[#00F0FF] rounded-[1.5rem] flex items-center justify-center text-white text-xl font-black italic shadow-lg rotate-3">
+                                   {activeThread.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                 </div>
+                                 <div>
+                                    <h5 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">{activeThread.name}</h5>
+                                    <div className="text-[9px] text-green-500 font-black uppercase tracking-[0.2em] italic flex items-center gap-2 mt-0.5">
+                                       <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" /> canal: {activeThread.type}
+                                    </div>
+                                 </div>
+                              </div>
+                              <div className="flex gap-2 items-center">
+                                 {/* Launch native apps on demand */}
+                                 {activeThread.type === 'WhatsApp' && (
+                                    <a 
+                                      href={`https://wa.me/${activeThread.phone ? activeThread.phone.replace(/[\s+]/g, '') : ''}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="h-12 px-5 flex items-center justify-center gap-2 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all hover:shadow-lg"
+                                      title="Lanzar WhatsApp Web"
+                                    >
+                                      <MessageSquare className="w-4 h-4" /> Abrir WhatsApp App
+                                    </a>
+                                 )}
+                                 {activeThread.type === 'Email' && (
+                                    <a 
+                                      href={`mailto:${activeThread.email}?subject=Contacto%20Kaivincia%20Corp`}
+                                      className="h-12 px-5 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all hover:shadow-lg"
+                                      title="Lanzar Email"
+                                    >
+                                      <Mail className="w-4 h-4" /> Abrir Correo
+                                    </a>
+                                 )}
+                                 {activeThread.type === 'Instagram' && (
+                                    <a 
+                                      href="https://instagram.com/direct/inbox/"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="h-12 px-5 flex items-center justify-center gap-2 bg-pink-50 hover:bg-pink-100 rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all hover:shadow-lg border border-pink-200"
+                                      title="Lanzar Instagram Direct"
+                                    >
+                                      <Instagram className="w-4 h-4" /> Abrir Instagram
+                                    </a>
+                                 )}
+
+                                 <button 
+                                    onClick={() => triggerSoftphoneCall(activeThread.name, activeThread.phone || '+34 690 123 456')}
+                                    className="h-12 w-12 flex items-center justify-center bg-gray-50 rounded-2xl text-gray-400 hover:text-[#00F0FF] hover:bg-gray-100 transition-all hover:shadow-md"
+                                    title="Lanzar Llamada VoIP"
+                                  >
+                                    <Phone className="w-5 h-5" />
+                                  </button>
+                                 <button className="h-12 w-12 flex items-center justify-center bg-gray-50 rounded-2xl text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition-all hover:shadow-md"><MoreVertical className="w-5 h-5" /></button>
+                              </div>
+                           </div>
+
+                           <div className="flex-1 overflow-y-auto space-y-4 px-4 py-4 custom-scrollbar bg-gray-50/50 rounded-3xl border border-gray-100">
+                              {threadMessages.map(msg => (
+                                <div key={msg.id} className={`flex ${msg.role === 'customer' ? 'justify-start' : 'justify-end'}`}>
+                                   <div className={`max-w-[80%] p-5 rounded-[1.8rem] relative group shadow-sm border ${
+                                      msg.role === 'customer' 
+                                        ? 'bg-white text-gray-700 rounded-bl-none border-gray-100' 
+                                        : 'bg-gray-900 text-white rounded-br-none border-transparent'
+                                   }`}>
+                                      {msg.sentiment === 'negative' && (
+                                         <div className="absolute -top-3 -left-3 bg-red-600 text-white p-1 rounded-full shadow-lg">
+                                            <AlertCircle className="w-4 h-4" />
+                                         </div>
+                                      )}
+                                      <p className="text-xs font-medium leading-relaxed">{msg.text}</p>
+                                      <div className="flex justify-between items-center mt-3">
+                                         <p className={`text-[8px] font-black uppercase tracking-widest ${msg.role === 'customer' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            {msg.timestamp} • CANAL: {activeThread.type}
+                                         </p>
+                                         {msg.role === 'agent' && <ShieldCheck className="w-3 h-3 text-[#00F0FF]" />}
+                                      </div>
+                                   </div>
+                                </div>
+                              ))}
+                           </div>
+
+                           <div className="mt-6 pt-6 border-t border-gray-100 flex gap-4 shrink-0">
+                              <div className="relative flex-1">
+                                 <div className="absolute left-6 top-1/2 -translate-y-1/2">
+                                    <Sparkles className="w-4 h-4 text-[#00F0FF]" />
+                                 </div>
+                                 <input 
+                                    type="text" 
+                                    placeholder={`Responder por ${activeThread.type}...`}
+                                    value={chatInput}
+                                    onChange={(e) => setChatInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSendChatMessage(); }}
+                                    className="w-full pl-14 pr-6 py-4 bg-gray-50 rounded-[1.8rem] text-xs font-medium border-none outline-none focus:ring-4 focus:ring-[#00F0FF]/10 transition-all text-gray-700"
+                                 />
+                              </div>
+                              <button 
+                                 onClick={handleSendChatMessage}
+                                 className="h-14 w-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center hover:bg-[#00F0FF] hover:text-gray-900 transition-all shadow-md active:scale-95 group"
+                              >
+                                 <Send className="w-5 h-5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                              </button>
+                            </div>
+                        </div>
+                      );
+                    })()
+                  )}
                </div>
             </div>
           )}
-          {/* DIRECTORIO VOIP */}
+{/* DIRECTORIO VOIP */}
           {activeTab === 'directory' && (
             <div className="space-y-8">
                {!isEditing ? (
