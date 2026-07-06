@@ -167,17 +167,32 @@ export default function Clients() {
   }, [selectedClient, activeProfileTab]);
 
   useEffect(() => {
-    const q = query(collection(db, 'clients'), orderBy('createdAt', 'desc'));
+    // Query directly and sort client-side to avoid index issues and guarantee robust loading
+    const q = collection(db, 'clients');
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      list.sort((a: any, b: any) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeB - timeA;
+      });
+      setClients(list);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'clients');
+      setLoading(false);
+    });
 
     const unsubCollabs = onSnapshot(collection(db, 'collaborators'), (snapshot) => {
       setCollaborators(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error loading collaborators:", error);
     });
 
     const unsubProspects = onSnapshot(collection(db, 'prospects'), (snapshot) => {
       setProspects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error loading prospects:", error);
     });
 
     return () => {
@@ -731,7 +746,7 @@ export default function Clients() {
                     </div>
 
                     <div className="h-40 w-full">
-                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                       <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={clientIntel.paymentHistory}>
                              <XAxis dataKey="month" hide />
                              <Tooltip 
@@ -749,7 +764,7 @@ export default function Clients() {
                   <div className="glass-panel p-8 rounded-[2.5rem] bg-[#161B22]/60">
                     <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em] font-mono mb-8 text-center">Neural Health Vector</h4>
                     <div className="h-64 w-full">
-                       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
+                       <ResponsiveContainer width="100%" height="100%">
                          <RadarChart cx="50%" cy="50%" outerRadius="80%" data={[
                            { subject: 'Payment', A: 95, fullMark: 100 },
                            { subject: 'Project', A: 85, fullMark: 100 },
