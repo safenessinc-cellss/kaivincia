@@ -602,6 +602,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "status", "createdAt"]
+    },
+    "EsimProfile": {
+      "title": "eSIM Profile",
+      "description": "Represents a mobile eSIM profile for network fallback and connectivity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "agentName": { "type": "string" },
+        "phone": { "type": "string" },
+        "carrier": { "type": "string" },
+        "planName": { "type": "string" },
+        "status": { "type": "string", "enum": ["Activa", "Inactiva", "Pendiente", "Agotada"] },
+        "smdpServer": { "type": "string" },
+        "activationCode": { "type": "string" },
+        "totalDataGB": { "type": "number" },
+        "usedDataGB": { "type": "number" },
+        "expirationDate": { "type": "string" },
+        "signalStrength": { "type": "number" },
+        "iccid": { "type": "string" }
+      },
+      "required": ["id", "agentName", "phone", "carrier", "planName", "status", "smdpServer", "activationCode", "totalDataGB", "usedDataGB", "iccid"]
     }
   },
   "firestore": {
@@ -746,6 +767,12 @@
         }
       },
       "description": "Durable logs of VoIP outbound and inbound calls."
+    },
+    "/esim_profiles/{profileId}": {
+      "schema": {
+        "$ref": "EsimProfile"
+      },
+      "description": "Stores user eSIM profiles for agent network fallback."
     }
   }
 }

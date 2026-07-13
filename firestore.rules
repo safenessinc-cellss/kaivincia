@@ -75,6 +75,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /esim_profiles/{profileId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
     match /candidates/{candidateId} {
       allow read: if isAuthenticated();
       allow create: if true; // Public form
