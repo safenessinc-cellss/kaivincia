@@ -8,7 +8,8 @@ import {
   ChevronUp, ChevronDown, MessageSquare, Mic, User, Send, ListTodo, Search,
   BrainCircuit, Zap, Sparkles, Filter, MoreVertical, PhoneIncoming, PhoneOutgoing,
   MessageCircle, BarChart2, TrendingUp, ShieldCheck, Clock, Terminal,
-  MapPin, Smartphone, FileText, Download, AlertTriangle, Mail, Instagram, ExternalLink
+  MapPin, Smartphone, FileText, Download, AlertTriangle, Mail, Instagram, ExternalLink,
+  Cpu, Globe, Wifi, QrCode, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
@@ -122,6 +123,15 @@ export default function CallSystem() {
   const [showSecrets, setShowSecrets] = useState(false);
   const [authPrompt, setAuthPrompt] = useState(false);
   const [authPassword, setAuthPassword] = useState('');
+  
+  // eSIM Integration States
+  const [esimProfiles, setEsimProfiles] = useState<any[]>([]);
+  const [selectedEsimId, setSelectedEsimId] = useState<string | null>(null);
+  const [showEsimProvisionForm, setShowEsimProvisionForm] = useState(false);
+  const [newEsimRegion, setNewEsimRegion] = useState('USA');
+  const [newEsimPackage, setNewEsimPackage] = useState('10');
+  const [newEsimAgent, setNewEsimAgent] = useState('');
+  const [simulatingEsimUsageId, setSimulatingEsimUsageId] = useState<string | null>(null);
   
   // New States for evolved features
   const [activeCall, setActiveCall] = useState<any | null>({
@@ -743,6 +753,192 @@ export default function CallSystem() {
     return () => unsub();
   }, []);
 
+  // eSIM Profiles real-time sync from Firestore
+  useEffect(() => {
+    const q = collection(db, 'esim_profiles');
+    const unsub = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        // Pre-populate default eSIM profiles
+        const defaults = [
+          {
+            id: 'esim_1',
+            agentName: 'Marta García',
+            phone: '+1 323 555 0122',
+            carrier: 'T-Mobile USA',
+            planName: 'USA Ultra HighSpeed 15GB',
+            status: 'Activa',
+            smdpServer: 'rsp.t-mobile.com',
+            activationCode: 'LPA:1$RSP.T-MOBILE.COM$T-MO-MARTA-902',
+            totalDataGB: 15,
+            usedDataGB: 4.8,
+            expirationDate: '2026-09-12',
+            signalStrength: 4,
+            iccid: '8904903200001234567'
+          },
+          {
+            id: 'esim_2',
+            agentName: 'Marta García',
+            phone: '+34 690 987 654',
+            carrier: 'Vodafone Europe',
+            planName: 'EuroTravel Premium 10GB',
+            status: 'Activa',
+            smdpServer: 'rsp.vodafone.com',
+            activationCode: 'LPA:1$RSP.VODAFONE.COM$VF-EUR-MARTA-304',
+            totalDataGB: 10,
+            usedDataGB: 8.5,
+            expirationDate: '2026-08-30',
+            signalStrength: 3,
+            iccid: '8934000200009876543'
+          },
+          {
+            id: 'esim_3',
+            agentName: 'Miguel Rojas',
+            phone: '+58 412 555 1122',
+            carrier: 'Digitel Local Backup',
+            planName: 'Latam Multi-Carrier 5GB',
+            status: 'Agotada',
+            smdpServer: 'rsp.digitel.com.ve',
+            activationCode: 'LPA:1$RSP.DIGITEL.COM.VE$DG-VEN-MIGUEL-501',
+            totalDataGB: 5,
+            usedDataGB: 5.0,
+            expirationDate: '2026-06-25',
+            signalStrength: 2,
+            iccid: '8958021200001122334'
+          }
+        ];
+        defaults.forEach(item => {
+          setDoc(doc(db, 'esim_profiles', item.id), item).catch(console.error);
+        });
+      } else {
+        const list: any[] = [];
+        snapshot.forEach(docSnap => {
+          list.push(docSnap.data());
+        });
+        setEsimProfiles(list.sort((a, b) => a.id.localeCompare(b.id)));
+        
+        // Auto-select first profile if none selected
+        if (list.length > 0) {
+          setSelectedEsimId(prev => {
+            const exists = list.some(p => p.id === prev);
+            return exists ? prev : list[0].id;
+          });
+        }
+      }
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'esim_profiles'));
+
+    return () => unsub();
+  }, []);
+
+  const simulateDataUsage = async (profileId: string) => {
+    if (simulatingEsimUsageId) return;
+    setSimulatingEsimUsageId(profileId);
+    
+    const profile = esimProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+    
+    // Simulate consuming 0.5 GB of data over a few ticks
+    let currentUsed = profile.usedDataGB;
+    const targetUsed = Math.min(profile.totalDataGB, currentUsed + 0.5);
+    
+    const interval = setInterval(async () => {
+      currentUsed = parseFloat((currentUsed + 0.1).toFixed(2));
+      if (currentUsed >= targetUsed) {
+        clearInterval(interval);
+        setSimulatingEsimUsageId(null);
+        currentUsed = targetUsed;
+      }
+      
+      const isAgotada = currentUsed >= profile.totalDataGB;
+      await setDoc(doc(db, 'esim_profiles', profileId), {
+        usedDataGB: currentUsed,
+        status: isAgotada ? 'Agotada' : profile.status,
+        signalStrength: isAgotada ? 0 : Math.max(1, Math.floor(Math.random() * 2) + 2)
+      }, { merge: true }).catch(console.error);
+    }, 400);
+  };
+
+  const handleEsimTopup = async (profileId: string) => {
+    const profile = esimProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+    
+    try {
+      await setDoc(doc(db, 'esim_profiles', profileId), {
+        usedDataGB: 0,
+        status: 'Activa',
+        signalStrength: 4,
+        expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // 30 days from now
+      }, { merge: true });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `esim_profiles/${profileId}`);
+    }
+  };
+
+  const handleProvisionEsim = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newEsimAgent.trim()) {
+      alert('Por favor, ingresa el nombre del agente.');
+      return;
+    }
+    
+    const id = 'esim_' + Date.now().toString();
+    const cleanAgentName = newEsimAgent.trim();
+    
+    // Determine carrier and plan based on region
+    let carrier = 'T-Mobile USA';
+    let planName = `USA HighSpeed ${newEsimPackage}GB`;
+    let smdpServer = 'rsp.t-mobile.com';
+    let codePrefix = 'T-MO';
+    let phoneCode = '+1 323';
+    
+    if (newEsimRegion === 'Europa') {
+      carrier = 'Vodafone Europe';
+      planName = `EuroTravel Premium ${newEsimPackage}GB`;
+      smdpServer = 'rsp.vodafone.com';
+      codePrefix = 'VF-EUR';
+      phoneCode = '+34 690';
+    } else if (newEsimRegion === 'Sudamérica') {
+      carrier = 'Digitel Local Backup';
+      planName = `Latam Multi-Carrier ${newEsimPackage}GB`;
+      smdpServer = 'rsp.digitel.com.ve';
+      codePrefix = 'DG-VEN';
+      phoneCode = '+58 412';
+    } else if (newEsimRegion === 'Global') {
+      carrier = 'Multi-Carrier Global Travel';
+      planName = `Global Roaming ${newEsimPackage}GB`;
+      smdpServer = 'rsp.global-esim.com';
+      codePrefix = 'GB-ROAM';
+      phoneCode = '+1 800';
+    }
+    
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+    const randomNumber = Math.floor(100000 + Math.random() * 900000);
+    
+    const newProfile = {
+      id,
+      agentName: cleanAgentName,
+      phone: `${phoneCode} ${randomNumber.toString().slice(0, 3)} ${randomNumber.toString().slice(3)}`,
+      carrier,
+      planName,
+      status: 'Activa',
+      smdpServer,
+      activationCode: `LPA:1$${smdpServer.toUpperCase()}$${codePrefix}-${cleanAgentName.substring(0, 5).toUpperCase()}-${randomSuffix}`,
+      totalDataGB: parseInt(newEsimPackage) || 10,
+      usedDataGB: 0,
+      expirationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      signalStrength: 4,
+      iccid: '89' + Math.floor(10000000000000000 + Math.random() * 90000000000000000).toString()
+    };
+    
+    try {
+      await setDoc(doc(db, 'esim_profiles', id), newProfile);
+      setNewEsimAgent('');
+      setShowEsimProvisionForm(false);
+      setSelectedEsimId(id);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.CREATE, `esim_profiles/${id}`);
+    }
+  };
+
   // Listen to messages for the selected thread in real-time
   useEffect(() => {
     if (!selectedThreadId) return;
@@ -927,7 +1123,7 @@ export default function CallSystem() {
             { id: 'routing', label: 'Enrutamiento IA', icon: BrainCircuit },
             { id: 'directory', label: 'Proveedores', icon: Settings },
             { id: 'cobertura', label: 'Zonas de Cobertura', icon: MapPin },
-            { id: 'softphone', label: 'Softphone & Móvil', icon: Smartphone },
+            { id: 'softphone', label: 'Softphone & eSIM', icon: Smartphone },
             { id: 'utilidades', label: 'Comprobante Zoho', icon: FileText },
             { id: 'logs', label: 'Auditoría', icon: Phone },
           ].map(tab => (
@@ -2103,6 +2299,347 @@ export default function CallSystem() {
                     <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl text-[10px] text-blue-300 font-bold leading-relaxed">
                       *Nota: Asegúrate de tener activa la opción de "Mantener activo en segundo plano" en la configuración de la batería de tu celular para no perder llamadas entrantes cuando la pantalla esté apagada.
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* eSIM Provisioning & Management Suite */}
+              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl space-y-6">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-6">
+                  <div>
+                    <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic flex items-center gap-2">
+                      <Cpu className="w-5 h-5 text-blue-600 animate-pulse" /> Módulo de Aprovisionamiento y Control eSIM
+                    </h3>
+                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
+                      Integración de Perfiles Móviles para Supervivencia y Datos de Respaldo Global
+                    </p>
+                  </div>
+                  
+                  <button
+                    onClick={() => setShowEsimProvisionForm(!showEsimProvisionForm)}
+                    className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-600 transition-all shadow-sm"
+                  >
+                    {showEsimProvisionForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {showEsimProvisionForm ? 'Cerrar Formulario' : 'Solicitar Nueva eSIM'}
+                  </button>
+                </div>
+
+                {/* Provision Form */}
+                <AnimatePresence>
+                  {showEsimProvisionForm && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <form onSubmit={handleProvisionEsim} className="bg-gray-50 border border-gray-100 p-6 rounded-3xl space-y-4">
+                        <h4 className="text-xs font-black uppercase tracking-wider text-gray-700">Formulario de Pedido de eSIM para Agente</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Región / Destino</label>
+                            <select
+                              value={newEsimRegion}
+                              onChange={(e) => setNewEsimRegion(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              <option value="USA">Estados Unidos (T-Mobile)</option>
+                              <option value="Europa">Europa Continental (Vodafone)</option>
+                              <option value="Sudamérica">Venezuela / Latam (Digitel)</option>
+                              <option value="Global">Global Roaming Multi-Carrier</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Paquete de Datos</label>
+                            <select
+                              value={newEsimPackage}
+                              onChange={(e) => setNewEsimPackage(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
+                            >
+                              <option value="5">5 GB High-Speed (30 días)</option>
+                              <option value="10">10 GB High-Speed (30 días)</option>
+                              <option value="15">15 GB High-Speed (30 días)</option>
+                              <option value="30">30 GB High-Speed (30 días)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Nombre del Agente Asignado</label>
+                            <input
+                              type="text"
+                              placeholder="Ej: Miguel Rojas"
+                              value={newEsimAgent}
+                              onChange={(e) => setNewEsimAgent(e.target.value)}
+                              className="w-full bg-white border border-gray-200 rounded-xl p-3 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500/20"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end pt-2">
+                          <button
+                            type="submit"
+                            className="bg-blue-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-md flex items-center gap-2"
+                          >
+                            <Zap className="w-4 h-4" /> Generar Perfil eSIM Instantáneo
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* eSIM Main Panel Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: List of eSIMs */}
+                  <div className="lg:col-span-5 space-y-3 max-h-[500px] overflow-y-auto pr-1">
+                    {esimProfiles.length === 0 ? (
+                      <div className="text-center py-8 text-gray-400 text-xs font-bold uppercase">No hay perfiles eSIM configurados</div>
+                    ) : (
+                      esimProfiles.map((esim) => {
+                        const isSelected = selectedEsimId === esim.id;
+                        const usagePercentage = Math.min(100, (esim.usedDataGB / esim.totalDataGB) * 100);
+                        const isAgotada = esim.status === 'Agotada';
+
+                        return (
+                          <motion.div
+                            key={esim.id}
+                            onClick={() => setSelectedEsimId(esim.id)}
+                            whileHover={{ x: 2 }}
+                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between gap-3 ${
+                              isSelected 
+                                ? 'bg-blue-50/50 border-blue-400 shadow-sm' 
+                                : 'bg-gray-50 border-gray-200/60 hover:bg-gray-100/50'
+                            }`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center gap-2.5">
+                                <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${
+                                  isAgotada ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'
+                                }`}>
+                                  <Globe className="w-5 h-5" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black text-gray-900 uppercase tracking-tight">{esim.carrier}</h4>
+                                  <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wide">{esim.agentName}</p>
+                                </div>
+                              </div>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[7px] font-black uppercase tracking-widest ${
+                                isAgotada ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                              }`}>
+                                {esim.status}
+                              </span>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[8px] font-black uppercase text-gray-400">
+                                <span>Consumo de Datos</span>
+                                <span className={isAgotada ? 'text-red-500' : 'text-gray-600'}>
+                                  {esim.usedDataGB.toFixed(1)} GB / {esim.totalDataGB} GB
+                                </span>
+                              </div>
+                              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full transition-all duration-500 ${isAgotada ? 'bg-red-500' : 'bg-blue-600'}`} 
+                                  style={{ width: `${usagePercentage}%` }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[9px] font-bold text-gray-500 font-mono">
+                              <span>{esim.phone}</span>
+                              <div className="flex gap-0.5">
+                                {Array.from({ length: 4 }).map((_, i) => (
+                                  <div 
+                                    key={i} 
+                                    className={`w-1 rounded-sm ${
+                                      i < esim.signalStrength 
+                                        ? (isAgotada ? 'bg-red-400' : 'bg-green-500') 
+                                        : 'bg-gray-300'
+                                    }`} 
+                                    style={{ height: `${(i + 1) * 3}px` }} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Right Column: eSIM Details & Live Simulator */}
+                  <div className="lg:col-span-7">
+                    {(() => {
+                      const esim = esimProfiles.find(p => p.id === selectedEsimId);
+                      if (!esim) {
+                        return (
+                          <div className="bg-gray-50 border border-gray-100 rounded-3xl p-8 text-center h-full flex flex-col items-center justify-center text-gray-400 text-xs font-bold uppercase tracking-wider">
+                            Selecciona una eSIM de la lista para ver su panel de control interactivo
+                          </div>
+                        );
+                      }
+
+                      const usagePercentage = Math.min(100, (esim.usedDataGB / esim.totalDataGB) * 100);
+                      const isAgotada = esim.status === 'Agotada';
+
+                      return (
+                        <div className="bg-slate-950 text-white p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl space-y-6 relative overflow-hidden h-full flex flex-col justify-between">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
+                          
+                          <div className="space-y-4">
+                            {/* Header */}
+                            <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+                              <div>
+                                <span className="bg-blue-500/20 text-blue-400 text-[8px] font-black px-3 py-1 rounded-full uppercase tracking-widest">
+                                  {esim.carrier}
+                                </span>
+                                <h4 className="text-base font-black uppercase tracking-tight text-white mt-2 italic">{esim.planName}</h4>
+                                <p className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Asignado a: <span className="text-white font-bold">{esim.agentName}</span></p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Estado de Conexión</p>
+                                <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest mt-1 ${
+                                  isAgotada ? 'text-red-500' : 'text-green-400'
+                                }`}>
+                                  <span className={`h-2 w-2 rounded-full ${isAgotada ? 'bg-red-500 animate-pulse' : 'bg-green-400 animate-pulse'}`} />
+                                  {isAgotada ? 'Sin Datos' : 'Conectada (4G/5G)'}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/50">
+                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Línea Telefónica</p>
+                                <p className="text-xs font-mono font-bold text-white mt-1">{esim.phone}</p>
+                              </div>
+                              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/50 col-span-2 md:col-span-1">
+                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">ICCID de Tarjeta</p>
+                                <p className="text-[10px] font-mono font-bold text-slate-300 mt-1 truncate" title={esim.iccid}>{esim.iccid}</p>
+                              </div>
+                              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/50">
+                                <p className="text-[7px] text-slate-500 font-black uppercase tracking-widest">Vence el</p>
+                                <p className="text-xs font-mono font-bold text-white mt-1">{esim.expirationDate}</p>
+                              </div>
+                            </div>
+
+                            {/* Live Activation QR & Instructions */}
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 bg-slate-900/40 p-4 rounded-2xl border border-slate-800/40 items-center">
+                              {/* Left: Interactive SVG QR Code */}
+                              <div className="md:col-span-5 flex flex-col items-center justify-center p-2 bg-white rounded-xl shadow-inner border border-gray-300/10 group relative overflow-hidden">
+                                <svg className="w-32 h-32 text-slate-950" viewBox="0 0 100 100" fill="currentColor">
+                                  {/* QR Finder Pattern Top-Left */}
+                                  <rect x="5" y="5" width="25" height="25" fill="currentColor" />
+                                  <rect x="9" y="9" width="17" height="17" fill="white" />
+                                  <rect x="13" y="13" width="9" height="9" fill="currentColor" />
+                                  
+                                  {/* QR Finder Pattern Top-Right */}
+                                  <rect x="70" y="5" width="25" height="25" fill="currentColor" />
+                                  <rect x="74" y="9" width="17" height="17" fill="white" />
+                                  <rect x="78" y="13" width="9" height="9" fill="currentColor" />
+                                  
+                                  {/* QR Finder Pattern Bottom-Left */}
+                                  <rect x="5" y="70" width="25" height="25" fill="currentColor" />
+                                  <rect x="9" y="74" width="17" height="17" fill="white" />
+                                  <rect x="13" y="78" width="9" height="9" fill="currentColor" />
+                                  
+                                  {/* Small alignment block bottom-right */}
+                                  <rect x="78" y="78" width="5" height="5" fill="currentColor" />
+
+                                  {/* Random Simulated QR bits and patterns for realistic feel */}
+                                  <rect x="35" y="5" width="5" height="5" />
+                                  <rect x="45" y="5" width="10" height="5" />
+                                  <rect x="60" y="10" width="5" height="15" />
+                                  <rect x="35" y="15" width="15" height="5" />
+                                  <rect x="40" y="25" width="5" height="10" />
+                                  <rect x="50" y="20" width="5" height="5" />
+                                  <rect x="5" y="35" width="15" height="5" />
+                                  <rect x="25" y="35" width="5" height="15" />
+                                  <rect x="15" y="45" width="5" height="10" />
+                                  
+                                  <rect x="35" y="40" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" />
+                                  <circle cx="42.5" cy="47.5" r="2" fill="currentColor" />
+                                  
+                                  <rect x="70" y="35" width="5" height="10" />
+                                  <rect x="80" y="40" width="15" height="5" />
+                                  <rect x="75" y="50" width="10" height="15" />
+                                  <rect x="90" y="60" width="5" height="5" />
+                                  
+                                  <rect x="35" y="65" width="20" height="5" />
+                                  <rect x="45" y="75" width="10" height="10" />
+                                  <rect x="35" y="85" width="5" height="10" />
+                                  <rect x="55" y="85" width="10" height="5" />
+                                  <rect x="65" y="80" width="5" height="15" />
+                                </svg>
+                                <span className="text-[7px] text-slate-800 font-black mt-1.5 uppercase tracking-wider">Escanear para Activar</span>
+                              </div>
+
+                              {/* Right: Manual Activation Details */}
+                              <div className="md:col-span-7 space-y-2">
+                                <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest flex items-center gap-1">
+                                  <QrCode className="w-3.5 h-3.5 text-blue-400" /> Manual Activation Details
+                                </p>
+                                
+                                <div className="space-y-1 text-[10px]">
+                                  <div>
+                                    <span className="text-slate-500 font-bold">SM-DP+ Server:</span>
+                                    <div className="flex justify-between items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800 mt-0.5 font-mono">
+                                      <span className="text-white text-[9px] select-all">{esim.smdpServer}</span>
+                                      <button 
+                                        onClick={() => navigator.clipboard.writeText(esim.smdpServer)}
+                                        className="text-[9px] font-black uppercase text-blue-400 hover:text-white transition-colors"
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-1">
+                                    <span className="text-slate-500 font-bold">Código de Activación:</span>
+                                    <div className="flex justify-between items-center bg-slate-900 p-1.5 rounded-lg border border-slate-800 mt-0.5 font-mono">
+                                      <span className="text-white text-[8px] select-all truncate max-w-[150px]">{esim.activationCode}</span>
+                                      <button 
+                                        onClick={() => navigator.clipboard.writeText(esim.activationCode)}
+                                        className="text-[9px] font-black uppercase text-blue-400 hover:text-white shrink-0 ml-1 transition-colors"
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Bar / Consumption Simulator */}
+                          <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row gap-3">
+                            <button
+                              onClick={() => simulateDataUsage(esim.id)}
+                              disabled={isAgotada || simulatingEsimUsageId !== null}
+                              className={`flex-1 py-3 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 border transition-all ${
+                                isAgotada
+                                  ? 'border-slate-800 text-slate-600 cursor-not-allowed bg-transparent'
+                                  : simulatingEsimUsageId === esim.id
+                                    ? 'bg-blue-600/20 border-blue-500/30 text-blue-400 animate-pulse'
+                                    : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
+                              }`}
+                            >
+                              <RefreshCw className={`w-3.5 h-3.5 ${simulatingEsimUsageId === esim.id ? 'animate-spin' : ''}`} />
+                              {simulatingEsimUsageId === esim.id ? 'Descargando...' : 'Simular Consumo de Datos (0.5GB)'}
+                            </button>
+
+                            <button
+                              onClick={() => handleEsimTopup(esim.id)}
+                              className="bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white py-3 px-5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-500/10"
+                            >
+                              <Zap className="w-3.5 h-3.5" />
+                              Recargar Datos (Top-up Plan)
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
