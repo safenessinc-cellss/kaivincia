@@ -1,0 +1,12 @@
+{
+  "name": "Remix Kaivincia Corp CRM",
+  "description": "CRM and Debt Collection system similar to Bitrix24/Zoho with internal chat, pipeline, and automated collection logic.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

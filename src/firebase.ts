@@ -1,0 +1,79 @@
+import { initializeApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import firebaseConfig from '../firebase-applet-config.json';
+
+const app = initializeApp(firebaseConfig);
+export const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
+  : getFirestore(app);
+export const auth = getAuth(app);
+
+// Initialize storage with explicit bucket URL if auto-detection fails
+let storageInstance;
+try {
+  storageInstance = getStorage(app);
+} catch (e) {
+  console.warn("Storage auto-initialization failed, trying with explicit bucket", e);
+  if ((firebaseConfig as any).storageBucket) {
+    storageInstance = getStorage(app, `gs://${(firebaseConfig as any).storageBucket}`);
+  }
+}
+export const storage = storageInstance!;
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string;
+    email?: string;
+    emailVerified?: boolean;
+    isAnonymous?: boolean;
+    tenantId?: string;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email || undefined,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId || undefined,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  // Do not throw for read/listen subscriptions (GET/LIST) to prevent crashing the React UI.
+  // Throw for mutations (CREATE/UPDATE/DELETE/WRITE) so they can be caught by the action UI.
+  if (operationType !== OperationType.GET && operationType !== OperationType.LIST) {
+    throw new Error(JSON.stringify(errInfo));
+  }
+}

@@ -1,0 +1,336 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helpers
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["admin", "superadmin", "ceo", "gestor"])
+      );
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Validation Helpers
+    // ===============================================================
+    function isValidProject(data) {
+      return (data.get('clientId', '') is string || data.get('client', '') is string) &&
+             data.name is string && data.name.size() > 0 &&
+             data.status in ['Planificación', 'En ejecución', 'En riesgo', 'Finalizado'];
+    }
+
+    function isValidInvoice(data) {
+      return (data.get('clientId', '') is string || data.get('client', '') is string) &&
+             data.amount is number &&
+             data.status in ['Pendiente', 'Pagada', 'Vencida', 'Cancelada'];
+    }
+
+    function isValidTimeLog(data) {
+      return data.projectId is string &&
+             data.hours is number &&
+             (data.get('userUid', '') == request.auth.uid || data.get('userId', '') == request.auth.uid);
+    }
+
+    function isValidJob(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.department is string &&
+             data.status in ['active', 'closed'];
+    }
+
+    // ===============================================================
+    // Users & Sesiones
+    // ===============================================================
+    match /users/{userId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow update: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /user_sessions/{sessionId} {
+      allow read:   if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Clients & Interactions (Operación comercial y pipeline)
+    // ===============================================================
+    match /clients/{clientId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    match /leads/{leadId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /form_templates/{templateId} {
+      allow read:   if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /client_interactions/{interactionId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /chat_messages/{messageId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+                       (isAdmin() ||
+                        resource.data.get('targetId', '') == request.auth.uid ||
+                        resource.data.get('senderId', '') == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Helpdesk / Support Tickets
+    // ===============================================================
+    match /support_tickets/{ticketId} {
+      allow read:   if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Omnicanal & VoIP
+    // ===============================================================
+    match /omnichannel_threads/{threadId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read, create, update: if isAuthenticated();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /voip_call_history/{callId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /esim_profiles/{profileId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /call_dispositions/{dispositionId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Reclutamiento & Empleo
+    // ===============================================================
+    match /candidates/{candidateId} {
+      allow read:   if isAuthenticated();
+      allow create: if true; // Postulación pública
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow get, list:      if true; // Portal público de vacantes
+      allow create, update: if (isAdmin() || isAuthenticated()) && isValidJob(incoming());
+      allow delete:         if isAdmin();
+    }
+
+    // ===============================================================
+    // Entidades B2B, Suscripciones y Academia
+    // ===============================================================
+    match /b2b_entities/{entityId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /academic_progress/{progressId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /settings/voip_providers {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/{document=**} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // Integraciones Externas (Módulo 9)
+    // ===============================================================
+    match /integrations/{integrationId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /integration_test_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Auditoría & Seguridad
+    // ===============================================================
+    match /audit_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Inmutables
+    }
+
+    match /security_alerts/{alertId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /automation_rules/{ruleId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /automation_logs/{logId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    match /collaborators/{collaboratorId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /prospects/{prospectId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===============================================================
+    // Proyectos, Facturación & Control Horario
+    // ===============================================================
+    match /projects/{projectId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProject(incoming());
+      allow update: if isAuthenticated() && isValidProject(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidInvoice(incoming());
+      allow update: if isAuthenticated() && isValidInvoice(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /time_logs/{logId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTimeLog(incoming());
+      allow update: if isAuthenticated() &&
+                       (isAdmin() ||
+                        (existing().get('userUid', '') == request.auth.uid && isValidTimeLog(incoming())));
+      allow delete: if isAdmin();
+    }
+
+    match /automation_workflows/{workflowId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /system_events/{eventId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    match /system_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Asistencia & Permisos
+    // ===============================================================
+    match /attendance_logs/{logId} {
+      allow read:   if isAdmin() ||
+                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /absence_requests/{requestId} {
+      allow read:   if isAdmin() ||
+                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /documents/{documentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===============================================================
+    // Deny-all por defecto
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
