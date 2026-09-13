@@ -382,9 +382,9 @@ export default function TeamManagement() {
                         <Target className="w-4 h-4 text-[#00F0FF]" /> Meta Mensual
                       </p>
                       <p className="text-2xl font-black text-gray-900 mt-1">
-                        {activeMember.type === 'sales' ? `${(activeMember.current || 0).toLocaleString()}` : (activeMember.current || 0)}
+                        {activeMember.type === 'sales' ? `$${(activeMember.current || 0).toLocaleString()}` : (activeMember.current || 0)}
                         <span className="text-sm font-medium text-gray-500 ml-1">
-                          / {activeMember.type === 'sales' ? `${(activeMember.goal || 10000).toLocaleString()}` : (activeMember.goal || 100)}
+                          / {activeMember.type === 'sales' ? `$${(activeMember.goal || 10000).toLocaleString()}` : (activeMember.goal || 100)}
                         </span>
                       </p>
                     </div>
