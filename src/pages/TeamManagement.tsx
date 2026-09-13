@@ -55,15 +55,54 @@ const AUDIT_LOGS = [
 export default function TeamManagement() {
   const [activeTab, setActiveTab] = useState('directory');
   const { tasks, users } = useGlobalContext();
-  const [selectedMember, setSelectedMember] = useState<any>(null);
+
+  const normalizedMembers = useMemo(() => {
+    if (users && users.length > 0) {
+      return users.map((u: any, idx: number) => {
+        const fallback = TEAM_MEMBERS[idx % TEAM_MEMBERS.length] || TEAM_MEMBERS[0];
+        return {
+          id: u.id || `user-${idx}`,
+          name: u.name || u.displayName || u.email?.split('@')[0] || fallback.name,
+          role: u.role || fallback.role,
+          status: u.status || fallback.status,
+          workload: u.workload || fallback.workload,
+          avatar: (u.name || u.displayName || u.email || fallback.name).charAt(0).toUpperCase(),
+          goal: u.goal || fallback.goal || 10000,
+          current: u.current || fallback.current || 7500,
+          type: u.type || (u.role === 'closer' || u.role === 'sales' ? 'sales' : u.role === 'tutor' ? 'support' : fallback.type || 'operations'),
+          trend: u.trend || fallback.trend || 'up',
+          kpis: {
+            calls: u.kpis?.calls ?? fallback.kpis?.calls ?? 45,
+            closeRate: u.kpis?.closeRate ?? fallback.kpis?.closeRate ?? '18%',
+            avgCallTime: u.kpis?.avgCallTime ?? fallback.kpis?.avgCallTime ?? '12:00',
+            students: u.kpis?.students ?? fallback.kpis?.students ?? 40,
+            tickets: u.kpis?.tickets ?? fallback.kpis?.tickets ?? 25,
+            satisfaction: u.kpis?.satisfaction ?? fallback.kpis?.satisfaction ?? '4.7/5',
+            projects: u.kpis?.projects ?? fallback.kpis?.projects ?? 5,
+            compliance: u.kpis?.compliance ?? fallback.kpis?.compliance ?? '98%',
+            delays: u.kpis?.delays ?? fallback.kpis?.delays ?? 0
+          },
+          skills: u.skills && u.skills.length > 0 ? u.skills : fallback.skills,
+          email: u.email || fallback.name.toLowerCase().replace(' ', '.') + '@kaivincia.com',
+          permissions: u.permissions || {}
+        };
+      });
+    }
+    return TEAM_MEMBERS;
+  }, [users]);
+
+  const [selectedMember, setSelectedMember] = useState<any>(() => normalizedMembers[0] || TEAM_MEMBERS[0]);
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (users.length > 0 && !selectedMember) {
-      setSelectedMember(users[0]);
+    if (normalizedMembers.length > 0) {
+      const exists = normalizedMembers.find(m => m.id === selectedMember?.id);
+      if (!exists) {
+        setSelectedMember(normalizedMembers[0]);
+      }
     }
-  }, [users, selectedMember]);
+  }, [normalizedMembers, selectedMember]);
 
   const updateUserStatus = async (userId: string, status: string) => {
     try {
@@ -103,7 +142,7 @@ export default function TeamManagement() {
     })).sort((a,b) => b.Completadas - a.Completadas);
   }, [tasks]);
 
-  if (!selectedMember && users.length === 0) return <div className="p-8 text-center text-gray-500">Cargando equipo...</div>;
+  const activeMember = selectedMember || normalizedMembers[0] || TEAM_MEMBERS[0];
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -270,12 +309,12 @@ export default function TeamManagement() {
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Directorio de Elite</h3>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                  {(users.length > 0 ? users : TEAM_MEMBERS).map(member => (
+                  {normalizedMembers.map(member => (
                     <div 
                       key={member.id}
                       onClick={() => setSelectedMember(member)}
-                      className={`p-5 rounded-[2rem] border transition-all relative overflow-hidden group ${
-                        selectedMember?.id === member.id 
+                      className={`p-5 rounded-[2rem] border transition-all relative overflow-hidden group cursor-pointer ${
+                        activeMember?.id === member.id 
                           ? 'border-[#00F0FF]/30 bg-gray-50 shadow-inner' 
                           : 'border-transparent hover:border-gray-100 hover:bg-gray-50/50'
                       }`}
@@ -284,14 +323,14 @@ export default function TeamManagement() {
                         <div className="relative">
                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-black text-xl border-4 transition-colors ${
                               member.status === 'Online' ? 'border-green-500/20 bg-green-50 text-green-700' :
-                              member.status === 'Meeting' ? 'border-cyan-500/100/20 bg-cyan-500/10 text-yellow-700' :
+                              member.status === 'Meeting' ? 'border-amber-500/20 bg-amber-50 text-amber-700' :
                               'border-gray-200 bg-gray-100 text-gray-400 shadow-inner'
                           }`}>
                             {member.avatar}
                           </div>
                           <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
                             member.status === 'Online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' :
-                            member.status === 'Meeting' ? 'bg-cyan-500/100 shadow-[0_0_10px_rgba(234,179,8,0.5)]' :
+                            member.status === 'Meeting' ? 'bg-amber-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]' :
                             'bg-gray-400'
                           }`}></div>
                         </div>
@@ -317,18 +356,18 @@ export default function TeamManagement() {
                 <div className="flex items-center justify-between mb-10 pb-8 border-b border-gray-50 relative">
                   <div className="flex items-center gap-6">
                     <div className="w-24 h-24 rounded-[2rem] bg-gray-900 flex items-center justify-center font-black text-white text-4xl italic shadow-2xl relative rotate-3 group-hover:rotate-0 transition-transform">
-                      {selectedMember.avatar}
+                      {activeMember.avatar}
                       <div className="absolute -top-3 -left-3 bg-[#00F0FF] text-black w-8 h-8 rounded-xl flex items-center justify-center shadow-lg">
                          <ShieldCheck className="w-4 h-4" />
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{selectedMember?.name || selectedMember?.email}</h2>
-                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {selectedMember?.role || 'Nodo'}</p>
+                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email}</h2>
+                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {activeMember?.role || 'Nodo'}</p>
                     </div>
                   </div>
                   <button 
-                    onClick={() => setSelectedUserForPerms(selectedMember)}
+                    onClick={() => setSelectedUserForPerms(activeMember)}
                     className="h-14 px-8 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95"
                   >
                     Modificar Roles
@@ -343,20 +382,20 @@ export default function TeamManagement() {
                         <Target className="w-4 h-4 text-[#00F0FF]" /> Meta Mensual
                       </p>
                       <p className="text-2xl font-black text-gray-900 mt-1">
-                        {selectedMember.type === 'sales' ? `$${selectedMember.current.toLocaleString()}` : selectedMember.current}
+                        {activeMember.type === 'sales' ? `${(activeMember.current || 0).toLocaleString()}` : (activeMember.current || 0)}
                         <span className="text-sm font-medium text-gray-500 ml-1">
-                          / {selectedMember.type === 'sales' ? `$${selectedMember.goal.toLocaleString()}` : selectedMember.goal}
+                          / {activeMember.type === 'sales' ? `${(activeMember.goal || 10000).toLocaleString()}` : (activeMember.goal || 100)}
                         </span>
                       </p>
                     </div>
                     <span className="text-lg font-bold text-[#00F0FF]">
-                      {Math.round((selectedMember.current / selectedMember.goal) * 100)}%
+                      {Math.round(((activeMember.current || 0) / (activeMember.goal || 1)) * 100)}%
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
                       className="bg-[#00F0FF] h-2.5 rounded-full transition-all duration-1000" 
-                      style={{ width: `${(selectedMember.current / selectedMember.goal) * 100}%` }}
+                      style={{ width: `${Math.min(100, Math.round(((activeMember.current || 0) / (activeMember.goal || 1)) * 100))}%` }}
                     ></div>
                   </div>
                 </div>
@@ -366,60 +405,60 @@ export default function TeamManagement() {
                   <BarChart3 className="w-5 h-5 text-gray-400" /> Indicadores Clave (KPIs)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                  {selectedMember.type === 'sales' && (
+                  {activeMember.type === 'sales' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Phone className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Llamadas (VoIP)</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.calls}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.calls ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tasa de Cierre</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.closeRate}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.closeRate ?? '0%'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Clock className="w-6 h-6 text-purple-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tiempo Promedio</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.avgCallTime}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.avgCallTime ?? '00:00'}</p>
                       </div>
                     </>
                   )}
-                  {selectedMember.type === 'support' && (
+                  {activeMember.type === 'support' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Users className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Alumnos Atendidos</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.students}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.students ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tickets Resueltos</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.tickets}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.tickets ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Activity className="w-6 h-6 text-cyan-500/100 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Satisfacción</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.satisfaction}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.satisfaction ?? '5.0/5'}</p>
                       </div>
                     </>
                   )}
-                  {selectedMember.type === 'operations' && (
+                  {activeMember.type === 'operations' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <BarChart3 className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Proyectos</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.projects}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.projects ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Cumplimiento</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.compliance}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.compliance ?? '100%'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Retrasos</p>
-                        <p className="text-2xl font-bold text-gray-900">{selectedMember.kpis.delays}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.delays ?? 0}</p>
                       </div>
                     </>
                   )}
@@ -434,7 +473,7 @@ export default function TeamManagement() {
                     <BookOpen className="w-4 h-4 text-gray-400" /> Progreso vinculado a Academia Interna
                   </p>
                   <div className="space-y-4">
-                    {selectedMember.skills?.map((skill, i) => (
+                    {(activeMember.skills || []).map((skill: any, i: number) => (
                       <div key={i} className="flex items-center gap-4">
                         <div className="w-1/3 min-w-[120px]">
                           <p className="text-sm font-bold text-gray-900">{skill.name}</p>
@@ -453,7 +492,7 @@ export default function TeamManagement() {
                         </div>
                       </div>
                     ))}
-                    {(!selectedMember.skills || selectedMember.skills.length === 0) && (
+                    {(!activeMember.skills || activeMember.skills.length === 0) && (
                       <p className="text-sm text-gray-500 italic">No hay habilidades registradas aún.</p>
                     )}
                   </div>

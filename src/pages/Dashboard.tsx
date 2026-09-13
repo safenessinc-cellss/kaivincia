@@ -6,7 +6,7 @@ import {
   CheckCircle2, Clock, 
   BrainCircuit, BarChart3, BookOpen, ChevronRight, 
   History, RefreshCw, FileText,
-  Cpu, Layers, Network, ShieldCheck
+  Cpu, Layers, Network, ShieldCheck, ArrowLeft
 } from 'lucide-react';
 import { 
   AreaChart, Area, Tooltip, 
@@ -151,6 +151,23 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Botón Volver a la página anterior */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/crm');
+              }
+            }}
+            className="px-4 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 hover:border-cyan-500/40 rounded-xl text-xs font-black text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm group"
+            title="Volver a la página anterior"
+          >
+            <ArrowLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-1 transition-transform" />
+            <span className="uppercase tracking-wider text-[10px]">Volver</span>
+          </button>
+
           <button 
             onClick={handleAiOptimization}
             disabled={isOptimizing}

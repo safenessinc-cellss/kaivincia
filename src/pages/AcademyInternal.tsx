@@ -1,43 +1,99 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   GraduationCap, PlayCircle, CheckCircle2, AlertTriangle, 
   Award, BookOpen, Video, FileText, ArrowRight, Activity, Bot, Trophy,
   Users, DollarSign, BarChart3, Filter, Search, MoreVertical, ShieldCheck, Phone, X, Save, Edit2, Zap, Flame,
-  Briefcase, TrendingUp, Star, MessageSquare, Sparkles, Send, ShieldAlert, BadgeCheck
+  Briefcase, TrendingUp, Star, MessageSquare, Sparkles, Send, ShieldAlert, BadgeCheck,
+  Plus, ChevronLeft, ChevronRight, Inbox, Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+// Mock Data for Courses
+const initialCourses = [
+  { id: '1', name: 'Setter Pro Certification', students: 145, rating: 4.9, employability: '88%', revenue: '$43,500', category: 'Prospección' },
+  { id: '2', name: 'Closer Elite Master', students: 82, rating: 4.8, employability: '95%', revenue: '$41,000', category: 'Ventas de Alto Valor' },
+  { id: '3', name: 'B2B Scaling Architect', students: 28, rating: 5.0, employability: '100%', revenue: '$28,000', category: 'Estrategia Empresarial' }
+];
 
 // Mock Data for Students
 const initialStudents = [
   { 
-    id: '1', name: 'Ana Silva', email: 'ana@example.com', course: 'Setter Pro', progress: 85, 
+    id: '1', name: 'Ana Silva', email: 'ana@example.com', course: 'Setter Pro Certification', progress: 85, 
     status: 'Activo', lastLogin: 'Hace 2 horas', supportTickets: 0, 
     grades: [9, 8.5, 9.2], ltv: 1500, employability: 'Alto'
   },
   { 
-    id: '2', name: 'Miguel Rojas', email: 'miguel@example.com', course: 'Closer Elite', progress: 100, 
+    id: '2', name: 'Miguel Rojas', email: 'miguel@example.com', course: 'Closer Elite Master', progress: 100, 
     status: 'Certificado', lastLogin: 'Hace 1 día', supportTickets: 0,
     grades: [10, 9.8, 10], ltv: 4500, employability: 'Elite'
   },
   { 
-    id: '3', name: 'Laura Gómez', email: 'laura@example.com', course: 'Setter Pro', progress: 15, 
+    id: '3', name: 'Laura Gómez', email: 'laura@example.com', course: 'Setter Pro Certification', progress: 15, 
     status: 'En Riesgo', lastLogin: 'Hace 5 días', supportTickets: 1,
     grades: [6, 7], ltv: 800, employability: 'Pendiente'
   },
+  { 
+    id: '4', name: 'David Menéndez', email: 'david@example.com', course: 'B2B Scaling Architect', progress: 60, 
+    status: 'Activo', lastLogin: 'Hace 3 horas', supportTickets: 0,
+    grades: [8.5, 9], ltv: 2200, employability: 'Alto'
+  },
+  { 
+    id: '5', name: 'Elena Torres', email: 'elena@example.com', course: 'Closer Elite Master', progress: 92, 
+    status: 'Activo', lastLogin: 'Hace 1 hora', supportTickets: 0,
+    grades: [9.5, 9.2], ltv: 3400, employability: 'Elite'
+  },
+  { 
+    id: '6', name: 'Javier Morales', email: 'javier@example.com', course: 'Setter Pro Certification', progress: 40, 
+    status: 'Activo', lastLogin: 'Ayer', supportTickets: 0,
+    grades: [7.8, 8.1], ltv: 1200, employability: 'Medio'
+  }
 ];
 
 export default function AcademyInternal() {
   const [activeTab, setActiveTab] = useState('panel');
+  const [courses, setCourses] = useState(initialCourses);
   const [students, setStudents] = useState(initialStudents);
   const [editingStudent, setEditingStudent] = useState<any | null>(null);
   const [isStudentMode, setIsStudentMode] = useState(false);
   const [conversionStudent, setConversionStudent] = useState<any | null>(null);
-  const [activeTicket, setActiveTicket] = useState<any | null>(null);
+
+  // Modals
+  const [showNewCourseModal, setShowNewCourseModal] = useState(false);
+  const [showAddStudentModal, setShowAddStudentModal] = useState(false);
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+
+  // New Course Form State
+  const [newCourseForm, setNewCourseForm] = useState({
+    name: '',
+    category: 'Ventas B2B',
+    revenue: '$15,000',
+    employability: '90%',
+    rating: 5.0
+  });
+
+  // New Student Form State
+  const [newStudentForm, setNewStudentForm] = useState({
+    name: '',
+    email: '',
+    course: 'Setter Pro Certification',
+    status: 'Activo',
+    progress: 10
+  });
+
+  // Filters and Pagination
+  const [searchQuery, setSearchQuery] = useState('');
+  const [courseFilter, setCourseFilter] = useState('Todos');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
 
   const tickets = [
     { id: '1', student: 'Laura Gómez', query: '¿Cómo manejo la objeción de "tengo que consultarlo con mi socio"?', status: 'pending', time: '10 min ago' },
     { id: '2', student: 'Carlos Ruiz', query: 'Duda con el script de cierre en la fase 3.', status: 'pending', time: '1h ago' }
   ];
+
+  const [ticketsList, setTicketsList] = useState(tickets);
+  const [activeTicket, setActiveTicket] = useState<any | null>(tickets[0] || null);
+  const [ticketReplyText, setTicketReplyText] = useState('');
 
   const aiSuggestions: any = {
     '1': "Basado en el video 'Módulo 4: Objeciones de Poder', la respuesta ideal es: 'Entiendo perfectamente, Juan. De hecho, la mayoría de nuestros clientes con socios usan la estructura de decisión compartida. ¿Te parece si agendamos una breve de 10 min mañana con él para resolver dudas técnicas?'",
@@ -48,7 +104,94 @@ export default function AcademyInternal() {
     if (!editingStudent) return;
     setStudents(students.map(s => s.id === editingStudent.id ? editingStudent : s));
     setEditingStudent(null);
+    showToast('Alumno actualizado correctamente');
   };
+
+  const handleCreateCourse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCourseForm.name.trim()) return;
+
+    const newCourse = {
+      id: `${courses.length + 1}`,
+      name: newCourseForm.name.trim(),
+      students: 0,
+      rating: newCourseForm.rating,
+      employability: newCourseForm.employability,
+      revenue: newCourseForm.revenue,
+      category: newCourseForm.category
+    };
+
+    setCourses([...courses, newCourse]);
+    setNewCourseForm({
+      name: '',
+      category: 'Ventas B2B',
+      revenue: '$15,000',
+      employability: '90%',
+      rating: 5.0
+    });
+    setShowNewCourseModal(false);
+    showToast(`Curso "${newCourse.name}" creado con éxito`);
+  };
+
+  const handleAddStudent = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStudentForm.name.trim() || !newStudentForm.email.trim()) return;
+
+    const newStudent = {
+      id: `${Date.now()}`,
+      name: newStudentForm.name.trim(),
+      email: newStudentForm.email.trim(),
+      course: newStudentForm.course,
+      progress: Number(newStudentForm.progress) || 0,
+      status: newStudentForm.status,
+      lastLogin: 'Recién registrado',
+      supportTickets: 0,
+      grades: [10],
+      ltv: 1200,
+      employability: 'En evaluación'
+    };
+
+    setStudents([newStudent, ...students]);
+    setNewStudentForm({
+      name: '',
+      email: '',
+      course: courses[0]?.name || 'Setter Pro Certification',
+      status: 'Activo',
+      progress: 10
+    });
+    setShowAddStudentModal(false);
+    showToast(`Alumno "${newStudent.name}" añadido exitosamente`);
+  };
+
+  const handleSendTicketReply = () => {
+    if (!ticketReplyText.trim() || !activeTicket) return;
+    setTicketsList(ticketsList.filter(t => t.id !== activeTicket.id));
+    setTicketReplyText('');
+    const remaining = ticketsList.filter(t => t.id !== activeTicket.id);
+    setActiveTicket(remaining[0] || null);
+    showToast('Respuesta enviada y ticket resuelto');
+  };
+
+  const showToast = (msg: string) => {
+    setFeedbackToast(msg);
+    setTimeout(() => setFeedbackToast(null), 3500);
+  };
+
+  // Filtered and paginated students
+  const filteredStudents = useMemo(() => {
+    return students.filter(s => {
+      const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          s.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchCourse = courseFilter === 'Todos' || s.course === courseFilter;
+      return matchSearch && matchCourse;
+    });
+  }, [students, searchQuery, courseFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / itemsPerPage));
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredStudents.slice(start, start + itemsPerPage);
+  }, [filteredStudents, currentPage, itemsPerPage]);
 
   if (isStudentMode) {
     return (
@@ -238,32 +381,55 @@ export default function AcademyInternal() {
         <div className="flex gap-3">
           <button 
             onClick={() => setIsStudentMode(true)}
-            className="bg-gray-900 text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 text-xs uppercase tracking-widest shadow-lg"
+            className="bg-gray-900 text-white px-4 py-2 rounded-xl font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 text-xs uppercase tracking-widest shadow-lg cursor-pointer"
           >
             <GraduationCap className="h-4 w-4" /> Ver Modo Estudiante
           </button>
-          <button className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
-            <BookOpen className="h-4 w-4" /> Nuevo Curso
+          <button 
+            onClick={() => setShowNewCourseModal(true)}
+            className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 flex items-center gap-2 shadow-sm cursor-pointer active:scale-95 transition-all"
+          >
+            <BookOpen className="h-4 w-4 text-blue-600" /> Nuevo Curso
           </button>
-          <button className="bg-[#00F0FF] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2 shadow-sm">
+          <button 
+            onClick={() => setShowAddStudentModal(true)}
+            className="bg-[#00F0FF] text-gray-950 font-bold px-4 py-2 rounded-lg hover:bg-[#00D4E0] flex items-center gap-2 shadow-sm cursor-pointer active:scale-95 transition-all"
+          >
             <Users className="h-4 w-4" /> Añadir Alumno
           </button>
         </div>
       </div>
 
-      {/* Hero Illustration */}
-      <div className="w-full aspect-[21/6] md:aspect-[21/4] rounded-3xl overflow-hidden relative border border-gray-200 group shrink-0">
-         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/40 to-transparent z-10" />
+      {feedbackToast && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{feedbackToast}</span>
+          </div>
+          <button onClick={() => setFeedbackToast(null)} className="text-emerald-500 hover:text-emerald-700">
+            <X className="w-4 h-4" />
+          </button>
+        </motion.div>
+      )}
+
+      {/* Hero Illustration - Height restricted */}
+      <div className="w-full h-36 md:h-44 rounded-3xl overflow-hidden relative border border-gray-200 group shrink-0 shadow-sm">
+         <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent z-10" />
          <img 
            src="https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&w=1600&q=80" 
            alt="Academia" 
-           className="w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-1000"
+           className="w-full h-full object-cover opacity-90 group-hover:scale-105 group-hover:opacity-100 transition-all duration-700"
          />
-         <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-2">
-            <h2 className="text-white text-2xl font-black uppercase italic tracking-tighter drop-shadow-md">Manuales y Academia Interna</h2>
+         <div className="absolute bottom-4 left-6 z-20 flex flex-col gap-1">
+            <h2 className="text-white text-xl md:text-2xl font-black uppercase italic tracking-tighter drop-shadow-md">Manuales y Academia Interna</h2>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#deff9a] shadow-[0_0_10px_#deff9a] animate-pulse" />
-              <span className="text-[10px] font-mono text-[#deff9a] uppercase tracking-[0.2em] drop-shadow-md">floating 3D digital book with glowing DNA strands & skill-tree</span>
+              <span className="text-[10px] font-mono text-[#deff9a] uppercase tracking-[0.2em] drop-shadow-md">Ecosistema de Capacitación & Empleabilidad High-Ticket</span>
             </div>
          </div>
       </div>
@@ -332,12 +498,8 @@ export default function AcademyInternal() {
                    </div>
 
                    <div className="space-y-4">
-                     {[
-                       { name: 'Setter Pro Certification', students: 145, rating: 4.9, employability: '88%', revenue: '$43,500' },
-                       { name: 'Closer Elite Master', students: 82, rating: 4.8, employability: '95%', revenue: '$41,000' },
-                       { name: 'B2B Scaling Architect', students: 28, rating: 5.0, employability: '100%', revenue: '$28,000' }
-                     ].map((c, i) => (
-                       <div key={i} className="flex flex-col md:flex-row items-center justify-between p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 group hover:border-blue-200 transition-all gap-4">
+                     {courses.map((c) => (
+                       <div key={c.id} className="flex flex-col md:flex-row items-center justify-between p-6 bg-gray-50/50 rounded-[2rem] border border-gray-100 group hover:border-blue-200 transition-all gap-4">
                           <div className="flex items-center gap-6 flex-1 w-full">
                             <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white italic font-black text-xl shadow-xl group-hover:rotate-6 transition-transform">
                                {c.name[0]}
@@ -421,26 +583,49 @@ export default function AcademyInternal() {
 
           {/* GESTIÓN DE ALUMNOS */}
           {activeTab === 'alumnos' && (
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
-              <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
-                <div className="relative w-64">
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-gray-50/50">
+                <div className="relative flex-1 max-w-sm">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input 
                     type="text" 
-                    placeholder="Buscar alumno..." 
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-[#00F0FF] focus:border-[#00F0FF]"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="Buscar alumno por nombre o email..." 
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
                   />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white">
-                    <option>Todos los Cursos</option>
-                    <option>Setter Pro</option>
-                    <option>Closer Elite</option>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-500 hidden md:inline">Curso:</span>
+                  <select 
+                    value={courseFilter}
+                    onChange={(e) => {
+                      setCourseFilter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none font-medium text-gray-700"
+                  >
+                    <option value="Todos">Todos los Cursos</option>
+                    {courses.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
+
               <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
+                <table className="w-full text-sm text-left min-w-[700px]">
                   <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3">Alumno</th>
@@ -452,59 +637,108 @@ export default function AcademyInternal() {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((student) => (
-                      <tr key={student.id} className="bg-white border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900">{student.name}</div>
-                          <div className="text-gray-500 text-xs">{student.email}</div>
-                        </td>
-                        <td className="px-6 py-4 font-medium text-gray-700">{student.course}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="w-full bg-gray-200 rounded-full h-1.5 max-w-[80px]">
-                              <div className={`h-1.5 rounded-full ${student.progress === 100 ? 'bg-green-500' : 'bg-[#00F0FF]'}`} style={{ width: `${student.progress}%` }}></div>
-                            </div>
-                            <span className="text-xs font-medium text-gray-600">{student.progress}%</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                            student.status === 'Certificado' ? 'bg-green-100 text-green-700' :
-                            student.status === 'En Riesgo' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {student.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-500 text-xs">{student.lastLogin}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {student.status === 'Certificado' && (
-                              <button 
-                                onClick={() => {
-                                  alert(`Simulación: ${student.name} ha sido escalado a Cliente B2B. Se ha creado un perfil en Gestión de Clientes.`);
-                                }}
-                                className="text-xs bg-[#00F0FF] text-white px-3 py-1.5 rounded hover:bg-[#00BFFF] transition-colors font-medium"
-                              >
-                                Escalar a B2B
-                              </button>
-                            )}
-                            <button 
-                              onClick={() => setEditingStudent(student)}
-                              className="text-gray-400 hover:text-blue-600 transition-colors"
-                              title="Editar Alumno"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button className="text-gray-400 hover:text-[#00F0FF] transition-colors">
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-                          </div>
+                    {paginatedStudents.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                          <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40 text-gray-400" />
+                          <p className="font-semibold text-gray-700">No se encontraron alumnos</p>
+                          <p className="text-xs text-gray-400 mt-1">Prueba cambiando el filtro de búsqueda o el curso seleccionado.</p>
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      paginatedStudents.map((student) => (
+                        <tr key={student.id} className="bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-gray-900">{student.name}</div>
+                            <div className="text-gray-500 text-xs">{student.email}</div>
+                          </td>
+                          <td className="px-6 py-4 font-medium text-gray-700">{student.course}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <div className="w-full bg-gray-200 rounded-full h-1.5 max-w-[80px]">
+                                <div className={`h-1.5 rounded-full ${student.progress === 100 ? 'bg-green-500' : 'bg-[#00F0FF]'}`} style={{ width: `${student.progress}%` }}></div>
+                              </div>
+                              <span className="text-xs font-medium text-gray-600">{student.progress}%</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                              student.status === 'Certificado' ? 'bg-green-100 text-green-700' :
+                              student.status === 'En Riesgo' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                            }`}>
+                              {student.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-500 text-xs">{student.lastLogin}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {student.status === 'Certificado' && (
+                                <button 
+                                  onClick={() => {
+                                    setConversionStudent(student);
+                                  }}
+                                  className="text-xs bg-[#00F0FF] text-black font-bold px-3 py-1.5 rounded hover:bg-[#00D4E0] transition-colors cursor-pointer"
+                                >
+                                  Escalar a B2B
+                                </button>
+                              )}
+                              <button 
+                                onClick={() => setEditingStudent(student)}
+                                className="text-gray-400 hover:text-blue-600 transition-colors p-1"
+                                title="Editar Alumno"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination controls */}
+              {filteredStudents.length > 0 && (
+                <div className="p-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-600">
+                  <div>
+                    Mostrando <span className="font-bold text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> a <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, filteredStudents.length)}</span> de <span className="font-bold text-gray-900">{filteredStudents.length}</span> alumnos
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Página anterior"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
+                        <button
+                          key={num}
+                          onClick={() => setCurrentPage(num)}
+                          className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                            currentPage === num 
+                              ? 'bg-gray-900 text-white shadow-sm' 
+                              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {num}
+                        </button>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      title="Página siguiente"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -549,98 +783,149 @@ export default function AcademyInternal() {
           {/* SOPORTE ACADÉMICO IA */}
           {activeTab === 'soporte' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-full">
-              <div className="lg:col-span-1 bg-white border border-gray-100 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col">
-                 <div className="p-8 border-b border-gray-50 bg-gray-50/50">
+              <div className="lg:col-span-1 bg-white border border-gray-100 rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col min-h-[500px]">
+                 <div className="p-8 border-b border-gray-50 bg-gray-50/50 flex justify-between items-center">
                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Cola de Tickets</h3>
+                    <span className="px-2.5 py-1 bg-blue-100 text-blue-700 rounded-full text-[10px] font-bold">
+                      {ticketsList.length} pendientes
+                    </span>
                  </div>
                  <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                    {tickets.map(ticket => (
-                      <div 
-                        key={ticket.id}
-                        onClick={() => setActiveTicket(ticket)}
-                        className={`p-6 rounded-[2rem] border transition-all cursor-pointer relative group ${
-                          activeTicket?.id === ticket.id ? 'border-blue-500/30 bg-blue-50 shadow-inner' : 'border-transparent hover:bg-gray-50'
-                        }`}
-                      >
-                         <div className="flex justify-between items-start mb-2">
-                            <h4 className="text-sm font-black text-gray-900 uppercase tracking-tighter italic">{ticket.student}</h4>
-                            <span className="text-[8px] font-black text-gray-400 uppercase">{ticket.time}</span>
-                         </div>
-                         <p className="text-[10px] text-gray-500 line-clamp-2 font-bold italic">"{ticket.query}"</p>
-                         <div className="flex items-center gap-2 mt-4">
-                            <div className="h-2 w-2 bg-amber-500 rounded-full" />
-                            <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Esperando Respuesta</span>
-                         </div>
+                    {ticketsList.length === 0 ? (
+                      <div className="p-8 text-center flex flex-col items-center justify-center h-full text-gray-400">
+                        <Inbox className="w-12 h-12 text-emerald-500/60 mb-3" />
+                        <h4 className="text-sm font-bold text-gray-700">Cola despejada</h4>
+                        <p className="text-xs text-gray-400 mt-1">No hay tickets pendientes de respuesta.</p>
                       </div>
-                    ))}
+                    ) : (
+                      ticketsList.map(ticket => (
+                        <div 
+                          key={ticket.id}
+                          onClick={() => {
+                            setActiveTicket(ticket);
+                            setTicketReplyText('');
+                          }}
+                          className={`p-6 rounded-[2rem] border transition-all cursor-pointer relative group ${
+                            activeTicket?.id === ticket.id ? 'border-blue-500/30 bg-blue-50 shadow-inner' : 'border-transparent hover:bg-gray-50'
+                          }`}
+                        >
+                           <div className="flex justify-between items-start mb-2">
+                              <h4 className="text-sm font-black text-gray-900 uppercase tracking-tighter italic">{ticket.student}</h4>
+                              <span className="text-[8px] font-black text-gray-400 uppercase">{ticket.time}</span>
+                           </div>
+                           <p className="text-[10px] text-gray-500 line-clamp-2 font-bold italic">"{ticket.query}"</p>
+                           <div className="flex items-center gap-2 mt-4">
+                              <div className="h-2 w-2 bg-amber-500 rounded-full animate-pulse" />
+                              <span className="text-[8px] font-black text-amber-600 uppercase tracking-widest">Esperando Respuesta</span>
+                           </div>
+                        </div>
+                      ))
+                    )}
                  </div>
               </div>
 
-              <div className="lg:col-span-2 bg-white border border-gray-100 rounded-[3rem] shadow-2xl flex flex-col overflow-hidden">
-                {activeTicket ? (
+              <div className="lg:col-span-2 bg-white border border-gray-100 rounded-[3rem] shadow-2xl flex flex-col overflow-hidden min-h-[500px]">
+                {ticketsList.length === 0 ? (
+                  <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-gray-50/20">
+                    <div className="w-24 h-24 bg-emerald-50 rounded-[2.5rem] flex items-center justify-center text-emerald-600 mb-6 border border-emerald-100 shadow-sm">
+                       <CheckCircle2 className="w-12 h-12" />
+                    </div>
+                    <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">¡Bandeja al Día!</h3>
+                    <p className="text-sm text-gray-500 font-medium mt-2 max-w-md">Todos los tickets de soporte han sido atendidos exitosamente. Los alumnos están avanzando satisfactoriamente en sus manuales y simulaciones.</p>
+                    <button 
+                      onClick={() => {
+                        setTicketsList(tickets);
+                        setActiveTicket(tickets[0]);
+                        showToast('Tickets de demostración restablecidos');
+                      }}
+                      className="mt-6 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-gray-800 transition-colors shadow-md"
+                    >
+                      Cargar Tickets de Prueba
+                    </button>
+                  </div>
+                ) : activeTicket ? (
                   <div className="flex flex-col h-full">
-                    <div className="p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
-                       <div className="flex items-center gap-6">
-                          <div className="h-16 w-16 bg-gray-900 rounded-[1.5rem] flex items-center justify-center text-white italic font-black text-2xl shadow-xl">{activeTicket.student[0]}</div>
+                    <div className="p-8 md:p-10 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                       <div className="flex items-center gap-4 md:gap-6">
+                          <div className="h-14 w-14 md:h-16 md:w-16 bg-gray-900 rounded-[1.5rem] flex items-center justify-center text-white italic font-black text-2xl shadow-xl">{activeTicket.student[0]}</div>
                           <div>
-                             <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tighter italic">{activeTicket.student}</h3>
-                             <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Ticket ID: {activeTicket.id}-LEARN</p>
+                             <h3 className="text-xl md:text-2xl font-black text-gray-900 uppercase tracking-tighter italic">{activeTicket.student}</h3>
+                             <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mt-1 italic">Ticket ID: {activeTicket.id}-LEARN</p>
                           </div>
                        </div>
                        <div className="flex items-center gap-3">
-                          <span className="px-4 py-2 bg-blue-100 text-blue-700 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-blue-200">
-                             <Sparkles className="w-3 h-3" /> IA Sugiriendo
+                          <span className="px-3 py-1.5 md:px-4 md:py-2 bg-blue-100 text-blue-700 rounded-2xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 border border-blue-200">
+                             <Sparkles className="w-3 h-3 text-blue-600" /> IA Sugiriendo
                           </span>
                        </div>
                     </div>
 
-                    <div className="flex-1 p-10 overflow-y-auto space-y-8 bg-gray-50/30">
+                    <div className="flex-1 p-6 md:p-10 overflow-y-auto space-y-6 bg-gray-50/30">
                        <div className="flex justify-start">
-                          <div className="max-w-[80%] bg-white border border-gray-100 p-6 rounded-[2rem] rounded-tl-none shadow-sm">
-                             <p className="text-sm text-gray-900 font-bold leading-relaxed">{activeTicket.query}</p>
-                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-4">Enviado por el alumno</p>
+                          <div className="max-w-[85%] bg-white border border-gray-100 p-6 rounded-[2rem] rounded-tl-none shadow-sm">
+                             <p className="text-sm text-gray-900 font-semibold leading-relaxed">{activeTicket.query}</p>
+                             <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-4">Enviado por el alumno ({activeTicket.time})</p>
                           </div>
                        </div>
 
-                       <div className="flex justify-end">
-                          <div className="max-w-[80%] bg-blue-600 border border-blue-500 p-8 rounded-[2rem] rounded-tr-none shadow-2xl relative overflow-hidden group">
-                             <div className="absolute top-0 right-0 p-4 opacity-10">
-                                <Sparkles className="w-12 h-12 text-white" />
-                             </div>
-                             <div className="flex items-center gap-3 mb-4">
-                                <Bot className="w-5 h-5 text-white" />
-                                <span className="text-[10px] font-black text-white/80 uppercase tracking-widest italic">Sugerencia Kaivincia IA</span>
-                             </div>
-                             <p className="text-sm text-white font-black italic leading-relaxed">
-                                {aiSuggestions[activeTicket.id as keyof typeof aiSuggestions]}
-                             </p>
-                             <div className="flex gap-2 mt-6">
-                                <button className="flex-1 h-12 bg-white text-blue-600 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all active:scale-95">Aplicar Sugerencia</button>
-                                <button className="h-12 w-12 bg-blue-700 text-white rounded-xl flex items-center justify-center hover:bg-blue-800 transition-all"><Edit2 className="w-4 h-4" /></button>
-                             </div>
-                          </div>
-                       </div>
+                       {aiSuggestions[activeTicket.id] && (
+                         <div className="flex justify-end">
+                            <div className="max-w-[85%] bg-blue-600 border border-blue-500 p-6 md:p-8 rounded-[2rem] rounded-tr-none shadow-2xl relative overflow-hidden group">
+                               <div className="absolute top-0 right-0 p-4 opacity-10">
+                                  <Sparkles className="w-12 h-12 text-white" />
+                                </div>
+                               <div className="flex items-center gap-3 mb-3">
+                                  <Bot className="w-5 h-5 text-white" />
+                                  <span className="text-[10px] font-black text-white/80 uppercase tracking-widest italic">Sugerencia Kaivincia IA</span>
+                               </div>
+                               <p className="text-sm text-white font-medium italic leading-relaxed">
+                                  {aiSuggestions[activeTicket.id]}
+                               </p>
+                               <div className="flex gap-2 mt-5">
+                                  <button 
+                                    onClick={() => setTicketReplyText(aiSuggestions[activeTicket.id])}
+                                    className="flex-1 h-11 bg-white text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-100 transition-all active:scale-95 cursor-pointer shadow-sm"
+                                  >
+                                    Aplicar Sugerencia
+                                  </button>
+                               </div>
+                            </div>
+                         </div>
+                       )}
                     </div>
 
-                    <div className="p-8 border-t border-gray-100 bg-white shadow-inner">
-                       <div className="flex gap-4">
+                    <div className="p-6 md:p-8 border-t border-gray-100 bg-white shadow-inner">
+                       <form 
+                         onSubmit={(e) => {
+                           e.preventDefault();
+                           handleSendTicketReply();
+                         }}
+                         className="flex gap-3"
+                       >
                           <input 
-                            className="flex-1 h-16 bg-gray-50 border border-gray-100 rounded-2xl px-6 text-sm font-bold uppercase placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
-                            placeholder="Escribe una respuesta personalizada..."
+                            value={ticketReplyText}
+                            onChange={(e) => setTicketReplyText(e.target.value)}
+                            className="flex-1 h-14 bg-gray-50 border border-gray-200 rounded-2xl px-5 text-sm font-medium placeholder-gray-400 focus:ring-2 focus:ring-blue-500 outline-none"
+                            placeholder="Escribe una respuesta personalizada o aplica la sugerencia IA..."
                           />
-                          <button className="h-16 w-16 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-2xl hover:bg-blue-600 transition-all active:scale-90">
-                             <Send className="w-6 h-6" />
+                          <button 
+                            type="submit"
+                            disabled={!ticketReplyText.trim()}
+                            className="h-14 px-6 bg-gray-900 text-white rounded-2xl flex items-center justify-center gap-2 shadow-xl hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer font-bold text-xs uppercase tracking-widest"
+                          >
+                             <Send className="w-4 h-4" />
+                             <span className="hidden sm:inline">Responder</span>
                           </button>
-                       </div>
+                       </form>
                     </div>
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                    <div className="w-32 h-32 bg-gray-50 rounded-[3rem] flex items-center justify-center text-gray-200 mb-8 border border-gray-100">
-                       <MessageSquare className="w-16 h-16" />
+                    <div className="w-24 h-24 bg-gray-50 rounded-[2.5rem] flex items-center justify-center text-gray-300 mb-6 border border-gray-100">
+                       <MessageSquare className="w-12 h-12" />
                     </div>
                     <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Selecciona un Ticket</h3>
-                    <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-2 max-w-xs">La IA ya está analizando las dudas de los alumnos para optimizar tu tiempo.</p>
+                    <p className="text-sm text-gray-400 font-medium mt-2 max-w-xs">Elige una consulta de la lista para visualizar el contexto y la sugerencia de respuesta generada por la IA.</p>
                   </div>
                 )}
               </div>
@@ -798,18 +1083,265 @@ export default function AcademyInternal() {
             <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
               <button 
                 onClick={() => setEditingStudent(null)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200"
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg font-medium hover:bg-gray-200 cursor-pointer"
               >
                 Cancelar
               </button>
               <button 
                 onClick={handleSaveStudent}
-                className="px-6 py-2 bg-[#00F0FF] text-white rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2"
+                className="px-6 py-2 bg-[#00F0FF] text-black font-bold rounded-lg hover:bg-[#00D4E0] flex items-center gap-2 cursor-pointer"
               >
                 <Save className="w-4 h-4" /> Guardar
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* New Course Modal */}
+      {showNewCourseModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Crear Nuevo Curso</h3>
+                  <p className="text-xs text-gray-500">Añade un nuevo programa formativo a la academia</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowNewCourseModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCourse} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Nombre del Curso *
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Ej: AI Outbound Automation Specialist"
+                  value={newCourseForm.name}
+                  onChange={e => setNewCourseForm({ ...newCourseForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Categoría
+                  </label>
+                  <select 
+                    value={newCourseForm.category}
+                    onChange={e => setNewCourseForm({ ...newCourseForm, category: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                  >
+                    <option value="Prospección">Prospección</option>
+                    <option value="Ventas de Alto Valor">Ventas de Alto Valor</option>
+                    <option value="Estrategia Empresarial">Estrategia Empresarial</option>
+                    <option value="Inteligencia Artificial">Inteligencia Artificial</option>
+                    <option value="Operaciones & Soporte">Operaciones & Soporte</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Revenue Proyectado
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="Ej: $20,000"
+                    value={newCourseForm.revenue}
+                    onChange={e => setNewCourseForm({ ...newCourseForm, revenue: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Tasa Empleabilidad
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="Ej: 92%"
+                    value={newCourseForm.employability}
+                    onChange={e => setNewCourseForm({ ...newCourseForm, employability: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Calificación Inicial
+                  </label>
+                  <input 
+                    type="number"
+                    step="0.1"
+                    min="1"
+                    max="5"
+                    value={newCourseForm.rating}
+                    onChange={e => setNewCourseForm({ ...newCourseForm, rating: parseFloat(e.target.value) || 5.0 })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowNewCourseModal(false)}
+                  className="px-4 py-2.5 text-gray-600 bg-gray-100 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors flex items-center gap-2 shadow-md cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Crear Curso
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Add Student Modal */}
+      {showAddStudentModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100 flex flex-col"
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-bold">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Añadir Nuevo Alumno</h3>
+                  <p className="text-xs text-gray-500">Matricula a un alumno en un curso activo</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowAddStudentModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddStudent} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Nombre Completo *
+                </label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Ej: Sofía Ramírez"
+                  value={newStudentForm.name}
+                  onChange={e => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                  Correo Electrónico *
+                </label>
+                <input 
+                  type="email" 
+                  required
+                  placeholder="sofia@ejemplo.com"
+                  value={newStudentForm.email}
+                  onChange={e => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Curso
+                  </label>
+                  <select 
+                    value={newStudentForm.course}
+                    onChange={e => setNewStudentForm({ ...newStudentForm, course: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                  >
+                    {courses.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                    Estado Inicial
+                  </label>
+                  <select 
+                    value={newStudentForm.status}
+                    onChange={e => setNewStudentForm({ ...newStudentForm, status: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                  >
+                    <option value="Activo">Activo</option>
+                    <option value="En Riesgo">En Riesgo</option>
+                    <option value="Certificado">Certificado</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Progreso Inicial
+                  </label>
+                  <span className="text-xs font-bold text-cyan-600">{newStudentForm.progress}%</span>
+                </div>
+                <input 
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={newStudentForm.progress}
+                  onChange={e => setNewStudentForm({ ...newStudentForm, progress: parseInt(e.target.value) || 0 })}
+                  className="w-full accent-cyan-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowAddStudentModal(false)}
+                  className="px-4 py-2.5 text-gray-600 bg-gray-100 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="px-6 py-2.5 bg-[#00F0FF] text-gray-950 font-bold rounded-xl text-sm hover:bg-[#00D4E0] transition-colors flex items-center gap-2 shadow-md cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" /> Añadir Alumno
+                </button>
+              </div>
+            </form>
+          </motion.div>
         </div>
       )}
     </div>
