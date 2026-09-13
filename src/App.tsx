@@ -48,9 +48,10 @@ import DocumentDrive from './pages/DocumentDrive';
 import SecurityCenter from './pages/SecurityCenter';
 import AuditsSGI from './pages/AuditsSGI';
 import NervousSystem from './pages/NervousSystem';
-import FloatingEditButton from './components/FloatingEditButton';
 import FormTemplates from './pages/FormTemplates';
 import Integrations from './pages/Integrations';
+import CompanyAuth from './pages/b2b/CompanyAuth';
+import CompanyDashboard from './pages/b2b/CompanyDashboard';
 
 export default function App() {
   const [user, setUser] = useState<any>(() => {
@@ -354,6 +355,11 @@ export default function App() {
         <Route path="/guest-academy" element={<AcademyExternal />} />
         <Route path="/strategy-blog" element={<StrategyBlog />} />
         <Route path="/careers" element={<Careers />} />
+        <Route path="/team" element={<Navigate to="/crm/team" />} />
+        <Route path="/empresas/login" element={<CompanyAuth initialMode="login" />} />
+        <Route path="/empresas/register" element={<CompanyAuth initialMode="register" />} />
+        <Route path="/empresas/dashboard" element={<CompanyDashboard />} />
+        <Route path="/empresas" element={<Navigate to="/empresas/dashboard" />} />
         <Route path="/login" element={hasAccess ? <Navigate to="/crm/dashboard" /> : <LoginPage />} />
         
         {/* CRM Routes - Resilient Session */}
@@ -405,7 +411,6 @@ export default function App() {
           <Route path="user-portal" element={<UserPortal />} />
         </Route>
       </Routes>
-      <FloatingEditButton userData={userData} />
     </BrowserRouter>
   );
 }
