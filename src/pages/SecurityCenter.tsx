@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { useLanguage } from '../contexts/LanguageContext';
 import SecurityAccess from '../components/security/SecurityAccess';
 import AuditLog from '../components/security/AuditLog';
@@ -41,8 +42,20 @@ export default function SecurityCenter() {
   const isSuperAdmin = userRole === 'superadmin';
   const isAuthorized = ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole);
 
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [authLoading, setAuthLoading] = useState(!auth.currentUser);
+
   useEffect(() => {
-    if (!auth.currentUser || !isAuthorized) return;
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || !isAuthorized) return;
 
     // 1. Conteo de sesiones activas reales
     const qSessions = query(collection(db, 'user_sessions'), where('isActive', '==', true));
@@ -87,7 +100,7 @@ export default function SecurityCenter() {
       unsubUsers();
       unsubAudit();
     };
-  }, [isAuthorized]);
+  }, [user, authLoading, isAuthorized]);
 
   if (!isAuthorized) {
     return (

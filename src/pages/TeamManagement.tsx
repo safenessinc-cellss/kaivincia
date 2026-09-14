@@ -9,9 +9,10 @@ import { motion } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, LabelList } from 'recharts';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+import { doc, updateDoc, collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { useNavigate, Navigate } from 'react-router-dom';
 
 // Mock Data
 const TEAM_MEMBERS = [
@@ -54,50 +55,98 @@ const AUDIT_LOGS = [
 
 export default function TeamManagement() {
   const [activeTab, setActiveTab] = useState('directory');
-  const { tasks, users } = useGlobalContext();
+  const { tasks, users: contextUsers } = useGlobalContext();
+
+  // Auth Guard & Timing State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [firestoreUsers, setFirestoreUsers] = useState<any[]>([]);
+  const [firestoreAuditLogs, setFirestoreAuditLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;   // ⛔ Auth no resuelta
+    if (!user) return;         // ⛔ Sin login
+
+    // Queries a users y audit_logs con autorización confirmada
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
+      setFirestoreUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'users');
+    });
+
+    const unsubAudit = onSnapshot(
+      query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50)),
+      (snapshot) => {
+        setFirestoreAuditLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.GET, 'audit_logs');
+      }
+    );
+
+    return () => {
+      unsubUsers();
+      unsubAudit();
+    };
+  }, [user, authLoading]);
+
+  const effectiveUsers = firestoreUsers.length > 0 ? firestoreUsers : contextUsers;
 
   const normalizedMembers = useMemo(() => {
-    if (users && users.length > 0) {
-      return users.map((u: any, idx: number) => {
-        const fallback = TEAM_MEMBERS[idx % TEAM_MEMBERS.length] || TEAM_MEMBERS[0];
-        return {
-          id: u.id || `user-${idx}`,
-          name: u.name || u.displayName || u.email?.split('@')[0] || fallback.name,
-          role: u.role || fallback.role,
-          status: u.status || fallback.status,
-          workload: u.workload || fallback.workload,
-          avatar: (u.name || u.displayName || u.email || fallback.name).charAt(0).toUpperCase(),
-          goal: u.goal || fallback.goal || 10000,
-          current: u.current || fallback.current || 7500,
-          type: u.type || (u.role === 'closer' || u.role === 'sales' ? 'sales' : u.role === 'tutor' ? 'support' : fallback.type || 'operations'),
-          trend: u.trend || fallback.trend || 'up',
-          kpis: {
-            calls: u.kpis?.calls ?? fallback.kpis?.calls ?? 45,
-            closeRate: u.kpis?.closeRate ?? fallback.kpis?.closeRate ?? '18%',
-            avgCallTime: u.kpis?.avgCallTime ?? fallback.kpis?.avgCallTime ?? '12:00',
-            students: u.kpis?.students ?? fallback.kpis?.students ?? 40,
-            tickets: u.kpis?.tickets ?? fallback.kpis?.tickets ?? 25,
-            satisfaction: u.kpis?.satisfaction ?? fallback.kpis?.satisfaction ?? '4.7/5',
-            projects: u.kpis?.projects ?? fallback.kpis?.projects ?? 5,
-            compliance: u.kpis?.compliance ?? fallback.kpis?.compliance ?? '98%',
-            delays: u.kpis?.delays ?? fallback.kpis?.delays ?? 0
-          },
-          skills: u.skills && u.skills.length > 0 ? u.skills : fallback.skills,
-          email: u.email || fallback.name.toLowerCase().replace(' ', '.') + '@kaivincia.com',
-          permissions: u.permissions || {}
-        };
-      });
+    if (Array.isArray(effectiveUsers) && effectiveUsers.length > 0) {
+      const validUsers = effectiveUsers.filter((u: any) => u && typeof u === 'object');
+      if (validUsers.length > 0) {
+        return validUsers.map((u: any, idx: number) => {
+          const fallback = TEAM_MEMBERS[idx % TEAM_MEMBERS.length] || TEAM_MEMBERS[0];
+          const name = u.name || u.displayName || (typeof u.email === 'string' ? u.email.split('@')[0] : '') || fallback.name || 'Especialista';
+          const avatar = (u.avatar || name.charAt(0) || fallback.avatar || 'U').toUpperCase();
+          return {
+            id: u.id || `user-${idx}`,
+            name,
+            role: u.role || fallback.role,
+            status: u.status || fallback.status,
+            workload: u.workload || fallback.workload,
+            avatar,
+            goal: u.goal || fallback.goal || 10000,
+            current: u.current || fallback.current || 7500,
+            type: u.type || (u.role === 'closer' || u.role === 'sales' ? 'sales' : u.role === 'tutor' ? 'support' : fallback.type || 'operations'),
+            trend: u.trend || fallback.trend || 'up',
+            kpis: {
+              calls: u.kpis?.calls ?? fallback.kpis?.calls ?? 45,
+              closeRate: u.kpis?.closeRate ?? fallback.kpis?.closeRate ?? '18%',
+              avgCallTime: u.kpis?.avgCallTime ?? fallback.kpis?.avgCallTime ?? '12:00',
+              students: u.kpis?.students ?? fallback.kpis?.students ?? 40,
+              tickets: u.kpis?.tickets ?? fallback.kpis?.tickets ?? 25,
+              satisfaction: u.kpis?.satisfaction ?? fallback.kpis?.satisfaction ?? '4.7/5',
+              projects: u.kpis?.projects ?? fallback.kpis?.projects ?? 5,
+              compliance: u.kpis?.compliance ?? fallback.kpis?.compliance ?? '98%',
+              delays: u.kpis?.delays ?? fallback.kpis?.delays ?? 0
+            },
+            skills: Array.isArray(u.skills) && u.skills.length > 0 ? u.skills : fallback.skills,
+            email: u.email || `${name.toLowerCase().replace(/\s+/g, '.')}@kaivincia.com`,
+            permissions: u.permissions || {}
+          };
+        });
+      }
     }
     return TEAM_MEMBERS;
-  }, [users]);
+  }, [effectiveUsers]);
 
-  const [selectedMember, setSelectedMember] = useState<any>(() => normalizedMembers[0] || TEAM_MEMBERS[0]);
+  const [selectedMember, setSelectedMember] = useState<any>(() => (normalizedMembers && normalizedMembers[0]) || TEAM_MEMBERS[0]);
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (normalizedMembers.length > 0) {
-      const exists = normalizedMembers.find(m => m.id === selectedMember?.id);
+    if (normalizedMembers && normalizedMembers.length > 0) {
+      const exists = selectedMember ? normalizedMembers.find(m => m?.id === selectedMember?.id) : null;
       if (!exists) {
         setSelectedMember(normalizedMembers[0]);
       }
@@ -114,8 +163,8 @@ export default function TeamManagement() {
 
   const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
     try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user.permissions || {};
+      const targetUser = effectiveUsers.find((u: any) => u.id === userId);
+      const currentPerms = targetUser?.permissions || {};
       const newPerms = { ...currentPerms, [module]: hasAccess };
       
       await updateDoc(doc(db, 'users', userId), { 
@@ -142,7 +191,37 @@ export default function TeamManagement() {
     })).sort((a,b) => b.Completadas - a.Completadas);
   }, [tasks]);
 
-  const activeMember = selectedMember || normalizedMembers[0] || TEAM_MEMBERS[0];
+  const displayAuditLogs = useMemo(() => {
+    if (firestoreAuditLogs.length > 0) {
+      return firestoreAuditLogs.map((log: any) => ({
+        id: log.id,
+        user: log.userEmail || log.userName || log.user || 'Operador Kaivincia',
+        action: log.action || log.description || log.type || 'Evento de auditoría registrado',
+        time: log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (log.time || 'Reciente'),
+        type: log.severity === 'high' || log.severity === 'critical' ? 'alert' : (log.type || 'update')
+      }));
+    }
+    return AUDIT_LOGS;
+  }, [firestoreAuditLogs]);
+
+  const activeMember = (selectedMember && typeof selectedMember === 'object' ? selectedMember : null) 
+    || (normalizedMembers && normalizedMembers.length > 0 ? normalizedMembers[0] : null) 
+    || TEAM_MEMBERS[0];
+
+  if (authLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
+        <div className="w-10 h-10 border-2 border-[#00F0FF] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs font-mono text-gray-400 uppercase tracking-widest">
+          Sincronizando permisos de equipo...
+        </p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -245,7 +324,7 @@ export default function TeamManagement() {
                     </div>
                     
                     <div className="space-y-4 relative z-10">
-                       {TEAM_MEMBERS.sort((a,b) => b.current - a.current).map((member, index) => (
+                       {[...TEAM_MEMBERS].sort((a,b) => (b.current || 0) - (a.current || 0)).map((member, index) => (
                          <div key={member.id} className="bg-white/5 rounded-2xl p-4 flex items-center gap-4 border border-white/5 hover:bg-white/[0.08] transition-all">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm relative ${
                                index === 0 ? 'bg-[#00F0FF] text-white shadow-lg' :
@@ -309,7 +388,7 @@ export default function TeamManagement() {
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Directorio de Elite</h3>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                  {normalizedMembers.map(member => (
+                  {normalizedMembers.filter((m: any) => m && typeof m === 'object').map(member => (
                     <div 
                       key={member.id}
                       onClick={() => setSelectedMember(member)}
@@ -326,7 +405,7 @@ export default function TeamManagement() {
                               member.status === 'Meeting' ? 'border-amber-500/20 bg-amber-50 text-amber-700' :
                               'border-gray-200 bg-gray-100 text-gray-400 shadow-inner'
                           }`}>
-                            {member.avatar}
+                            {member.avatar || member.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
                           <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white ${
                             member.status === 'Online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' :
@@ -356,18 +435,18 @@ export default function TeamManagement() {
                 <div className="flex items-center justify-between mb-10 pb-8 border-b border-gray-50 relative">
                   <div className="flex items-center gap-6">
                     <div className="w-24 h-24 rounded-[2rem] bg-gray-900 flex items-center justify-center font-black text-white text-4xl italic shadow-2xl relative rotate-3 group-hover:rotate-0 transition-transform">
-                      {activeMember.avatar}
+                      {activeMember?.avatar || activeMember?.name?.charAt(0)?.toUpperCase() || 'U'}
                       <div className="absolute -top-3 -left-3 bg-[#00F0FF] text-black w-8 h-8 rounded-xl flex items-center justify-center shadow-lg">
                          <ShieldCheck className="w-4 h-4" />
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email}</h2>
+                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email || 'Especialista'}</h2>
                       <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {activeMember?.role || 'Nodo'}</p>
                     </div>
                   </div>
                   <button 
-                    onClick={() => setSelectedUserForPerms(activeMember)}
+                    onClick={() => activeMember && setSelectedUserForPerms(activeMember)}
                     className="h-14 px-8 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95"
                   >
                     Modificar Roles
@@ -382,20 +461,20 @@ export default function TeamManagement() {
                         <Target className="w-4 h-4 text-[#00F0FF]" /> Meta Mensual
                       </p>
                       <p className="text-2xl font-black text-gray-900 mt-1">
-                        {activeMember.type === 'sales' ? `$${(activeMember.current || 0).toLocaleString()}` : (activeMember.current || 0)}
+                        {activeMember?.type === 'sales' ? `$${(activeMember?.current || 0).toLocaleString()}` : (activeMember?.current || 0)}
                         <span className="text-sm font-medium text-gray-500 ml-1">
-                          / {activeMember.type === 'sales' ? `$${(activeMember.goal || 10000).toLocaleString()}` : (activeMember.goal || 100)}
+                          / {activeMember?.type === 'sales' ? `$${(activeMember?.goal || 10000).toLocaleString()}` : (activeMember?.goal || 100)}
                         </span>
                       </p>
                     </div>
                     <span className="text-lg font-bold text-[#00F0FF]">
-                      {Math.round(((activeMember.current || 0) / (activeMember.goal || 1)) * 100)}%
+                      {Math.round(((activeMember?.current || 0) / (activeMember?.goal || 1)) * 100)}%
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div 
                       className="bg-[#00F0FF] h-2.5 rounded-full transition-all duration-1000" 
-                      style={{ width: `${Math.min(100, Math.round(((activeMember.current || 0) / (activeMember.goal || 1)) * 100))}%` }}
+                      style={{ width: `${Math.min(100, Math.round(((activeMember?.current || 0) / (activeMember?.goal || 1)) * 100))}%` }}
                     ></div>
                   </div>
                 </div>
@@ -405,60 +484,60 @@ export default function TeamManagement() {
                   <BarChart3 className="w-5 h-5 text-gray-400" /> Indicadores Clave (KPIs)
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                  {activeMember.type === 'sales' && (
+                  {activeMember?.type === 'sales' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Phone className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Llamadas (VoIP)</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.calls ?? 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.calls ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tasa de Cierre</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.closeRate ?? '0%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.closeRate ?? '0%'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Clock className="w-6 h-6 text-purple-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tiempo Promedio</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.avgCallTime ?? '00:00'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.avgCallTime ?? '00:00'}</p>
                       </div>
                     </>
                   )}
-                  {activeMember.type === 'support' && (
+                  {activeMember?.type === 'support' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Users className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Alumnos Atendidos</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.students ?? 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.students ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tickets Resueltos</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.tickets ?? 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.tickets ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Activity className="w-6 h-6 text-cyan-500/100 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Satisfacción</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.satisfaction ?? '5.0/5'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.satisfaction ?? '5.0/5'}</p>
                       </div>
                     </>
                   )}
-                  {activeMember.type === 'operations' && (
+                  {activeMember?.type === 'operations' && (
                     <>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <BarChart3 className="w-6 h-6 text-blue-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Proyectos</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.projects ?? 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.projects ?? 0}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Cumplimiento</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.compliance ?? '100%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.compliance ?? '100%'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Retrasos</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember.kpis?.delays ?? 0}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.delays ?? 0}</p>
                       </div>
                     </>
                   )}
@@ -473,7 +552,7 @@ export default function TeamManagement() {
                     <BookOpen className="w-4 h-4 text-gray-400" /> Progreso vinculado a Academia Interna
                   </p>
                   <div className="space-y-4">
-                    {(activeMember.skills || []).map((skill: any, i: number) => (
+                    {(activeMember?.skills || []).map((skill: any, i: number) => (
                       <div key={i} className="flex items-center gap-4">
                         <div className="w-1/3 min-w-[120px]">
                           <p className="text-sm font-bold text-gray-900">{skill.name}</p>
@@ -492,7 +571,7 @@ export default function TeamManagement() {
                         </div>
                       </div>
                     ))}
-                    {(!activeMember.skills || activeMember.skills.length === 0) && (
+                    {(!activeMember?.skills || activeMember?.skills?.length === 0) && (
                       <p className="text-sm text-gray-500 italic">No hay habilidades registradas aún.</p>
                     )}
                   </div>
@@ -606,7 +685,7 @@ export default function TeamManagement() {
                     </div>
 
                     <div className="space-y-6">
-                       {AUDIT_LOGS.map(log => (
+                       {displayAuditLogs.map(log => (
                          <div key={log.id} className="group relative p-6 bg-white border border-gray-50 rounded-[2rem] hover:shadow-xl hover:border-gray-100 transition-all flex items-center justify-between">
                             <div className="flex items-center gap-6">
                                <div className={`h-14 w-14 rounded-[1.5rem] flex items-center justify-center shadow-lg transform group-hover:rotate-6 transition-transform ${
@@ -712,8 +791,8 @@ export default function TeamManagement() {
                 { id: 'operations', label: 'Operaciones Internas', icon: ShieldAlert },
                 { id: 'strategy', label: 'Estrategia & Blog', icon: Globe },
               ].map(module => {
-                const updatedUser = users.find(u => u.id === selectedUserForPerms.id) || selectedUserForPerms;
-                const hasAccess = updatedUser.permissions?.[module.id];
+                const updatedUser = (Array.isArray(effectiveUsers) ? effectiveUsers.find((u: any) => u && u.id === selectedUserForPerms?.id) : null) || selectedUserForPerms;
+                const hasAccess = Boolean(updatedUser?.permissions?.[module.id]);
                 return (
                   <button 
                     key={module.id}

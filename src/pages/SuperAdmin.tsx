@@ -4,7 +4,8 @@ import {
   collection, onSnapshot, updateDoc, doc, addDoc, deleteDoc, 
   query, orderBy, limit, serverTimestamp, setDoc, getDoc 
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { useLanguage } from '../contexts/LanguageContext';
 import { 
   ShieldCheck, XCircle, ShieldAlert, Activity, Users, 
@@ -101,10 +102,28 @@ export default function SuperAdmin() {
   const [matrixState, setMatrixState] = useState<Record<string, Record<string, boolean>>>(DEFAULT_MATRIX_STATE);
   const [isSavingMatrix, setIsSavingMatrix] = useState(false);
 
+  // Auth Timing State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
   const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
 
-  // Load Users, Audit Logs, Clients, and Projects
+  // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
   useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     const unsubscribeUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setLoading(false);
@@ -147,7 +166,7 @@ export default function SuperAdmin() {
       unsubscribeClients();
       unsubscribeProjects();
     };
-  }, []);
+  }, [user, authLoading]);
 
   const triggerFeedback = (msg: string) => {
     setActionFeedback(msg);
