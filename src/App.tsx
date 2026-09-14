@@ -52,6 +52,7 @@ import FormTemplates from './pages/FormTemplates';
 import Integrations from './pages/Integrations';
 import CompanyAuth from './pages/b2b/CompanyAuth';
 import CompanyDashboard from './pages/b2b/CompanyDashboard';
+import RouteGuard from './components/RouteGuard';
 
 export default function App() {
   const [user, setUser] = useState<any>(() => {
@@ -169,21 +170,10 @@ export default function App() {
           setUserData(fallback);
         }
       } else {
-        // If not logged in with Firebase, check if an operator session is cached
-        const cachedUser = localStorage.getItem('kaivincia_active_user');
-        const cachedData = localStorage.getItem('kaivincia_user_data');
-        if (cachedUser && cachedData) {
-          try {
-            setUser(JSON.parse(cachedUser));
-            setUserData(JSON.parse(cachedData));
-          } catch {
-            setUser(null);
-            setUserData(null);
-          }
-        } else {
-          setUser(null);
-          setUserData(null);
-        }
+        setUser(null);
+        setUserData(null);
+        localStorage.removeItem('kaivincia_active_user');
+        localStorage.removeItem('kaivincia_user_data');
       }
       setLoading(false);
     });
@@ -342,7 +332,7 @@ export default function App() {
     status: 'active'
   };
 
-  const hasAccess = Boolean(user || isGuest || localStorage.getItem('kaivincia_active_user'));
+  const hasAccess = Boolean(user || isGuest);
 
   return (
     <BrowserRouter>
@@ -360,10 +350,17 @@ export default function App() {
         <Route path="/empresas/register" element={<CompanyAuth initialMode="register" />} />
         <Route path="/empresas/dashboard" element={<CompanyDashboard />} />
         <Route path="/empresas" element={<Navigate to="/empresas/dashboard" />} />
-        <Route path="/login" element={hasAccess ? <Navigate to="/crm/dashboard" /> : <LoginPage />} />
+        <Route path="/login" element={user ? <Navigate to="/crm/dashboard" replace /> : <LoginPage />} />
         
-        {/* CRM Routes - Resilient Session */}
-        <Route path="/crm" element={hasAccess ? <CRMLayout userData={effectiveUserData} /> : <Navigate to="/login" />}>
+        {/* CRM Routes - Resilient Session Protected by RouteGuard */}
+        <Route 
+          path="/crm" 
+          element={
+            <RouteGuard>
+              <CRMLayout userData={effectiveUserData} />
+            </RouteGuard>
+          }
+        >
           <Route index element={<Navigate to={effectiveUserData?.role === 'alumno' ? "/crm/academy-internal" : (effectiveUserData?.role === 'tlmk' ? "/crm/pipeline" : "/crm/dashboard")} />} />
           <Route path="dashboard" element={userData?.role === 'alumno' ? <Navigate to="/crm/academy-internal" /> : <Dashboard />} />
           <Route path="strategic-report" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <StrategicReport />} />
