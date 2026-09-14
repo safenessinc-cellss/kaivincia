@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { 
   GraduationCap, PlayCircle, CheckCircle2, AlertTriangle, 
   Award, BookOpen, Video, FileText, ArrowRight, Activity, Bot, Trophy,
   Users, DollarSign, BarChart3, Filter, Search, MoreVertical, ShieldCheck, Phone, X, Save, Edit2, Zap, Flame,
   Briefcase, TrendingUp, Star, MessageSquare, Sparkles, Send, ShieldAlert, BadgeCheck,
-  Plus, ChevronLeft, ChevronRight, Inbox, Check
+  Plus, ChevronLeft, ChevronRight, Inbox, Check, FileSpreadsheet, UploadCloud, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -79,6 +79,11 @@ export default function AcademyInternal() {
     status: 'Activo',
     progress: 10
   });
+  const [studentModalTab, setStudentModalTab] = useState<'single' | 'bulk'>('single');
+  const [bulkParsedStudents, setBulkParsedStudents] = useState<any[]>([]);
+  const [bulkFileName, setBulkFileName] = useState('');
+  const [bulkError, setBulkError] = useState('');
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
 
   // Filters and Pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -161,6 +166,85 @@ export default function AcademyInternal() {
     });
     setShowAddStudentModal(false);
     showToast(`Alumno "${newStudent.name}" añadido exitosamente`);
+  };
+
+  const handleBulkFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkFileName(file.name);
+    setBulkError('');
+
+    try {
+      const text = await file.text();
+      const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
+      
+      if (lines.length <= 1) {
+        setBulkError('El archivo CSV está vacío o solo contiene encabezados.');
+        setBulkParsedStudents([]);
+        return;
+      }
+
+      // Parse lines (skipping header if first line has 'nombre' or 'email')
+      const startIndex = lines[0].toLowerCase().includes('nombre') || lines[0].toLowerCase().includes('email') ? 1 : 0;
+      const parsed: any[] = [];
+
+      for (let i = startIndex; i < lines.length; i++) {
+        // Split by comma or semicolon
+        const delimiter = lines[i].includes(';') ? ';' : ',';
+        const cols = lines[i].split(delimiter).map(c => c.trim().replace(/^["']|["']$/g, ''));
+        
+        if (cols[0] && cols[1]) {
+          parsed.push({
+            id: `bulk-${Date.now()}-${i}`,
+            name: cols[0],
+            email: cols[1],
+            course: cols[2] || courses[0]?.name || 'Setter Pro Certification',
+            progress: Number(cols[3]) || 0,
+            status: cols[4] || 'Activo',
+            lastLogin: 'Cargado vía CSV',
+            supportTickets: 0,
+            grades: [9.0],
+            ltv: 1200,
+            employability: 'En evaluación'
+          });
+        }
+      }
+
+      if (parsed.length === 0) {
+        setBulkError('No se encontraron registros válidos. Usa el formato: Nombre, Email, Curso, Progreso, Estado');
+        setBulkParsedStudents([]);
+      } else {
+        setBulkParsedStudents(parsed);
+      }
+    } catch (err) {
+      setBulkError('Error al leer el archivo. Asegúrate de que sea un archivo de texto o CSV válido.');
+      setBulkParsedStudents([]);
+    }
+  };
+
+  const handleConfirmBulkImport = () => {
+    if (bulkParsedStudents.length === 0) return;
+    setStudents([...bulkParsedStudents, ...students]);
+    showToast(`Se importaron ${bulkParsedStudents.length} alumnos correctamente.`);
+    setShowAddStudentModal(false);
+    setBulkParsedStudents([]);
+    setBulkFileName('');
+    setStudentModalTab('single');
+  };
+
+  const downloadCsvTemplate = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Nombre,Email,Curso,Progreso,Estado\n" +
+      "Carla Mendoza,carla.mendoza@email.com,Setter Pro Certification,15,Activo\n" +
+      "Pablo Hernández,pablo.h@email.com,Closer Elite Master,40,Activo\n" +
+      "Lucía Torres,lucia.t@email.com,B2B Scaling Architect,85,Activo\n";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "plantilla_alumnos_kaivincia.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleSendTicketReply = () => {
@@ -1234,8 +1318,8 @@ export default function AcademyInternal() {
                   <Users className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900">Añadir Nuevo Alumno</h3>
-                  <p className="text-xs text-gray-500">Matricula a un alumno en un curso activo</p>
+                  <h3 className="text-lg font-bold text-gray-900">Añadir Alumnos a la Academia</h3>
+                  <p className="text-xs text-gray-500">Matricula alumnos de forma individual o mediante archivo CSV / Excel</p>
                 </div>
               </div>
               <button 
@@ -1246,101 +1330,226 @@ export default function AcademyInternal() {
               </button>
             </div>
 
-            <form onSubmit={handleAddStudent} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Nombre Completo *
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="Ej: Sofía Ramírez"
-                  value={newStudentForm.name}
-                  onChange={e => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
-                />
-              </div>
+            {/* Modal Sub-Tabs */}
+            <div className="flex border-b border-gray-200 bg-gray-50/80 px-6 pt-2">
+              <button
+                type="button"
+                onClick={() => setStudentModalTab('single')}
+                className={`pb-2.5 px-4 text-xs font-bold transition-colors border-b-2 cursor-pointer ${
+                  studentModalTab === 'single'
+                    ? 'border-[#00F0FF] text-cyan-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Registro Manual Directo
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentModalTab('bulk')}
+                className={`pb-2.5 px-4 text-xs font-bold transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer ${
+                  studentModalTab === 'bulk'
+                    ? 'border-[#00F0FF] text-cyan-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                Carga Masiva (CSV / Excel)
+              </button>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                  Correo Electrónico *
-                </label>
-                <input 
-                  type="email" 
-                  required
-                  placeholder="sofia@ejemplo.com"
-                  value={newStudentForm.email}
-                  onChange={e => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            {studentModalTab === 'single' ? (
+              <form onSubmit={handleAddStudent} className="p-6 space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Curso
+                    Nombre Completo *
                   </label>
-                  <select 
-                    value={newStudentForm.course}
-                    onChange={e => setNewStudentForm({ ...newStudentForm, course: e.target.value })}
-                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
-                  >
-                    {courses.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Ej: Sofía Ramírez"
+                    value={newStudentForm.name}
+                    onChange={e => setNewStudentForm({ ...newStudentForm, name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                    Estado Inicial
+                    Correo Electrónico *
                   </label>
-                  <select 
-                    value={newStudentForm.status}
-                    onChange={e => setNewStudentForm({ ...newStudentForm, status: e.target.value })}
-                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                  <input 
+                    type="email" 
+                    required
+                    placeholder="sofia@ejemplo.com"
+                    value={newStudentForm.email}
+                    onChange={e => setNewStudentForm({ ...newStudentForm, email: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Curso
+                    </label>
+                    <select 
+                      value={newStudentForm.course}
+                      onChange={e => setNewStudentForm({ ...newStudentForm, course: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                    >
+                      {courses.map(c => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                      Estado Inicial
+                    </label>
+                    <select 
+                      value={newStudentForm.status}
+                      onChange={e => setNewStudentForm({ ...newStudentForm, status: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#00F0FF] focus:border-[#00F0FF] bg-white outline-none"
+                    >
+                      <option value="Activo">Activo</option>
+                      <option value="En Riesgo">En Riesgo</option>
+                      <option value="Certificado">Certificado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Progreso Inicial
+                    </label>
+                    <span className="text-xs font-bold text-cyan-600">{newStudentForm.progress}%</span>
+                  </div>
+                  <input 
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={newStudentForm.progress}
+                    onChange={e => setNewStudentForm({ ...newStudentForm, progress: parseInt(e.target.value) || 0 })}
+                    className="w-full accent-cyan-500 cursor-pointer"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddStudentModal(false)}
+                    className="px-4 py-2.5 text-gray-600 bg-gray-100 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
                   >
-                    <option value="Activo">Activo</option>
-                    <option value="En Riesgo">En Riesgo</option>
-                    <option value="Certificado">Certificado</option>
-                  </select>
+                    Cancelar
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-6 py-2.5 bg-[#00F0FF] text-gray-950 font-bold rounded-xl text-sm hover:bg-[#00D4E0] transition-colors flex items-center gap-2 shadow-md cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" /> Añadir Alumno
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-800">Cargar Lista de Alumnos</h4>
+                    <p className="text-xs text-gray-500">Formato admitido: CSV separado por comas o punto y coma</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={downloadCsvTemplate}
+                    className="flex items-center gap-1.5 text-xs text-cyan-600 hover:text-cyan-700 font-semibold bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-100 hover:bg-cyan-100 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Descargar Plantilla
+                  </button>
+                </div>
+
+                {/* Dropzone */}
+                <div 
+                  onClick={() => bulkFileInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-colors ${
+                    bulkFileName ? 'border-cyan-400 bg-cyan-50/40' : 'border-gray-300 hover:border-[#00F0FF] bg-gray-50/50'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    ref={bulkFileInputRef}
+                    onChange={handleBulkFileChange}
+                    accept=".csv,.txt,.xlsx"
+                    className="hidden"
+                  />
+                  <div className="w-12 h-12 mx-auto mb-2 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-800">
+                    {bulkFileName ? bulkFileName : 'Haz clic para seleccionar tu archivo CSV / Excel'}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">Columnas: Nombre, Email, Curso, Progreso, Estado</p>
+                </div>
+
+                {bulkError && (
+                  <p className="text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 font-medium">
+                    {bulkError}
+                  </p>
+                )}
+
+                {/* Preview Table */}
+                {bulkParsedStudents.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center text-xs font-bold text-gray-700">
+                      <span>Vista previa de alumnos detectados ({bulkParsedStudents.length})</span>
+                      <span className="text-cyan-600">Formato válido</span>
+                    </div>
+                    <div className="max-h-44 overflow-y-auto border border-gray-200 rounded-xl divide-y divide-gray-100 text-xs">
+                      {bulkParsedStudents.slice(0, 8).map((st, idx) => (
+                        <div key={idx} className="p-2.5 flex items-center justify-between bg-white hover:bg-gray-50">
+                          <div>
+                            <span className="font-bold text-gray-900">{st.name}</span>
+                            <span className="text-gray-500 ml-2">({st.email})</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded font-mono text-[10px]">{st.course}</span>
+                            <span className="text-gray-600 font-semibold">{st.progress}%</span>
+                          </div>
+                        </div>
+                      ))}
+                      {bulkParsedStudents.length > 8 && (
+                        <div className="p-2 text-center text-gray-400 bg-gray-50 text-[11px]">
+                          ... y {bulkParsedStudents.length - 8} alumnos más
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      setShowAddStudentModal(false);
+                      setBulkParsedStudents([]);
+                      setBulkFileName('');
+                    }}
+                    className="px-4 py-2.5 text-gray-600 bg-gray-100 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    type="button"
+                    disabled={bulkParsedStudents.length === 0}
+                    onClick={handleConfirmBulkImport}
+                    className="px-6 py-2.5 bg-[#00F0FF] text-gray-950 font-bold rounded-xl text-sm hover:bg-[#00D4E0] transition-colors flex items-center gap-2 shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Users className="w-4 h-4" /> Importar {bulkParsedStudents.length > 0 ? `(${bulkParsedStudents.length})` : ''} Alumnos
+                  </button>
                 </div>
               </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1.5">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Progreso Inicial
-                  </label>
-                  <span className="text-xs font-bold text-cyan-600">{newStudentForm.progress}%</span>
-                </div>
-                <input 
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={newStudentForm.progress}
-                  onChange={e => setNewStudentForm({ ...newStudentForm, progress: parseInt(e.target.value) || 0 })}
-                  className="w-full accent-cyan-500 cursor-pointer"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setShowAddStudentModal(false)}
-                  className="px-4 py-2.5 text-gray-600 bg-gray-100 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit"
-                  className="px-6 py-2.5 bg-[#00F0FF] text-gray-950 font-bold rounded-xl text-sm hover:bg-[#00D4E0] transition-colors flex items-center gap-2 shadow-md cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" /> Añadir Alumno
-                </button>
-              </div>
-            </form>
+            )}
           </motion.div>
         </div>
       )}

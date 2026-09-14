@@ -53,27 +53,51 @@ export default function Careers() {
              <img src="/images/logo.png" alt="Kaivincia" className="h-10 w-auto" />
              <span className="text-xl font-black text-white uppercase italic tracking-tighter">Kaivincia</span>
           </Link>
-          <nav className="flex items-center gap-6">
-            <Link to="/login" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#00F0FF] transition-colors">Portal de Equipo</Link>
-            <Link to="/" className="px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all">Inicio</Link>
+          <nav className="flex items-center gap-4 sm:gap-6">
+            <Link 
+              to="/empresas/login" 
+              className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#00F0FF]/30 bg-[#00F0FF]/5 hover:bg-[#00F0FF]/15"
+            >
+              <Briefcase className="w-3 h-3" />
+              <span>Acceso Empresas B2B</span>
+            </Link>
+            <Link to="/login" className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-[#00F0FF] transition-colors hidden sm:inline">Portal de Equipo</Link>
+            <Link to="/" className="px-5 py-2 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 transition-all">Inicio</Link>
           </nav>
         </div>
       </header>
 
       {/* Hero Section */}
-      <section className="relative z-10 py-32 px-6 text-center">
+      <section className="relative z-10 py-24 md:py-32 px-6 text-center">
         <div className="max-w-4xl mx-auto">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mb-8">
              <Sparkles className="w-4 h-4 text-[#00F0FF]" />
              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[#00F0FF]">Be more than an employee. Be a builder.</span>
           </div>
-          <h1 className="text-6xl md:text-8xl font-serif font-bold text-white mb-8 leading-[0.9]">
+          <h1 className="text-5xl md:text-8xl font-serif font-bold text-white mb-6 leading-[0.95]">
             Únete a la <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-[#00F0FF] to-white italic">Elite Operativa.</span>
           </h1>
-          <p className="text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto mb-16">
+          <p className="text-base md:text-lg text-gray-400 font-medium leading-relaxed max-w-2xl mx-auto mb-10">
             No buscamos candidatos mediocres. Buscamos el 1% que entiende que el futuro pertenece a quienes dominan la IA y las ventas de alta gama.
           </p>
+
+          {/* Corporate CTA Banner */}
+          <div className="mb-12 max-w-2xl mx-auto p-4 md:p-5 rounded-2xl bg-white/[0.03] border border-[#00F0FF]/20 flex flex-col sm:flex-row items-center justify-between gap-4 backdrop-blur-md">
+            <div className="text-left">
+              <span className="text-[9px] font-black uppercase tracking-widest text-[#00F0FF] flex items-center gap-1.5 mb-1">
+                <Briefcase className="w-3 h-3" /> Solución SaaS & Marketplace B2B
+              </span>
+              <p className="text-sm font-bold text-white">¿Buscas contratar talento calificado por IA?</p>
+              <p className="text-xs text-gray-400">Publica ofertas o solicita selección asistida con garantía de encaje.</p>
+            </div>
+            <Link 
+              to="/empresas/register" 
+              className="whitespace-nowrap px-4 py-2.5 rounded-xl bg-[#00F0FF] text-black font-black text-[10px] uppercase tracking-widest hover:bg-[#00D4E0] transition-colors shadow-lg cursor-pointer"
+            >
+              Registrar Empresa
+            </Link>
+          </div>
           
           {/* Search Bar */}
           <div className="relative max-w-2xl mx-auto group">
@@ -85,7 +109,7 @@ export default function Careers() {
               placeholder="¿Qué nodo operativo buscas dominar?"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-14 pr-6 py-6 bg-white/[0.03] border border-white/10 rounded-[2rem] text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#00F0FF]/50 focus:border-[#00F0FF]/50 transition-all text-lg shadow-2xl backdrop-blur-xl"
+              className="block w-full pl-14 pr-6 py-5 md:py-6 bg-white/[0.03] border border-white/10 rounded-[2rem] text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#00F0FF]/50 focus:border-[#00F0FF]/50 transition-all text-base md:text-lg shadow-2xl backdrop-blur-xl"
             />
           </div>
         </div>
