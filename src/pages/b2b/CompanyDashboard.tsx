@@ -186,17 +186,19 @@ export default function CompanyDashboard() {
     return () => unsub();
   }, []);
 
-  // Filtered Candidates
+  // Filtered Candidates (Sorted by AI Match Score Descending)
   const filteredCandidates = useMemo(() => {
-    return candidates.filter(c => {
-      const matchesJob = candidateFilterJob === 'all' || c.jobId === candidateFilterJob || c.role === candidateFilterJob;
-      const matchesScore = (c.aiScore || 0) >= minMatchScore;
-      const matchesSearch = !candidateSearch || 
-        c.name?.toLowerCase().includes(candidateSearch.toLowerCase()) ||
-        c.email?.toLowerCase().includes(candidateSearch.toLowerCase()) ||
-        c.role?.toLowerCase().includes(candidateSearch.toLowerCase());
-      return matchesJob && matchesScore && matchesSearch;
-    });
+    return candidates
+      .filter(c => {
+        const matchesJob = candidateFilterJob === 'all' || c.jobId === candidateFilterJob || c.role === candidateFilterJob;
+        const matchesScore = (c.aiScore || 0) >= minMatchScore;
+        const matchesSearch = !candidateSearch || 
+          c.name?.toLowerCase().includes(candidateSearch.toLowerCase()) ||
+          c.email?.toLowerCase().includes(candidateSearch.toLowerCase()) ||
+          c.role?.toLowerCase().includes(candidateSearch.toLowerCase());
+        return matchesJob && matchesScore && matchesSearch;
+      })
+      .sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
   }, [candidates, candidateFilterJob, minMatchScore, candidateSearch]);
 
   const handleCreateJob = async (e: React.FormEvent) => {
