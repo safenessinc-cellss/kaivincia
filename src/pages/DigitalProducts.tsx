@@ -1,11 +1,50 @@
 import { useState } from 'react';
 import { 
   ShoppingCart, Package, DollarSign, TrendingUp, 
-  Download, Video, FileText, Users, Plus, Award, CreditCard, Settings, CheckCircle2
+  Download, Video, FileText, Users, Plus, Award, CreditCard, Settings, CheckCircle2, X
 } from 'lucide-react';
 
 export default function DigitalProducts() {
   const [activeTab, setActiveTab] = useState('membresia');
+  const [isNewProductOpen, setIsNewProductOpen] = useState(false);
+  const [isConfigMembershipOpen, setIsConfigMembershipOpen] = useState(false);
+  const [membershipPrice, setMembershipPrice] = useState(97);
+  const [membershipPeriod, setMembershipPeriod] = useState('Mensual');
+  const [benefits, setBenefits] = useState([
+    'Actualizaciones Legales USA (TCPA, DNC)',
+    'Nuevos Scripts de Ventas Mensuales',
+    'Plantillas de CRM y Embudos',
+    'Comunidad Privada (Discord/Slack)',
+    'Q&A Semanal con Expertos'
+  ]);
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductCategory, setNewProductCategory] = useState('Cursos');
+  const [newProductPrice, setNewProductPrice] = useState('97');
+
+  const [productsList, setProductsList] = useState([
+    { id: 1, title: 'Master en Appointment Setting', category: 'Cursos', price: '$497', sales: 342, type: 'video' },
+    { id: 2, title: 'SuperPack Scripts Telefónicos TLMK', category: 'Descargables', price: '$47', sales: 1280, type: 'download' },
+    { id: 3, title: 'Bootcamp Intensivo Cierre 1a1', category: 'En Vivo', price: '$997', sales: 88, type: 'users' },
+  ]);
+
+  const handleCreateProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName) return;
+    setProductsList(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        title: newProductName,
+        category: newProductCategory,
+        price: `$${newProductPrice}`,
+        sales: 0,
+        type: newProductCategory === 'Cursos' ? 'video' : newProductCategory === 'Descargables' ? 'download' : 'users'
+      }
+    ]);
+    setNewProductName('');
+    setIsNewProductOpen(false);
+    setActiveTab('productos');
+  };
 
   return (
     <div className="space-y-6 flex flex-col h-full">
@@ -15,10 +54,16 @@ export default function DigitalProducts() {
           <p className="text-sm text-gray-500 mt-1">Gestión de infoproductos, membresías y upsells</p>
         </div>
         <div className="flex gap-3">
-          <button className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+          <button 
+            onClick={() => setActiveTab('pagos')}
+            className="bg-white text-gray-700 px-4 py-2 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 flex items-center gap-2 shadow-sm cursor-pointer transition-colors"
+          >
             <Settings className="h-4 w-4" /> Configurar Pasarelas
           </button>
-          <button className="bg-[#00F0FF] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2 shadow-sm">
+          <button 
+            onClick={() => setIsNewProductOpen(true)}
+            className="bg-[#00F0FF] text-black hover:bg-[#00d0df] px-4 py-2 rounded-lg font-bold flex items-center gap-2 shadow-sm cursor-pointer transition-colors"
+          >
             <Plus className="h-4 w-4" /> Nuevo Producto
           </button>
         </div>
@@ -84,7 +129,10 @@ export default function DigitalProducts() {
                     </div>
                   </div>
 
-                  <button className="bg-[#00F0FF] text-black px-6 py-3 rounded-lg font-bold hover:bg-[#00BFFF] transition-colors shadow-sm">
+                  <button 
+                    onClick={() => setIsConfigMembershipOpen(true)}
+                    className="bg-[#00F0FF] text-black px-6 py-3 rounded-lg font-bold hover:bg-[#00d0df] transition-all shadow-sm cursor-pointer active:scale-95"
+                  >
                     Configurar Membresía
                   </button>
                 </div>
@@ -94,15 +142,31 @@ export default function DigitalProducts() {
               </div>
 
               <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-                <h4 className="text-lg font-bold text-gray-900 mb-4">Beneficios Incluidos (Configuración)</h4>
+                <div className="flex justify-between items-center mb-4">
+                  <h4 className="text-lg font-bold text-gray-900">Beneficios Incluidos (Configuración)</h4>
+                  <button 
+                    onClick={() => {
+                      const newB = prompt('Ingresa nuevo beneficio:');
+                      if (newB) setBenefits(prev => [...prev, newB]);
+                    }}
+                    className="text-xs font-bold text-cyan-600 hover:text-cyan-800 bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-200 cursor-pointer"
+                  >
+                    + Agregar Beneficio
+                  </button>
+                </div>
                 <div className="space-y-3">
-                  {['Actualizaciones Legales USA (TCPA, DNC)', 'Nuevos Scripts de Ventas Mensuales', 'Plantillas de CRM y Embudos', 'Comunidad Privada (Discord/Slack)', 'Q&A Semanal con Expertos'].map((benefit, i) => (
+                  {benefits.map((benefit, i) => (
                     <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                       <div className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-green-500" />
                         <span className="font-medium text-gray-700">{benefit}</span>
                       </div>
-                      <button className="text-sm text-gray-400 hover:text-[#00F0FF]">Editar</button>
+                      <button 
+                        onClick={() => setBenefits(prev => prev.filter((_, idx) => idx !== i))}
+                        className="text-xs text-red-500 hover:text-red-700 font-bold cursor-pointer"
+                      >
+                        Eliminar
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -112,41 +176,33 @@ export default function DigitalProducts() {
 
           {/* CATÁLOGO DE PRODUCTOS */}
           {activeTab === 'productos' && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mb-4">
-                  <Video className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-gray-900 mb-1">Cursos Grabados</h3>
-                <p className="text-sm text-gray-500 mb-4">Cursos de Appointment Setter, Call Center, Ventas 10X.</p>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-900">4 Activos</span>
-                  <button className="text-[#00F0FF] hover:underline">Gestionar</button>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mb-4">
-                  <Download className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-gray-900 mb-1">Descargables</h3>
-                <p className="text-sm text-gray-500 mb-4">eBooks, Plantillas CRM, Scripts descargables.</p>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-900">12 Activos</span>
-                  <button className="text-[#00F0FF] hover:underline">Gestionar</button>
-                </div>
-              </div>
-
-              <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-4">
-                  <Users className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-gray-900 mb-1">En Vivo & Mentorías</h3>
-                <p className="text-sm text-gray-500 mb-4">Masterclass, Bootcamps en vivo, Mentorías privadas 1a1.</p>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-900">2 Próximos</span>
-                  <button className="text-[#00F0FF] hover:underline">Gestionar</button>
-                </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {productsList.map(prod => (
+                  <div key={prod.id} className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+                    <div>
+                      <div className="w-12 h-12 bg-cyan-50 text-cyan-600 rounded-lg flex items-center justify-center mb-4">
+                        {prod.type === 'video' && <Video className="w-6 h-6" />}
+                        {prod.type === 'download' && <Download className="w-6 h-6" />}
+                        {prod.type === 'users' && <Users className="w-6 h-6" />}
+                      </div>
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-600 mb-2 inline-block">
+                        {prod.category}
+                      </span>
+                      <h3 className="font-bold text-gray-900 mb-1">{prod.title}</h3>
+                      <p className="text-2xl font-black text-gray-900 mb-4">{prod.price}</p>
+                    </div>
+                    <div className="flex justify-between items-center text-sm pt-4 border-t border-gray-100">
+                      <span className="font-medium text-gray-500">{prod.sales} Ventas</span>
+                      <button 
+                        onClick={() => setProductsList(prev => prev.filter(p => p.id !== prod.id))}
+                        className="text-xs text-red-500 font-bold hover:underline cursor-pointer"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -219,6 +275,114 @@ export default function DigitalProducts() {
           )}
         </div>
       </div>
+
+      {/* MODAL NUEVO PRODUCTO */}
+      {isNewProductOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-black text-gray-900">Crear Nuevo Producto Digital</h3>
+              <button onClick={() => setIsNewProductOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateProduct} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Nombre del Producto</label>
+                <input 
+                  type="text"
+                  required
+                  value={newProductName}
+                  onChange={(e) => setNewProductName(e.target.value)}
+                  placeholder="Ej. Masterclass en Negociación..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00F0FF]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Categoría</label>
+                <select 
+                  value={newProductCategory}
+                  onChange={(e) => setNewProductCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00F0FF]"
+                >
+                  <option value="Cursos">Cursos Grabados</option>
+                  <option value="Descargables">Material Descargable / Ebook</option>
+                  <option value="En Vivo">En Vivo / Mentoría</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Precio ($ USD)</label>
+                <input 
+                  type="number"
+                  required
+                  value={newProductPrice}
+                  onChange={(e) => setNewProductPrice(e.target.value)}
+                  placeholder="97"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00F0FF]"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setIsNewProductOpen(false)}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 py-2.5 bg-[#00F0FF] text-black font-black rounded-xl text-xs hover:bg-[#00d0df] cursor-pointer"
+                >
+                  Publicar Producto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIGURACIÓN MEMBRESÍA */}
+      {isConfigMembershipOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-black text-gray-900">Configuración de Membresía PRO</h3>
+              <button onClick={() => setIsConfigMembershipOpen(false)} className="text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Precio Regular ($ USD)</label>
+                <input 
+                  type="number"
+                  value={membershipPrice}
+                  onChange={(e) => setMembershipPrice(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00F0FF]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Periodo de Facturación</label>
+                <select 
+                  value={membershipPeriod}
+                  onChange={(e) => setMembershipPeriod(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-[#00F0FF]"
+                >
+                  <option value="Mensual">Mensual ($97/mes)</option>
+                  <option value="Trimestral">Trimestral ($249/trimestre)</option>
+                  <option value="Anual">Anual ($997/año)</option>
+                </select>
+              </div>
+              <button 
+                onClick={() => setIsConfigMembershipOpen(false)}
+                className="w-full py-2.5 bg-[#00F0FF] text-black font-black rounded-xl text-xs hover:bg-[#00d0df] cursor-pointer mt-4"
+              >
+                Guardar Configuración
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

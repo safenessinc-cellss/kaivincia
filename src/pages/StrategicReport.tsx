@@ -6,6 +6,7 @@ import {
   PieChart, Activity, Briefcase, CheckCircle2, History, X, Plus, Download, Upload, User, Building2, Mail, Phone, AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import confetti from 'canvas-confetti';
 
 interface JourneyStep {
   stage: string;
@@ -16,6 +17,41 @@ interface JourneyStep {
 
 export default function StrategicReport() {
   const [activeTab, setActiveTab] = useState<'journey' | 'burnout' | 'scaling'>('journey');
+  const [distributionStatus, setDistributionStatus] = useState<string | null>(null);
+  const [budgetApproved, setBudgetApproved] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationCount, setSimulationCount] = useState(1);
+
+  const handleDistribute = () => {
+    setDistributionStatus('Informe enviado a los comités de Operaciones y Dirección General.');
+    setTimeout(() => setDistributionStatus(null), 4000);
+  };
+
+  const handleExportCiso = () => {
+    const reportText = `=== CISO INTELLIGENCE LOG - KAIVINCIA CORP ===\nFecha: ${new Date().toISOString()}\nEstado del Sistema: 100% Cifrado y Operativo\nAuditoría: ISO 27001 & SOC-2 Compliance Ready\nCorte de Viaje del Dato: 6 Etapas Verificadas\nSalud de Equipo: 0 Alertas Críticas\n`;
+    const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `CISO_Log_Audit_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleApproveBudget = () => {
+    setBudgetApproved(true);
+    try {
+      confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
+    } catch {}
+  };
+
+  const handleRunSimulation = () => {
+    setIsSimulating(true);
+    setTimeout(() => {
+      setIsSimulating(false);
+      setSimulationCount(prev => prev + 1);
+    }, 1200);
+  };
 
   const dataJourney: JourneyStep[] = [
     { stage: 'Prospecto Ingresado', module: 'Ventas (Pipeline)', action: 'Lead scoring automático vía IA', metricImpact: '+1 Lead Calificado' },
@@ -39,15 +75,28 @@ export default function StrategicReport() {
           <h1 className="text-4xl font-black text-white uppercase tracking-tighter italic">Informe de Predicción Semanal</h1>
           <p className="text-sm text-gray-500 mt-2">Corte de datos: {new Date().toLocaleDateString()} • Análisis Global Kaivincia</p>
         </div>
-        <div className="flex gap-3">
-           <button className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 transition-all">
+        <div className="flex flex-col sm:flex-row gap-3">
+           <button 
+             onClick={handleDistribute}
+             className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 transition-all cursor-pointer"
+           >
              Distribuir a Ejecutivos
            </button>
-           <button className="px-6 py-3 bg-[#00F0FF] text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all">
+           <button 
+             onClick={handleExportCiso}
+             className="px-6 py-3 bg-[#00F0FF] text-black rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all cursor-pointer active:scale-95"
+           >
              Exportar CISO Log
            </button>
         </div>
       </div>
+
+      {distributionStatus && (
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center gap-3 text-emerald-400 text-xs font-bold animate-in fade-in">
+          <CheckCircle2 className="w-5 h-5 shrink-0" />
+          <span>{distributionStatus}</span>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-4 mb-10 overflow-x-auto pb-4 scrollbar-hide">
@@ -266,8 +315,24 @@ export default function StrategicReport() {
                   El sistema recomienda una expansión agresiva en el Módulo de Academia para alimentar el Pipeline de Talento. La simulación indica un crecimiento del 40% en facturación si se logra la certificación del 80% del equipo actual en las nuevas tecnologías mapeadas.
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
-                   <button className="px-10 py-5 bg-[#00F0FF] text-black rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-2xl shadow-[#00F0FF]/20">Aprobar Presupuesto</button>
-                   <button className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-white/10">Correr Nueva Simulación</button>
+                   <button 
+                     onClick={handleApproveBudget}
+                     disabled={budgetApproved}
+                     className={`px-10 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer ${
+                       budgetApproved 
+                         ? 'bg-emerald-500 text-black shadow-lg shadow-emerald-500/20' 
+                         : 'bg-[#00F0FF] text-black hover:scale-105 shadow-2xl shadow-[#00F0FF]/20 active:scale-95'
+                     }`}
+                   >
+                     {budgetApproved ? '✓ Presupuesto Aprobado ($12,500 USD)' : 'Aprobar Presupuesto'}
+                   </button>
+                   <button 
+                     onClick={handleRunSimulation}
+                     disabled={isSimulating}
+                     className="px-10 py-5 bg-white/5 border border-white/10 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all cursor-pointer active:scale-95"
+                   >
+                     {isSimulating ? 'Simulando iteración...' : `Correr Nueva Simulación (v${simulationCount}.0)`}
+                   </button>
                 </div>
              </div>
           </motion.div>

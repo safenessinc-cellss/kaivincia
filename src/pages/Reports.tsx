@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
+import jsPDF from 'jspdf';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, LineChart, Line
@@ -17,6 +18,8 @@ export default function Reports() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [collaborators, setCollaborators] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<'30d' | '90d' | '365d'>('30d');
+  const [marginFilter, setMarginFilter] = useState<'all' | 'high' | 'low'>('all');
 
   useEffect(() => {
     const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
@@ -107,6 +110,54 @@ export default function Reports() {
   const totalProfit = totalRevenue - totalCost;
   const avgMargin = reportData.length > 0 ? reportData.reduce((acc, d) => acc + d.margin, 0) / reportData.length : 0;
 
+  const filteredReportData = reportData.filter(d => {
+    if (marginFilter === 'high') return d.margin >= 30;
+    if (marginFilter === 'low') return d.margin < 20;
+    return true;
+  });
+
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      doc.setFillColor(15, 23, 42);
+      doc.rect(0, 0, 210, 40, 'F');
+      doc.setTextColor(0, 240, 255);
+      doc.setFontSize(20);
+      doc.text('REPORTE EJECUTIVO DE RENTABILIDAD', 14, 25);
+      
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(11);
+      doc.text(`Fecha de Generación: ${new Date().toLocaleDateString('es-ES')}`, 14, 50);
+      doc.text(`Periodo Analizado: ${timeRange === '30d' ? 'Últimos 30 días' : timeRange === '90d' ? 'Últimos 90 días' : 'Año Completo'}`, 14, 58);
+      
+      doc.setFontSize(13);
+      doc.setTextColor(15, 23, 42);
+      doc.text('Métricas Globales de Operación:', 14, 75);
+      doc.setFontSize(10);
+      doc.text(`Ingresos Totales: $${totalRevenue.toLocaleString()}`, 14, 85);
+      doc.text(`Costos Operativos: $${totalCost.toLocaleString()}`, 14, 93);
+      doc.text(`Utilidad Neta: $${totalProfit.toLocaleString()}`, 14, 101);
+      doc.text(`Margen Promedio: ${Math.round(avgMargin)}%`, 14, 109);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(14, 118, 196, 118);
+      
+      doc.setFontSize(12);
+      doc.text('Desglose de Proyectos:', 14, 130);
+      let y = 142;
+      reportData.slice(0, 10).forEach((p, idx) => {
+        doc.setFontSize(9);
+        doc.setTextColor(70, 80, 95);
+        doc.text(`${idx + 1}. ${p.name} | Ingreso: $${p.revenue.toLocaleString()} | Costo: $${p.cost.toLocaleString()} | Margen: ${p.margin}%`, 14, y);
+        y += 8;
+      });
+      
+      doc.save(`Reporte_Rentabilidad_${timeRange}.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF report:', err);
+    }
+  };
+
   const COLORS = ['#00F0FF', '#1f2937', '#4b5563', '#9ca3af', '#e5e7eb'];
 
   return (
@@ -117,10 +168,20 @@ export default function Reports() {
           <p className="text-sm text-gray-500 mt-1">Inteligencia de Negocios y Rentabilidad Real</p>
         </div>
         <div className="flex gap-3">
-          <button className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 flex items-center gap-2 text-sm">
-            <Calendar className="w-4 h-4" /> Últimos 30 días
-          </button>
-          <button className="bg-[#00F0FF] text-white px-4 py-2 rounded-lg font-medium hover:bg-[#00BFFF] flex items-center gap-2 text-sm shadow-sm">
+          <select 
+            value={timeRange} 
+            onChange={(e) => setTimeRange(e.target.value as any)}
+            className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg font-medium hover:bg-gray-50 text-sm cursor-pointer shadow-xs focus:outline-none"
+          >
+            <option value="30d">Últimos 30 días</option>
+            <option value="90d">Últimos 90 días</option>
+            <option value="365d">Año Completo</option>
+          </select>
+          <button 
+            onClick={handleExportPDF}
+            className="bg-[#00F0FF] text-black hover:bg-[#00d0df] px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-sm shadow-sm transition-all cursor-pointer active:scale-95"
+            title="Exportar Reporte Ejecutivo en PDF"
+          >
             <Download className="w-4 h-4" /> Exportar PDF
           </button>
         </div>
@@ -229,8 +290,13 @@ export default function Reports() {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="p-6 border-b border-gray-200 flex justify-between items-center">
           <h3 className="text-lg font-bold text-gray-900">Detalle de Rentabilidad por Proyecto</h3>
-          <button className="text-[#00F0FF] text-sm font-bold flex items-center gap-1 hover:underline">
-            <Filter className="w-4 h-4" /> Filtrar Datos
+          <button 
+            onClick={() => setMarginFilter(prev => prev === 'all' ? 'high' : prev === 'high' ? 'low' : 'all')}
+            className="text-cyan-700 hover:text-cyan-900 bg-cyan-50 px-3 py-1.5 rounded-lg border border-cyan-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
+            title="Cambiar filtro de margen de rentabilidad"
+          >
+            <Filter className="w-3.5 h-3.5 text-cyan-600" />
+            <span>Filtro: {marginFilter === 'all' ? 'Todos los Proyectos' : marginFilter === 'high' ? 'Márgenes Altos (≥30%)' : 'Márgenes Bajos (<20%)'}</span>
           </button>
         </div>
         <div className="overflow-x-auto">
@@ -246,7 +312,7 @@ export default function Reports() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {reportData.map((d, i) => (
+              {filteredReportData.map((d, i) => (
                 <tr key={i} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 font-bold text-gray-900">{d.name}</td>
                   <td className="px-6 py-4 text-gray-600">{d.hours}h</td>
