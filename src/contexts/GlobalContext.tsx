@@ -8,13 +8,17 @@ interface GlobalContextType {
   users: any[];
   tasks: any[];
   notifications: any[];
+  authLoading: boolean;
+  currentUser: any;
 }
 
 const GlobalContext = createContext<GlobalContextType>({
   clients: [],
   users: [],
   tasks: [],
-  notifications: []
+  notifications: [],
+  authLoading: true,
+  currentUser: null
 });
 
 export const useGlobalContext = () => useContext(GlobalContext);
@@ -24,6 +28,8 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
   const [users, setUsers] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   
   useEffect(() => {
     let unsubClients: (() => void) | null = null;
@@ -31,6 +37,9 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
     let unsubTasks: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, user => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+
       if (unsubClients) unsubClients();
       if (unsubUsers) unsubUsers();
       if (unsubTasks) unsubTasks();
@@ -38,15 +47,21 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
       if (user) {
         unsubClients = onSnapshot(collection(db, 'clients'), snapshot => {
           setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, error => handleFirestoreError(error, OperationType.GET, 'clients'));
+        }, error => {
+          if (auth.currentUser) handleFirestoreError(error, OperationType.GET, 'clients');
+        });
 
         unsubUsers = onSnapshot(collection(db, 'users'), snapshot => {
           setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, error => handleFirestoreError(error, OperationType.GET, 'users'));
+        }, error => {
+          if (auth.currentUser) handleFirestoreError(error, OperationType.GET, 'users');
+        });
 
         unsubTasks = onSnapshot(collection(db, 'tasks'), snapshot => {
           setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, error => handleFirestoreError(error, OperationType.GET, 'tasks'));
+        }, error => {
+          if (auth.currentUser) handleFirestoreError(error, OperationType.GET, 'tasks');
+        });
       } else {
         setClients([]);
         setUsers([]);
@@ -63,7 +78,7 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
   }, []);
 
   return (
-    <GlobalContext.Provider value={{ clients, users, tasks, notifications }}>
+    <GlobalContext.Provider value={{ clients, users, tasks, notifications, authLoading, currentUser }}>
       {children}
     </GlobalContext.Provider>
   );
