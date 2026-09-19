@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Rajdhani", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Orbitron", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-cyber-dark: #05070A;
+  --color-cyber-glass: rgba(5, 7, 10, 0.85);
+  --color-cyber-border: rgba(0, 240, 255, 0.2);
+}
+
+@layer base {
+  body {
+    @apply bg-cyber-dark text-gray-400;
+    background-image: radial-gradient(rgba(31, 41, 55, 0.2) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply bg-cyber-glass backdrop-blur-xl border border-cyber-border shadow-2xl;
+  }
+  
+  .glow-emerald {
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+  }
+
+  .glow-amber {
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.4));
+  }
+
+  .glow-crimson {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+  }
+}
+
+@layer base {
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 15s ease infinite;
+}
