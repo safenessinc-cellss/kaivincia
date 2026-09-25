@@ -1,11 +1,12 @@
+cat > ~/Desktop/remix-kaivincia-corp-crm/src/firebase.ts << 'EOF'
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = (firebaseConfig as any).firestoreDatabaseId 
+export const db = (firebaseConfig as any).firestoreDatabaseId
   ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
   : getFirestore(app);
 export const auth = getAuth(app);
@@ -21,6 +22,20 @@ try {
   }
 }
 export const storage = storageInstance!;
+
+// Test connection SILENCIOSO — solo avisa si hay auth
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    // Solo advertir si hay sesión activa (problema real)
+    if (auth.currentUser) {
+      console.warn("[Firestore] Connection check:", error instanceof Error ? error.message : String(error));
+    }
+    // Si NO hay sesión, es un estado transitorio esperado, no mostrar nada
+  }
+}
+testConnection();
 
 export enum OperationType {
   CREATE = 'create',
@@ -77,10 +92,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  
+
   // Do not throw for read/listen subscriptions (GET/LIST) to prevent crashing the React UI.
   // Throw for mutations (CREATE/UPDATE/DELETE/WRITE) so they can be caught by the action UI.
   if (operationType !== OperationType.GET && operationType !== OperationType.LIST) {
     throw new Error(JSON.stringify(errInfo));
   }
 }
+EOF
