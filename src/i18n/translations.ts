@@ -467,7 +467,35 @@ export const translations: Record<Language, Record<string, any>> = {
         high_contrast: 'Modo Alto Contraste',
         color_blind_mode: 'Filtro de Daltonismo',
         reduce_motion: 'Reducir Movimiento (Motion Safe)'
-      }
+      },
+      // Categorías
+      darkPresets: 'Temas Oscuros',
+      lightPresets: 'Temas Claros',
+      vibrantPresets: 'Temas Vibrantes',
+      neutralPresets: 'Temas Neutros',
+      // Modo
+      autoMode: 'Auto (SO)',
+      forceLight: 'Forzar Claro',
+      forceDark: 'Forzar Oscuro',
+      systemPreference: 'Preferencia del Sistema',
+      // Acciones
+      randomPalette: 'Paleta Aleatoria',
+      saveAsPreset: 'Guardar como preset',
+      myPresets: 'Mis Presets',
+      deletePreset: 'Eliminar preset',
+      presetName: 'Nombre del preset',
+      resetColors: 'Resetear colores',
+      // Sliders
+      surfaceOpacity: 'Opacidad de Superficies',
+      borderIntensity: 'Intensidad de Bordes',
+      textContrast: 'Contraste de Texto',
+      // Vista previa
+      livePreview: 'Vista Previa en Vivo',
+      previewBackground: 'Fondo de pantalla',
+      previewCard: 'Tarjeta y superficie',
+      previewButton: 'Botón de acción',
+      previewSidebar: 'Barra lateral',
+      previewHeader: 'Cabecera superior'
     }
   },
 
@@ -924,7 +952,35 @@ export const translations: Record<Language, Record<string, any>> = {
         high_contrast: 'High Contrast Mode',
         color_blind_mode: 'Color Blindness Filter',
         reduce_motion: 'Reduce Motion (Motion Safe)'
-      }
+      },
+      // Categories
+      darkPresets: 'Dark Themes',
+      lightPresets: 'Light Themes',
+      vibrantPresets: 'Vibrant Themes',
+      neutralPresets: 'Neutral Themes',
+      // Mode
+      autoMode: 'Auto (OS)',
+      forceLight: 'Force Light',
+      forceDark: 'Force Dark',
+      systemPreference: 'System Preference',
+      // Actions
+      randomPalette: 'Random Palette',
+      saveAsPreset: 'Save as preset',
+      myPresets: 'My Presets',
+      deletePreset: 'Delete preset',
+      presetName: 'Preset name',
+      resetColors: 'Reset colors',
+      // Sliders
+      surfaceOpacity: 'Surface Opacity',
+      borderIntensity: 'Border Intensity',
+      textContrast: 'Text Contrast',
+      // Preview
+      livePreview: 'Live Preview',
+      previewBackground: 'Background',
+      previewCard: 'Card & Surface',
+      previewButton: 'Action Button',
+      previewSidebar: 'Sidebar',
+      previewHeader: 'Top Header'
     }
   },
 
@@ -1381,7 +1437,35 @@ export const translations: Record<Language, Record<string, any>> = {
         high_contrast: 'Modo Alto Contraste',
         color_blind_mode: 'Filtro para Daltonismo',
         reduce_motion: 'Reduzir Movimento (Motion Safe)'
-      }
+      },
+      // Categorias
+      darkPresets: 'Temas Escuros',
+      lightPresets: 'Temas Claros',
+      vibrantPresets: 'Temas Vibrantes',
+      neutralPresets: 'Temas Neutros',
+      // Modo
+      autoMode: 'Auto (SO)',
+      forceLight: 'Forçar Claro',
+      forceDark: 'Forçar Escuro',
+      systemPreference: 'Preferência do Sistema',
+      // Ações
+      randomPalette: 'Paleta Aleatória',
+      saveAsPreset: 'Salvar como preset',
+      myPresets: 'Meus Presets',
+      deletePreset: 'Excluir preset',
+      presetName: 'Nome do preset',
+      resetColors: 'Redefinir cores',
+      // Sliders
+      surfaceOpacity: 'Opacidade de Superfícies',
+      borderIntensity: 'Intensidade de Bordas',
+      textContrast: 'Contraste de Texto',
+      // Pré-visualização
+      livePreview: 'Pré-visualização ao Vivo',
+      previewBackground: 'Plano de Fundo',
+      previewCard: 'Cartão e Superfície',
+      previewButton: 'Botão de Ação',
+      previewSidebar: 'Barra Lateral',
+      previewHeader: 'Cabeçalho Superior'
     }
   }
 };

@@ -12,13 +12,18 @@ import {
   Sliders, 
   ShieldAlert, 
   CheckCircle2, 
-  Info,
+  Dices,
+  Sun,
+  Moon,
+  Laptop,
+  BookmarkPlus,
+  Trash2,
   SlidersHorizontal,
-  MoveHorizontal,
   Contrast,
   Zap,
   Activity,
-  Maximize2
+  Layers2,
+  X
 } from 'lucide-react';
 import { useAppearance } from '../../contexts/AppearanceContext';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -26,7 +31,11 @@ import {
   AppearanceConfig, 
   AVAILABLE_FONTS, 
   APPEARANCE_PRESETS,
-  getContrastRatio 
+  PresetCategory,
+  QUICK_SWATCHES,
+  generateHarmoniousPalette,
+  getContrastRatio,
+  getLuminance 
 } from '../../services/appearanceService';
 
 export default function AppearancePanel() {
@@ -37,15 +46,21 @@ export default function AppearancePanel() {
     setPreviewAppearance, 
     updateAppearance, 
     resetAppearance, 
+    saveCustomPreset,
+    deleteCustomPreset,
     canEditAppearance,
-    presets 
+    presets,
+    systemPrefersDark
   } = useAppearance();
 
-  const [activeTab, setActiveTab] = useState<'typography' | 'colors' | 'menu' | 'components' | 'accessibility'>('colors');
+  const [activeTab, setActiveTab] = useState<'colors' | 'typography' | 'menu' | 'components' | 'accessibility' | 'advanced'>('colors');
+  const [selectedCategory, setSelectedCategory] = useState<PresetCategory | 'all' | 'custom'>('all');
   const [localConfig, setLocalConfig] = useState<AppearanceConfig>(appearance);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+  const [customPresetName, setCustomPresetName] = useState('');
 
   // Sincronizar estado local cuando cambia la apariencia en Firestore
   useEffect(() => {
@@ -60,7 +75,8 @@ export default function AppearancePanel() {
       fonts: { ...localConfig.fonts, ...(partial.fonts || {}) },
       colors: { ...localConfig.colors, ...(partial.colors || {}) },
       layout: { ...localConfig.layout, ...(partial.layout || {}) },
-      accessibility: { ...localConfig.accessibility, ...(partial.accessibility || {}) }
+      accessibility: { ...localConfig.accessibility, ...(partial.accessibility || {}) },
+      advanced: { ...(localConfig.advanced || appearance.advanced), ...(partial.advanced || {}) }
     };
     setLocalConfig(updated);
     setPreviewAppearance(updated);
@@ -68,12 +84,45 @@ export default function AppearancePanel() {
 
   const handleApplyPreset = (presetKey: string) => {
     const selectedPreset = presets[presetKey];
-    if (!selectedPreset) return;
+    if (selectedPreset) {
+      handleConfigChange({
+        preset: presetKey,
+        colors: { ...selectedPreset.colors }
+      });
+      return;
+    }
 
+    const custom = (localConfig.customPresets || []).find(p => p.id === presetKey);
+    if (custom) {
+      handleConfigChange({
+        preset: presetKey,
+        colors: { ...custom.colors }
+      });
+    }
+  };
+
+  // Generador aleatorio de paletas
+  const handleRandomizePalette = () => {
+    const isLightMode = localConfig.advanced?.colorMode === 'light' || (!systemPrefersDark && localConfig.advanced?.colorMode === 'auto');
+    const randomColors = generateHarmoniousPalette(isLightMode);
     handleConfigChange({
-      preset: presetKey,
-      colors: { ...selectedPreset.colors }
+      colors: randomColors,
+      preset: 'custom'
     });
+  };
+
+  // Guardar preset personalizado
+  const handleConfirmSavePreset = async () => {
+    if (!customPresetName.trim()) return;
+    try {
+      await saveCustomPreset(customPresetName.trim(), localConfig.colors);
+      setShowSavePresetModal(false);
+      setCustomPresetName('');
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      console.error('Error saving custom preset:', err);
+    }
   };
 
   const handleSave = async () => {
@@ -115,6 +164,14 @@ export default function AppearancePanel() {
   const secondaryOnSurfaceRatio = getContrastRatio(localConfig.colors.textSecondary, localConfig.colors.surface);
   const primaryOnBgRatio = getContrastRatio(localConfig.colors.primary, localConfig.colors.background);
 
+  // Filtrar presets por categoría
+  const filteredPresets = Object.entries(presets).filter(([_key, p]) => {
+    if (selectedCategory === 'all') return true;
+    return p.category === selectedCategory;
+  });
+
+  const customPresetsList = localConfig.customPresets || [];
+
   if (!canEditAppearance) {
     return (
       <div className="max-w-4xl mx-auto p-6 sm:p-12 text-center">
@@ -154,8 +211,30 @@ export default function AppearancePanel() {
           </div>
         </div>
 
-        {/* Acciones Globales: Guardar y Restablecer */}
+        {/* Acciones Globales: Guardar como Preset, Guardar y Restablecer */}
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Botón Guardar como Preset */}
+          <button
+            type="button"
+            onClick={() => setShowSavePresetModal(true)}
+            className="px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-cyan-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Guardar combinación actual como nuevo preset personalizado"
+          >
+            <BookmarkPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('appearance.save_as_preset', 'Guardar como preset')}</span>
+          </button>
+
+          {/* Botón Aleatorio */}
+          <button
+            type="button"
+            onClick={handleRandomizePalette}
+            className="px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            title="Generar paleta armónica aleatoria"
+          >
+            <Dices className="w-4 h-4" />
+            <span className="hidden sm:inline">{t('appearance.randomize', 'Aleatorio')}</span>
+          </button>
+
           {hasUnsavedChanges && (
             <button
               type="button"
@@ -194,52 +273,206 @@ export default function AppearancePanel() {
         </div>
       </div>
 
-      {/* Selector de Presets de Tema Rápido */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-6 backdrop-blur-xl">
-        <div className="flex items-center justify-between mb-3">
+      {/* Control de Modo Claro / Oscuro / Auto */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-5 backdrop-blur-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-2">
+            <span>{t('appearance.mode_title', 'Modo de Luminosidad Global')}</span>
+            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/40 px-2 py-0.5 rounded-full border border-cyan-500/20">
+              {localConfig.advanced?.colorMode === 'auto' ? 'Auto (SO)' : (localConfig.advanced?.colorMode === 'light' ? 'Claro' : 'Oscuro')}
+            </span>
+          </h3>
+          <p className="text-[11px] text-slate-400 mt-0.5">
+            {t('appearance.mode_desc', 'Selecciona si la plataforma adapta el tema automáticamente según el sistema operativo o fuerza un modo.')}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800">
+          <button
+            type="button"
+            onClick={() => handleConfigChange({ advanced: { ...(localConfig.advanced || {}), colorMode: 'auto' } as any })}
+            className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              localConfig.advanced?.colorMode === 'auto'
+                ? 'bg-cyan-500 text-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Laptop className="w-3.5 h-3.5" />
+            <span>Auto</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              handleConfigChange({
+                advanced: { ...(localConfig.advanced || {}), colorMode: 'light' } as any,
+                preset: 'pure-white',
+                colors: APPEARANCE_PRESETS['pure-white'].colors
+              });
+            }}
+            className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              localConfig.advanced?.colorMode === 'light'
+                ? 'bg-amber-400 text-black shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" />
+            <span>{t('appearance.mode_light', 'Forzar Claro')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              handleConfigChange({
+                advanced: { ...(localConfig.advanced || {}), colorMode: 'dark' } as any,
+                preset: 'kaivincia-cyan',
+                colors: APPEARANCE_PRESETS['kaivincia-cyan'].colors
+              });
+            }}
+            className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              localConfig.advanced?.colorMode === 'dark'
+                ? 'bg-indigo-500 text-white shadow-md'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Moon className="w-3.5 h-3.5" />
+            <span>{t('appearance.mode_dark', 'Forzar Oscuro')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Selector de Presets de Tema Agrupado por Categorías */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-4 sm:p-6 backdrop-blur-xl space-y-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-400" />
             <h3 className="text-xs font-black uppercase text-white tracking-wider">
-              {t('appearance.presets', 'Presets de Tema Predefinidos')}
+              {t('appearance.presets', 'Galería de Temas y Presets')}
             </h3>
           </div>
-          <span className="text-[10px] text-slate-400 font-mono">
-            {localConfig.preset ? `Activo: ${localConfig.preset}` : 'Personalizado'}
-          </span>
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {Object.entries(presets).map(([key, preset]) => {
-            const isSelected = localConfig.preset === key;
-            return (
+          {/* Filtros de Categoría */}
+          <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
+            {[
+              { id: 'all', label: t('common.all', 'Todos') },
+              { id: 'light', label: `☀️ ${t('appearance.cat_light', 'Claros')} (${Object.values(presets).filter(p => p.category === 'light').length})` },
+              { id: 'dark', label: `🌙 ${t('appearance.cat_dark', 'Oscuros')} (${Object.values(presets).filter(p => p.category === 'dark').length})` },
+              { id: 'neutral', label: `🏛️ ${t('appearance.cat_neutral', 'Neutros')} (${Object.values(presets).filter(p => p.category === 'neutral').length})` },
+              { id: 'vibrant', label: `⚡ ${t('appearance.cat_vibrant', 'Vibrantes')} (${Object.values(presets).filter(p => p.category === 'vibrant').length})` },
+              { id: 'custom', label: `⭐ ${t('appearance.cat_custom', 'Mis Presets')} (${customPresetsList.length})` }
+            ].map(cat => (
               <button
-                key={key}
+                key={cat.id}
                 type="button"
-                onClick={() => handleApplyPreset(key)}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer group relative overflow-hidden ${
-                  isSelected 
-                    ? 'border-cyan-400 bg-cyan-950/20 shadow-[0_0_15px_rgba(0,240,255,0.2)]' 
-                    : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900'
+                onClick={() => setSelectedCategory(cat.id as any)}
+                className={`py-1 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  selectedCategory === cat.id
+                    ? 'bg-cyan-500 text-black shadow-sm'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-bold text-xs text-white group-hover:text-cyan-300 transition-colors">
-                    {preset.name}
-                  </span>
-                  {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400" />}
-                </div>
-
-                {/* Muestras de Color */}
-                <div className="flex items-center gap-1.5">
-                  <span className="w-4 h-4 rounded-full border border-black/40 shadow-sm" style={{ backgroundColor: preset.colors.primary }} title="Primario" />
-                  <span className="w-4 h-4 rounded-full border border-black/40 shadow-sm" style={{ backgroundColor: preset.colors.background }} title="Fondo" />
-                  <span className="w-4 h-4 rounded-full border border-black/40 shadow-sm" style={{ backgroundColor: preset.colors.surface }} title="Superficie" />
-                  <span className="w-4 h-4 rounded-full border border-black/40 shadow-sm" style={{ backgroundColor: preset.colors.secondary }} title="Secundario" />
-                </div>
+                {cat.label}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
+
+        {/* Grilla de Presets Oficiales */}
+        {selectedCategory !== 'custom' && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {filteredPresets.map(([key, preset]) => {
+              const isSelected = localConfig.preset === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleApplyPreset(key)}
+                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer group relative overflow-hidden flex flex-col justify-between min-h-[92px] ${
+                    isSelected 
+                      ? 'border-cyan-400 bg-cyan-950/20 shadow-[0_0_15px_rgba(0,240,255,0.2)] ring-1 ring-cyan-400' 
+                      : 'border-slate-800 bg-slate-950/60 hover:border-slate-700 hover:bg-slate-900'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs text-white group-hover:text-cyan-300 transition-colors truncate">
+                        {preset.name}
+                      </span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-cyan-400 shrink-0" />}
+                    </div>
+                    <span className="text-[9px] uppercase tracking-wider text-slate-500 block truncate font-mono">
+                      {preset.category}
+                    </span>
+                  </div>
+
+                  {/* Muestras de Color */}
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <span className="w-4 h-4 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.colors.primary }} title="Primario" />
+                    <span className="w-4 h-4 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.colors.background }} title="Fondo" />
+                    <span className="w-4 h-4 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.colors.surface }} title="Superficie" />
+                    <span className="w-4 h-4 rounded-full border border-black/30 shadow-sm" style={{ backgroundColor: preset.colors.secondary }} title="Secundario" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Sección: Mis Presets Personalizados */}
+        {(selectedCategory === 'custom' || selectedCategory === 'all') && customPresetsList.length > 0 && (
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            <h4 className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span>⭐ Presets Personalizados Creados por Administradores</span>
+            </h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {customPresetsList.map(custom => {
+                const isSelected = localConfig.preset === custom.id;
+                return (
+                  <div
+                    key={custom.id}
+                    className={`p-3 rounded-2xl border text-left transition-all relative group flex flex-col justify-between min-h-[92px] ${
+                      isSelected 
+                        ? 'border-cyan-400 bg-cyan-950/20 shadow-[0_0_15px_rgba(0,240,255,0.2)]' 
+                        : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                    }`}
+                  >
+                    <div 
+                      onClick={() => handleApplyPreset(custom.id)}
+                      className="cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-xs text-white truncate max-w-[100px]">
+                          {custom.name}
+                        </span>
+                        {isSelected && <Check className="w-3 h-3 text-cyan-400" />}
+                      </div>
+                      <span className="text-[9px] text-slate-500 font-mono">Personalizado</span>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1">
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/30" style={{ backgroundColor: custom.colors.primary }} />
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/30" style={{ backgroundColor: custom.colors.background }} />
+                        <span className="w-3.5 h-3.5 rounded-full border border-black/30" style={{ backgroundColor: custom.colors.surface }} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteCustomPreset(custom.id);
+                        }}
+                        className="text-slate-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                        title="Eliminar preset"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid Principal: Pestañas de Edición a la Izquierda y Mockup Interactivo a la Derecha */}
@@ -250,6 +483,7 @@ export default function AppearancePanel() {
           <div className="flex items-center gap-1 bg-slate-900 p-1.5 rounded-2xl border border-slate-800 overflow-x-auto scrollbar-none">
             {[
               { id: 'colors', label: t('appearance.tab.colors', 'Colores'), icon: Palette },
+              { id: 'advanced', label: t('appearance.tab.advanced', 'Ajustes de Color & Superficie'), icon: SlidersHorizontal },
               { id: 'typography', label: t('appearance.tab.typography', 'Tipografía'), icon: Type },
               { id: 'menu', label: t('appearance.tab.menu', 'Menú / Sidebar'), icon: Layout },
               { id: 'components', label: t('appearance.tab.components', 'Componentes'), icon: Layers },
@@ -280,13 +514,23 @@ export default function AppearancePanel() {
             {/* PESTAÑA 1: COLORES */}
             {activeTab === 'colors' && (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-black uppercase text-white tracking-wider mb-1">
-                    {t('appearance.colors.title', 'Paleta Cromática Corporativa')}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {t('appearance.colors.desc', 'Configura los colores hexadecimales aplicados globalmente a través de variables CSS.')}
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-white tracking-wider mb-1">
+                      {t('appearance.colors.title', 'Paleta Cromática Corporativa')}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {t('appearance.colors.desc', 'Configura los colores hexadecimales aplicados globalmente a través de variables CSS.')}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRandomizePalette}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <Dices className="w-3.5 h-3.5" />
+                    <span>Aleatorio</span>
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -302,7 +546,7 @@ export default function AppearancePanel() {
                     { key: 'sidebarActive', label: t('appearance.colors.sidebar_active', 'Ítem Activo en Sidebar'), val: localConfig.colors.sidebarActive },
                     { key: 'headerBg', label: t('appearance.colors.header_bg', 'Fondo de Encabezado Superior'), val: localConfig.colors.headerBg }
                   ].map(colorField => (
-                    <div key={colorField.key} className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2">
+                    <div key={colorField.key} className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800/80 space-y-2.5">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-slate-300 truncate max-w-[200px]">
                           {colorField.label}
@@ -311,6 +555,7 @@ export default function AppearancePanel() {
                           {colorField.val}
                         </span>
                       </div>
+
                       <div className="flex items-center gap-2">
                         {/* Selector de color nativo */}
                         <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-slate-700 shrink-0 shadow-inner">
@@ -335,6 +580,53 @@ export default function AppearancePanel() {
                           maxLength={7}
                           className="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-white uppercase focus:border-cyan-500 focus:outline-none"
                         />
+                      </div>
+
+                      {/* Paleta rápida de swatches para este campo */}
+                      <div className="flex items-center gap-1.5 pt-1 overflow-x-auto scrollbar-none">
+                        <span className="text-[9px] text-slate-500 font-mono mr-1">Rápidos:</span>
+                        {/* Muestras claras */}
+                        {QUICK_SWATCHES.light.slice(0, 3).map(hex => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => handleConfigChange({
+                              colors: { ...localConfig.colors, [colorField.key]: hex },
+                              preset: 'custom'
+                            })}
+                            className="w-4 h-4 rounded-full border border-slate-600 shrink-0 hover:scale-125 transition-transform"
+                            style={{ backgroundColor: hex }}
+                            title={`Aplicar ${hex}`}
+                          />
+                        ))}
+                        {/* Muestras oscuras */}
+                        {QUICK_SWATCHES.dark.slice(0, 3).map(hex => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => handleConfigChange({
+                              colors: { ...localConfig.colors, [colorField.key]: hex },
+                              preset: 'custom'
+                            })}
+                            className="w-4 h-4 rounded-full border border-slate-600 shrink-0 hover:scale-125 transition-transform"
+                            style={{ backgroundColor: hex }}
+                            title={`Aplicar ${hex}`}
+                          />
+                        ))}
+                        {/* Muestra vibrante */}
+                        {QUICK_SWATCHES.vibrant.slice(0, 3).map(hex => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => handleConfigChange({
+                              colors: { ...localConfig.colors, [colorField.key]: hex },
+                              preset: 'custom'
+                            })}
+                            className="w-4 h-4 rounded-full border border-slate-600 shrink-0 hover:scale-125 transition-transform"
+                            style={{ backgroundColor: hex }}
+                            title={`Aplicar ${hex}`}
+                          />
+                        ))}
                       </div>
                     </div>
                   ))}
@@ -364,6 +656,100 @@ export default function AppearancePanel() {
                       <span className={`font-mono font-bold ${primaryOnBgRatio >= 3.0 ? 'text-emerald-400' : 'text-amber-400'}`}>
                         {primaryOnBgRatio}:1 {primaryOnBgRatio >= 3.0 ? '✓ AA' : '⚠'}
                       </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PESTAÑA NUEVA: AJUSTES AVANZADOS DE COLOR & SUPERFICIE */}
+            {activeTab === 'advanced' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-black uppercase text-white tracking-wider mb-1">
+                    {t('appearance.advanced.title', 'Ajustes Avanzados de Superficie y Contraste')}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {t('appearance.advanced.desc', 'Controla la transparencia de paneles de cristal, intensidad de bordes y contraste dinámico.')}
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Opacidad de Superficies (50% a 100%) */}
+                  <div className="space-y-2 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                      <span>{t('appearance.advanced.surface_opacity', 'Opacidad de Superficies (Glassmorphism)')}</span>
+                      <span className="font-mono text-cyan-400 text-sm">
+                        {localConfig.advanced?.surfaceOpacity ?? 100}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={100}
+                      step={5}
+                      value={localConfig.advanced?.surfaceOpacity ?? 100}
+                      onChange={(e) => handleConfigChange({
+                        advanced: { ...(localConfig.advanced || {}), surfaceOpacity: Number(e.target.value) } as any
+                      })}
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                      <span>50% (Transparente)</span>
+                      <span>75% (Translúcido)</span>
+                      <span>100% (Sólido Opaco)</span>
+                    </div>
+                  </div>
+
+                  {/* Intensidad de Bordes (0% a 100%) */}
+                  <div className="space-y-2 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                      <span>{t('appearance.advanced.border_intensity', 'Intensidad de Bordes')}</span>
+                      <span className="font-mono text-cyan-400 text-sm">
+                        {localConfig.advanced?.borderIntensity ?? 100}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={10}
+                      value={localConfig.advanced?.borderIntensity ?? 100}
+                      onChange={(e) => handleConfigChange({
+                        advanced: { ...(localConfig.advanced || {}), borderIntensity: Number(e.target.value) } as any
+                      })}
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                      <span>0% (Sin bordes)</span>
+                      <span>50% (Sutil)</span>
+                      <span>100% (Marcado)</span>
+                    </div>
+                  </div>
+
+                  {/* Contraste de Texto (0% a 100%) */}
+                  <div className="space-y-2 p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-300">
+                      <span>{t('appearance.advanced.text_contrast', 'Contraste Tipográfico Adicional')}</span>
+                      <span className="font-mono text-cyan-400 text-sm">
+                        {localConfig.advanced?.textContrast ?? 100}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={100}
+                      step={5}
+                      value={localConfig.advanced?.textContrast ?? 100}
+                      onChange={(e) => handleConfigChange({
+                        advanced: { ...(localConfig.advanced || {}), textContrast: Number(e.target.value) } as any
+                      })}
+                      className="w-full accent-cyan-400 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-slate-500 font-mono">
+                      <span>50% (Suave)</span>
+                      <span>80% (Estándar)</span>
+                      <span>100% (Ultra Contraste)</span>
                     </div>
                   </div>
                 </div>
@@ -482,7 +868,6 @@ export default function AppearancePanel() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Tamaño del Sidebar */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-300">
                       {t('appearance.layout.sidebar_size', 'Ancho de Barra Lateral')}
@@ -500,7 +885,6 @@ export default function AppearancePanel() {
                     </select>
                   </div>
 
-                  {/* Posición del Sidebar */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-300">
                       {t('appearance.layout.sidebar_position', 'Posición del Menú')}
@@ -517,7 +901,6 @@ export default function AppearancePanel() {
                     </select>
                   </div>
 
-                  {/* Sidebar Colapsable */}
                   <div className="space-y-1.5 sm:col-span-2">
                     <label className="text-xs font-bold text-slate-300">
                       {t('appearance.layout.sidebar_collapsible', 'Comportamiento de Colapso')}
@@ -576,7 +959,6 @@ export default function AppearancePanel() {
                     </div>
                   </div>
 
-                  {/* Sombras y Densidad */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-300">
@@ -708,11 +1090,11 @@ export default function AppearancePanel() {
               <span>{t('appearance.preview.title', 'Vista Previa en Vivo')}</span>
             </div>
             <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded-md">
-              Interactivo
+              En Vivo
             </span>
           </div>
 
-          {/* Caja del Mockup */}
+          {/* Caja del Mockup Mejorada */}
           <div 
             className="rounded-3xl border border-slate-800 overflow-hidden shadow-2xl transition-all"
             style={{ 
@@ -721,7 +1103,7 @@ export default function AppearancePanel() {
               fontSize: `${localConfig.fonts.baseSize}px`
             }}
           >
-            {/* Barra de Título Simulada */}
+            {/* Header / Barra Superior Simulada */}
             <div 
               className="px-4 py-3 border-b flex items-center justify-between"
               style={{ 
@@ -737,13 +1119,18 @@ export default function AppearancePanel() {
                   Kaivincia OS
                 </span>
               </div>
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: localConfig.colors.primary, color: '#000000' }}>
-                K
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold" style={{ backgroundColor: `${localConfig.colors.primary}20`, color: localConfig.colors.primary }}>
+                  CRM Live
+                </span>
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: localConfig.colors.primary, color: '#000000' }}>
+                  K
+                </div>
               </div>
             </div>
 
             {/* Layout Interno: Sidebar + Contenido */}
-            <div className={`flex ${localConfig.layout.sidebarPosition === 'right' ? 'flex-row-reverse' : 'flex-row'} min-h-[360px]`}>
+            <div className={`flex ${localConfig.layout.sidebarPosition === 'right' ? 'flex-row-reverse' : 'flex-row'} min-h-[380px]`}>
               {/* Sidebar Mockup */}
               <div 
                 className="p-3 border-r flex flex-col justify-between"
@@ -757,7 +1144,7 @@ export default function AppearancePanel() {
                   <div 
                     className="p-1.5 rounded-lg flex items-center gap-2 font-bold text-[11px]"
                     style={{ 
-                      backgroundColor: `${localConfig.colors.primary}20`,
+                      backgroundColor: `${localConfig.colors.primary}25`,
                       color: localConfig.colors.sidebarActive
                     }}
                   >
@@ -781,23 +1168,24 @@ export default function AppearancePanel() {
                 </div>
 
                 <div 
-                  className="text-[9px] truncate"
+                  className="text-[9px] truncate font-mono"
                   style={{ color: localConfig.colors.textSecondary }}
                 >
-                  v2.6 Live
+                  v2.6 OS
                 </div>
               </div>
 
-              {/* Contenido Principal Mockup */}
+              {/* Contenido Principal Mockup con Fondo y Superficies */}
               <div className="flex-1 p-4 space-y-3">
-                {/* Tarjeta de Métricas */}
+                {/* Tarjeta de Métricas con Opacidad Ajustable */}
                 <div 
                   className="p-3.5 border transition-all"
                   style={{ 
                     backgroundColor: localConfig.colors.surface,
+                    opacity: (localConfig.advanced?.surfaceOpacity ?? 100) / 100,
                     borderColor: localConfig.colors.secondary,
                     borderRadius: `${localConfig.layout.borderRadius}px`,
-                    boxShadow: localConfig.layout.cardShadow === 'strong' ? '0 10px 15px -3px rgba(0,0,0,0.5)' : 'none'
+                    boxShadow: localConfig.layout.cardShadow === 'strong' ? '0 10px 15px -3px rgba(0,0,0,0.5)' : (localConfig.layout.cardShadow === 'subtle' ? '0 1px 3px rgba(0,0,0,0.2)' : 'none')
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -819,14 +1207,14 @@ export default function AppearancePanel() {
                   </div>
                 </div>
 
-                {/* Botones de Demostración */}
+                {/* Botón Primario y Secundario */}
                 <div className="space-y-2">
                   <button
                     type="button"
                     className="w-full py-2 px-3 font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-md"
                     style={{ 
                       backgroundColor: localConfig.colors.primary, 
-                      color: '#000000',
+                      color: getLuminance(localConfig.colors.primary) > 0.4 ? '#000000' : '#ffffff',
                       borderRadius: `${Math.min(localConfig.layout.borderRadius, 14)}px`
                     }}
                   >
@@ -847,25 +1235,84 @@ export default function AppearancePanel() {
                   </button>
                 </div>
 
-                {/* Muestra de Tipografía */}
+                {/* Muestra de Tipografía y Superficie */}
                 <div 
                   className="p-2.5 rounded-xl border text-[11px] space-y-1"
                   style={{ 
                     backgroundColor: localConfig.colors.surface,
                     borderColor: localConfig.colors.secondary,
-                    color: localConfig.colors.textSecondary
+                    color: localConfig.colors.textSecondary,
+                    borderRadius: `${localConfig.layout.borderRadius}px`
                   }}
                 >
                   <p className="font-bold" style={{ color: localConfig.colors.textPrimary }}>
                     Familia: {localConfig.fonts.family}
                   </p>
-                  <p>Texto legible con escala {localConfig.fonts.headingScale} y peso {localConfig.fonts.weight}.</p>
+                  <p>Superficie clara/oscura con contraste {localConfig.fonts.weight} y escala {localConfig.fonts.headingScale}.</p>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modal: Guardar como Preset Personalizado */}
+      {showSavePresetModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <BookmarkPlus className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-base font-bold text-white uppercase tracking-tight">
+                  Guardar como Preset
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSavePresetModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Guarda la combinación actual de colores de fondo, superficie, acentos y barra lateral en tu galería de presets personalizados.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-300">
+                Nombre del Preset
+              </label>
+              <input
+                type="text"
+                placeholder="Ej. Mi Tema Corporativo Claro"
+                value={customPresetName}
+                onChange={(e) => setCustomPresetName(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:border-cyan-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSavePresetModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all cursor-pointer"
+              >
+                {t('common.cancel', 'Cancelar')}
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSavePreset}
+                disabled={!customPresetName.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-lg disabled:opacity-40"
+              >
+                Guardar Preset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Confirmación para Restablecer */}
       {showResetConfirm && (

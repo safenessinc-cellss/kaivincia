@@ -7,6 +7,8 @@ import {
   DEFAULT_APPEARANCE, 
   AVAILABLE_FONTS, 
   APPEARANCE_PRESETS,
+  AppearanceColors,
+  CustomPreset,
   saveAppearance as saveAppearanceService,
   resetAppearance as resetAppearanceService 
 } from '../services/appearanceService';
@@ -18,9 +20,12 @@ interface AppearanceContextType {
   updateAppearance: (config: Partial<AppearanceConfig>) => Promise<void>;
   resetAppearance: () => Promise<void>;
   applyPreset: (presetKey: string) => Promise<void>;
+  saveCustomPreset: (name: string, colors: AppearanceColors) => Promise<void>;
+  deleteCustomPreset: (id: string) => Promise<void>;
   loading: boolean;
   canEditAppearance: boolean;
   presets: typeof APPEARANCE_PRESETS;
+  systemPrefersDark: boolean;
 }
 
 const AppearanceContext = createContext<AppearanceContextType | undefined>(undefined);
@@ -82,7 +87,13 @@ function applyCssVariablesToRoot(config: AppearanceConfig) {
   root.style.setProperty('--color-sidebar-active', config.colors.sidebarActive);
   root.style.setProperty('--color-header-bg', config.colors.headerBg);
 
-  // 3. Menú y Layout
+  // 3. Ajustes avanzados de color y superficie
+  const opacity = (config.advanced?.surfaceOpacity ?? 100) / 100;
+  const borderIntensity = (config.advanced?.borderIntensity ?? 100) / 100;
+  root.style.setProperty('--surface-opacity', String(opacity));
+  root.style.setProperty('--border-intensity', String(borderIntensity));
+
+  // 4. Menú y Layout
   const sidebarWidths: Record<string, string> = {
     compact: '64px',
     normal: '256px',
@@ -108,7 +119,7 @@ function applyCssVariablesToRoot(config: AppearanceConfig) {
   };
   root.style.setProperty('--density-padding', densityPaddings[config.layout.density] || '1rem');
 
-  // 4. Accesibilidad (Clases globales)
+  // 5. Accesibilidad (Clases globales)
   if (config.accessibility.highContrast) {
     root.classList.add('high-contrast');
   } else {
@@ -131,7 +142,24 @@ function applyCssVariablesToRoot(config: AppearanceConfig) {
 export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   
-  // Cargar estado inicial desde localStorage si existe
+  // Detección en tiempo real de preferencia de SO (dark vs light)
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => {
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return true;
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemPrefersDark(e.matches);
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
   const [appearance, setAppearance] = useState<AppearanceConfig>(() => {
     try {
       const cached = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -143,7 +171,9 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           fonts: { ...DEFAULT_APPEARANCE.fonts, ...(parsed.fonts || {}) },
           colors: { ...DEFAULT_APPEARANCE.colors, ...(parsed.colors || {}) },
           layout: { ...DEFAULT_APPEARANCE.layout, ...(parsed.layout || {}) },
-          accessibility: { ...DEFAULT_APPEARANCE.accessibility, ...(parsed.accessibility || {}) }
+          accessibility: { ...DEFAULT_APPEARANCE.accessibility, ...(parsed.accessibility || {}) },
+          advanced: { ...DEFAULT_APPEARANCE.advanced, ...(parsed.advanced || {}) },
+          customPresets: parsed.customPresets || []
         };
       }
     } catch {}
@@ -161,11 +191,35 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return role === 'superadmin' || role === 'admin' || email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com';
   }, [user]);
 
-  // Aplicar variables CSS cuando cambia la apariencia activa o la previsualización
+  // Si colorMode es 'auto', reaccionar a cambios del sistema
   useEffect(() => {
-    const targetConfig = previewAppearance || appearance;
-    applyCssVariablesToRoot(targetConfig);
-  }, [appearance, previewAppearance]);
+    if (appearance.advanced?.colorMode === 'auto') {
+      const currentIsDark = appearance.colors.background.toLowerCase() === '#05070a' || appearance.colors.background.toLowerCase() === '#09090b';
+      if (!systemPrefersDark && currentIsDark) {
+        // El SO está en modo claro y el tema actual es oscuro: cambiar a preset claro
+        const lightPreset = APPEARANCE_PRESETS['pure-white'];
+        if (lightPreset) {
+          applyCssVariablesToRoot({
+            ...appearance,
+            colors: lightPreset.colors
+          });
+        }
+      } else if (systemPrefersDark && !currentIsDark) {
+        // El SO está en modo oscuro y el tema actual es claro: cambiar a preset oscuro
+        const darkPreset = APPEARANCE_PRESETS['kaivincia-cyan'];
+        if (darkPreset) {
+          applyCssVariablesToRoot({
+            ...appearance,
+            colors: darkPreset.colors
+          });
+        }
+      } else {
+        applyCssVariablesToRoot(previewAppearance || appearance);
+      }
+    } else {
+      applyCssVariablesToRoot(previewAppearance || appearance);
+    }
+  }, [appearance, previewAppearance, systemPrefersDark]);
 
   // Suscripción en tiempo real a Firestore (settings/appearance)
   useEffect(() => {
@@ -180,14 +234,15 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           fonts: { ...DEFAULT_APPEARANCE.fonts, ...(data.fonts || {}) },
           colors: { ...DEFAULT_APPEARANCE.colors, ...(data.colors || {}) },
           layout: { ...DEFAULT_APPEARANCE.layout, ...(data.layout || {}) },
-          accessibility: { ...DEFAULT_APPEARANCE.accessibility, ...(data.accessibility || {}) }
+          accessibility: { ...DEFAULT_APPEARANCE.accessibility, ...(data.accessibility || {}) },
+          advanced: { ...DEFAULT_APPEARANCE.advanced, ...(data.advanced || {}) },
+          customPresets: data.customPresets || []
         };
         setAppearance(merged);
         try {
           localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
         } catch {}
       } else {
-        // Inicializar con valores por defecto
         setAppearance(DEFAULT_APPEARANCE);
       }
     }, (error) => {
@@ -212,13 +267,46 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const applyPreset = useCallback(async (presetKey: string) => {
     const preset = APPEARANCE_PRESETS[presetKey];
-    if (!preset) return;
+    if (preset) {
+      await updateAppearance({
+        preset: presetKey,
+        colors: preset.colors
+      });
+      return;
+    }
 
+    // Buscar en customPresets
+    const custom = (appearance.customPresets || []).find(p => p.id === presetKey);
+    if (custom) {
+      await updateAppearance({
+        preset: presetKey,
+        colors: custom.colors
+      });
+    }
+  }, [appearance.customPresets, updateAppearance]);
+
+  const saveCustomPreset = useCallback(async (name: string, colors: AppearanceColors) => {
+    const newPreset: CustomPreset = {
+      id: `custom_${Date.now()}`,
+      name: name.trim() || 'Mi Preset Personalizado',
+      colors,
+      createdAt: new Date().toISOString()
+    };
+    const updatedCustoms = [...(appearance.customPresets || []), newPreset];
     await updateAppearance({
-      preset: presetKey,
-      colors: preset.colors
+      customPresets: updatedCustoms,
+      preset: newPreset.id,
+      colors
     });
-  }, [updateAppearance]);
+  }, [appearance.customPresets, updateAppearance]);
+
+  const deleteCustomPreset = useCallback(async (id: string) => {
+    const updatedCustoms = (appearance.customPresets || []).filter(p => p.id !== id);
+    await updateAppearance({
+      customPresets: updatedCustoms,
+      preset: appearance.preset === id ? 'kaivincia-cyan' : appearance.preset
+    });
+  }, [appearance.customPresets, appearance.preset, updateAppearance]);
 
   const contextValue = useMemo(() => ({
     appearance,
@@ -227,10 +315,24 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     updateAppearance,
     resetAppearance,
     applyPreset,
+    saveCustomPreset,
+    deleteCustomPreset,
     loading,
     canEditAppearance,
-    presets: APPEARANCE_PRESETS
-  }), [appearance, previewAppearance, updateAppearance, resetAppearance, applyPreset, loading, canEditAppearance]);
+    presets: APPEARANCE_PRESETS,
+    systemPrefersDark
+  }), [
+    appearance, 
+    previewAppearance, 
+    updateAppearance, 
+    resetAppearance, 
+    applyPreset, 
+    saveCustomPreset,
+    deleteCustomPreset,
+    loading, 
+    canEditAppearance, 
+    systemPrefersDark
+  ]);
 
   return (
     <AppearanceContext.Provider value={contextValue}>
