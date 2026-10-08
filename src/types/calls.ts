@@ -168,3 +168,93 @@ export interface RoutingRule {
   enabled: boolean;
   description?: string;
 }
+
+export interface TelnyxGlobalConfig {
+  id?: string;
+  connectionId: string;
+  connectionName?: string;
+  connectionType?: 'sip_credential' | 'call_control';
+  apiKeyMasked?: string;
+  webhookUrl: string;
+  login_token?: string;
+  webrtcJwt?: string;
+  maxConcurrentCalls: number;
+  recordCallsByDefault: boolean;
+  alertOnLimitReached: boolean;
+  projectOverrides?: Record<string, string>;
+  lastVerifiedAt?: string;
+  lastVerificationStatus?: 'active' | 'error' | 'pending';
+  lastVerificationMessage?: string;
+  updatedAt?: string;
+}
+
+export interface TelnyxPhoneNumber {
+  id: string;
+  phoneNumber: string;
+  friendlyName?: string;
+  status: 'available' | 'assigned' | 'disabled' | 'in_use';
+  assignedAgentIds: string[];
+  assignedAgentNames?: string[];
+  isSharedPool?: boolean;
+  connectionId?: string;
+  monthlyCost?: string;
+  tags?: string[];
+  updatedAt?: string;
+}
+
+export interface TelnyxAgentAssignment {
+  id: string; // agent user UID
+  agentId: string;
+  agentName: string;
+  agentEmail: string;
+  authorizedNumbers: string[]; // phone numbers E.164
+  defaultCallerId: string;
+  allowSharedPool: boolean;
+  strictMode: boolean; // Cannot call with numbers assigned to others
+  recordCalls: boolean;
+  customConnectionId?: string;
+  updatedAt?: string;
+}
+
+export interface TelnyxSipCredential {
+  id: string; // Document ID (e.g. sip_3054059835856258128)
+  name: string; // e.g. "Kaivincia-User6"
+  connectionId: string; // e.g. "3054059835856258128"
+  username: string; // e.g. "karelyamachado"
+  passwordEncrypted: string; // ENC_V1:... encrypted with cryptoUtils
+  passwordMasked?: string; // e.g. "••••••••"
+  assignedTo?: string | null; // UID del agente asignado
+  assignedAgentName?: string | null;
+  assignedAgentEmail?: string | null;
+  status: 'active' | 'inactive';
+  sipDomain?: string; // default: "sip.telnyx.com"
+  sipPort?: number; // default: 5060
+  transport?: 'WSS' | 'UDP' | 'TCP' | 'TLS';
+  isDefault?: boolean;
+  callerId?: string;
+  lastTestedAt?: string;
+  lastTestStatus?: 'success' | 'error' | 'untested';
+  lastTestMessage?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface VoipProviderSettingsDoc {
+  id: string; // provider ID e.g. 'telnyx', 'zadarma', 'dialpad', 'twilio'
+  name: string;
+  type: 'sip' | 'api' | 'webrtc';
+  status: 'configured' | 'tested' | 'enabled' | 'available' | 'offline';
+  priority: number;
+  isPrimary?: boolean;
+  credentialsEncrypted?: {
+    username?: string;
+    password?: string;
+    apiKey?: string;
+    apiSecret?: string;
+    connectionId?: string;
+    domain?: string;
+    callerId?: string;
+  };
+  assignedNumbers?: string[];
+  updatedAt?: string;
+}
