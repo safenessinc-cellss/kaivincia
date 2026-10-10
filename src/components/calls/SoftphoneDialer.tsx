@@ -206,6 +206,45 @@ export default function SoftphoneDialer({
     });
     return unsub;
   }, []);
+    // Inicializar el cliente Telnyx automáticamente al cargar el componente
+  useEffect(() => {
+    let cancelled = false;
+
+    const initTelnyx = async () => {
+      if (authLoading || !user) return;
+
+      try {
+        // Esperar a que el token se sincronice desde Firestore
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        if (cancelled) return;
+
+        const token = telnyxWebRTCService.getLoginToken();
+
+        if (!token) {
+          console.log('[SoftphoneDialer] No hay JWT configurado aún. Usa "Configurar JWT" para inicializar Telnyx.');
+          return;
+        }
+
+        console.log('[SoftphoneDialer] Inicializando cliente Telnyx automáticamente...');
+        const result = await telnyxWebRTCService.initClient(token);
+
+        if (result.success) {
+          console.log('[SoftphoneDialer] ✅ Cliente Telnyx inicializado:', result.message);
+        } else {
+          console.warn('[SoftphoneDialer] ⚠️ No se pudo inicializar Telnyx:', result.message);
+        }
+      } catch (err: any) {
+        console.error('[SoftphoneDialer] Error inicializando Telnyx:', err);
+      }
+    };
+
+    initTelnyx();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
 
   const handleSaveTelnyxToken = async () => {
     const token = telnyxTokenInput.trim();
