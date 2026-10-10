@@ -30,7 +30,8 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { getAuth } from 'firebase/auth';
+import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalContext } from '../../contexts/GlobalContext';
@@ -385,7 +386,24 @@ export default function TelnyxAdminHub() {
   const handleSyncNumbersFromTelnyx = async () => {
     setIsSyncingNumbers(true);
     try {
-      const res = await fetch('/api/telnyx-numbers');
+      const auth = getAuth();
+      const user = auth.currentUser;
+
+      if (!user) {
+        console.error('❌ No hay usuario autenticado');
+        alert('No hay usuario autenticado. Inicie sesión para sincronizar números.');
+        return;
+      }
+
+      const token = await user.getIdToken();
+
+      const res = await fetch('/api/telnyx-numbers', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.numbers) && data.numbers.length > 0) {
         for (const item of data.numbers) {
