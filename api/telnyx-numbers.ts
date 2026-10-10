@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
   if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
+    res.statusCode = 204;
     res.end();
     return;
   }
@@ -19,28 +19,87 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader as string);
+    const authHeader =
+      req.headers['authorization'] || req.headers['Authorization'];
+
+    console.log(
+      '[telnyx-numbers] Auth header:',
+      authHeader ? `${String(authHeader).substring(0, 40)}...` : 'AUSENTE'
+    );
+
+    if (!authHeader) {
+      console.error('[telnyx-numbers] ❌ No hay header Authorization');
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'Falta header Authorization',
+        })
+      );
+      return;
+    }
+
+    console.log(
+      '[telnyx-numbers] TelnyxBackendService:',
+      typeof TelnyxBackendService,
+      TelnyxBackendService ? '✅ existe' : '❌ undefined'
+    );
+
+    if (!TelnyxBackendService) {
+      console.error('[telnyx-numbers] ❌ TelnyxBackendService no importado');
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'Error de importación del servicio',
+        })
+      );
+      return;
+    }
+
+    console.log('[telnyx-numbers] Llamando a verifyAuthToken...');
+    const authUser = await TelnyxBackendService.verifyAuthToken(
+      authHeader as string
+    );
+
+    console.log(
+      '[telnyx-numbers] Resultado verifyAuthToken:',
+      authUser ? `✅ uid=${authUser.uid}` : '❌ null'
+    );
 
     if (!authUser?.uid) {
       res.statusCode = 401;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'No autorizado. Token de Firebase inválido o ausente.' }));
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'No autorizado. Token de Firebase inválido o ausente.',
+        })
+      );
       return;
     }
 
+    console.log('[telnyx-numbers] Usuario autenticado. Obteniendo números...');
     const result = await TelnyxBackendService.getAccountPhoneNumbers();
+
     res.statusCode = result.success ? 200 : 400;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(result));
   } catch (err: any) {
-    console.error('[API /api/telnyx-numbers] Error:', err);
+    console.error('[telnyx-numbers] ❌ Error inesperado:', err);
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      success: false,
-      numbers: [],
-      message: err.message || 'Error al obtener números de Telnyx'
-    }));
+    res.end(
+      JSON.stringify({
+        success: false,
+        numbers: [],
+        error: err.message || 'Error al obtener números',
+      })
+    );
   }
 }
