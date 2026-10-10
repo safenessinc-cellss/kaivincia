@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+   import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Phone, 
   PhoneOff, 
@@ -552,8 +552,8 @@ export default function SoftphoneDialer({
     return true;
   }, [activeCarrierObj]);
 
-  // Iniciar llamada con validación estricta de al menos 8 dígitos
-  const handleStartCall = (targetPhone?: string) => {
+  // Iniciar llamada REAL usando el SDK de Telnyx
+  const handleStartCall = async (targetPhone?: string) => {
     const dialNum = targetPhone || phoneNumber;
     if (!dialNum || dialNum.trim().length === 0) return;
 
@@ -570,39 +570,88 @@ export default function SoftphoneDialer({
     setIsMuted(false);
     setIsOnHold(false);
     setIsRecording(false);
+
     const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
     const telnyxJwt = telnyxWebRTCService.getLoginToken();
 
     setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] SIP INVITE -> ${dialNum} (Carrier: ${activeCarrierObj.name})`,
+      `[${new Date().toLocaleTimeString()}] 📞 Iniciando llamada a ${dialNum} vía ${activeCarrierObj.name}`,
       ...(isTelnyxCarrier ? [
         `[${new Date().toLocaleTimeString()}] Telnyx WebRTC SDK -> ${telnyxJwt ? `Autenticando con login_token (${telnyxJwt.slice(0, 10)}...${telnyxJwt.slice(-6)})` : 'Aviso: login_token (JWT) no configurado aún en /crm/calls'}`
       ] : []),
       ...prev.slice(0, 30)
     ]);
 
-    startRingback();
-    onCallStart?.(dialNum);
+    // Si es Telnyx, usar el SDK REAL
+    if (isTelnyxCarrier) {
+      try {
+        console.log(`[SoftphoneDialer] Llamando vía Telnyx SDK a ${dialNum}`);
 
-    const ringTimeout = setTimeout(() => {
-      stopRingback();
-      playConnectBeep();
-      setCallStatus('connected');
-      setSipLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] SIP 200 OK -> SDP Answer Audio G.711u / Opus 48kHz`,
-        `[${new Date().toLocaleTimeString()}] WebRTC PeerConnection ESTABLISHED (SRTP Secure)`,
-        ...prev.slice(0, 30)
-      ]);
+        const call = await telnyxWebRTCService.makeCall(dialNum, selectedCallerId);
 
-      callDurationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-        setLiveLatency(20 + Math.floor(Math.random() * 8));
-        setLiveJitter(parseFloat((1.0 + Math.random() * 0.4).toFixed(1)));
-      }, 1000);
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] ✅ Llamada Telnyx iniciada (ID: ${call?.id || 'unknown'})`,
+          `[${new Date().toLocaleTimeString()}] Caller ID: ${selectedCallerId}`,
+          ...prev.slice(0, 30)
+        ]);
 
-    }, 3500);
+        // Escuchar eventos de la llamada para actualizar el estado
+        if (call && call.on) {
+          call.on('telnyx.notification', (notification: any) => {
+            console.log('[SoftphoneDialer] Evento llamada:', notification);
 
-    timeoutsRef.current.push(ringTimeout);
+            const state = notification?.call?.state;
+            if (state === 'ringing') {
+              setCallStatus('calling');
+            } else if (state === 'active' || state === 'answered') {
+              setCallStatus('connected');
+              playConnectBeep();
+              if (!callDurationIntervalRef.current) {
+                callDurationIntervalRef.current = setInterval(() => {
+                  setDuration(prev => prev + 1);
+                  setLiveLatency(20 + Math.floor(Math.random() * 8));
+                  setLiveJitter(parseFloat((1.0 + Math.random() * 0.4).toFixed(1)));
+                }, 1000);
+              }
+            } else if (state === 'hangup' || state === 'destroyed') {
+              handleHangup();
+            }
+          });
+        }
+
+        onCallStart?.(dialNum);
+
+      } catch (err: any) {
+        console.error('[SoftphoneDialer] Error en llamada Telnyx:', err);
+        showToast(`Error: ${err.message || 'No se pudo iniciar la llamada'}`);
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`,
+          ...prev.slice(0, 30)
+        ]);
+        setCallStatus('idle');
+        return;
+      }
+    } else {
+      // Para carriers NO Telnyx, usar simulación local
+      startRingback();
+      onCallStart?.(dialNum);
+
+      const ringTimeout = setTimeout(() => {
+        stopRingback();
+        playConnectBeep();
+        setCallStatus('connected');
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] SIP 200 OK -> Llamada simulada`,
+          ...prev.slice(0, 30)
+        ]);
+
+        callDurationIntervalRef.current = setInterval(() => {
+          setDuration(prev => prev + 1);
+        }, 1000);
+      }, 3500);
+
+      timeoutsRef.current.push(ringTimeout);
+    }
   };
 
   // Forzar conexión inmediata
@@ -636,6 +685,13 @@ export default function SoftphoneDialer({
     stopRingback();
     clearAllTimeouts();
     playHangupBeep();
+
+    // Colgar llamada real si existe
+    try {
+      telnyxWebRTCService.hangup();
+    } catch (e) {
+      console.warn('Error colgando Telnyx:', e);
+    }
 
     if (callDurationIntervalRef.current) {
       clearInterval(callDurationIntervalRef.current);
@@ -726,7 +782,6 @@ export default function SoftphoneDialer({
     const handleKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
-      // Cmd/Ctrl + K: toggle o cerrar si es floating
       if (isCmdOrCtrl && (e.key === 'k' || e.key === 'K')) {
         e.preventDefault();
         if (isFloating && handleClose) {
@@ -735,25 +790,21 @@ export default function SoftphoneDialer({
         return;
       }
 
-      // Cmd/Ctrl + Shift + C: copiar número
       if (isCmdOrCtrl && e.shiftKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         copyPhoneNumber();
         return;
       }
 
-      // Cmd/Ctrl + Shift + V: pegar número
       if (isCmdOrCtrl && e.shiftKey && (e.key === 'v' || e.key === 'V')) {
         e.preventDefault();
         pastePhoneNumber();
         return;
       }
 
-      // Evitar interceptar si el usuario está en un input/textarea/select externo
       const activeTag = (document.activeElement?.tagName || '').toLowerCase();
       if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
 
-      // Durante llamada activa: M para mute, H para hold
       if (callStatus === 'connected' || callStatus === 'on_hold') {
         if (e.key === 'm' || e.key === 'M') {
           e.preventDefault();
@@ -817,7 +868,7 @@ export default function SoftphoneDialer({
 
   const showTabs = !isFloating || isFloatingExpanded;
 
-  // Renderizado del Contenedor Principal (Draggable en desktop/tablet, Docked en móvil)
+  // Renderizado del Contenedor Principal
   return (
     <motion.div
       drag={isFloating && !isMobile}
@@ -828,7 +879,6 @@ export default function SoftphoneDialer({
         if (isFloating && !isMobile) {
           const newX = savedPosition.x + info.offset.x;
           const newY = savedPosition.y + info.offset.y;
-          // Limitar dentro del viewport visible para que no se pierda en los bordes
           const clampedX = Math.min(24, Math.max(-window.innerWidth + 360, newX));
           const clampedY = Math.min(24, Math.max(-window.innerHeight + 140, newY));
           setSavedPosition({ x: clampedX, y: clampedY });
@@ -845,7 +895,7 @@ export default function SoftphoneDialer({
           : 'relative rounded-3xl p-4 sm:p-6'
       } ${className}`}
     >
-<audio id="remote-audio" autoPlay playsInline />
+      <audio id="remote-audio" autoPlay playsInline />
       {/* Toast Notification Flotante */}
       <AnimatePresence>
         {toastMessage && (
@@ -861,10 +911,9 @@ export default function SoftphoneDialer({
         )}
       </AnimatePresence>
 
-      {/* VISTA 1: MODO MINIMIZADO (Barra compacta ~48px) */}
+      {/* VISTA 1: MODO MINIMIZADO */}
       {isMinimized ? (
         <div className="flex items-center justify-between gap-2">
-          {/* Drag Handle en Desktop con tooltip y reset al doble clic */}
           {isFloating && !isMobile && (
             <div 
               onDoubleClick={resetPosition}
@@ -875,7 +924,6 @@ export default function SoftphoneDialer({
             </div>
           )}
 
-          {/* Indicador de Estado */}
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[10px] font-mono shrink-0">
             <span className={`w-2 h-2 rounded-full ${
               callStatus === 'idle' ? 'bg-emerald-400' :
@@ -891,7 +939,6 @@ export default function SoftphoneDialer({
             </span>
           </div>
 
-          {/* Número Marcado y Acciones Rápidas Copiar / Pegar */}
           <div className="flex-1 flex items-center justify-center gap-1.5 px-1 min-w-0">
             <span 
               onClick={copyPhoneNumber}
@@ -922,7 +969,6 @@ export default function SoftphoneDialer({
             )}
           </div>
 
-          {/* Botón de Llamar o Colgar */}
           {callStatus === 'idle' ? (
             <button
               type="button"
@@ -944,7 +990,6 @@ export default function SoftphoneDialer({
             </button>
           )}
 
-          {/* Botón Restaurar / Expandir */}
           <button
             type="button"
             onClick={() => toggleMinimized(false)}
@@ -954,7 +999,6 @@ export default function SoftphoneDialer({
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
 
-          {/* Botón Cerrar en Modo Flotante */}
           {isFloating && (
             <button
               type="button"
@@ -969,7 +1013,6 @@ export default function SoftphoneDialer({
       ) : (
         /* VISTA 2: DISCADOR COMPLETO */
         <>
-          {/* Controles de Ventana Flotante (Minimizar, Expandir Config, Cerrar) */}
           {isFloating && (
             <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
               <button
@@ -999,12 +1042,10 @@ export default function SoftphoneDialer({
             </div>
           )}
 
-          {/* Cabecera del Marcador */}
           <div className={`flex items-center justify-between gap-2 border-b border-slate-900 ${
             isFloating ? 'pb-2.5 mb-2.5' : 'pb-3 mb-3'
           }`}>
             <div className="flex items-center gap-2.5">
-              {/* Drag Handle en Desktop Flotante con tooltip y reset */}
               {isFloating && !isMobile && (
                 <div 
                   onDoubleClick={resetPosition}
@@ -1054,7 +1095,6 @@ export default function SoftphoneDialer({
               </div>
             </div>
 
-            {/* SIP Badge & Demo Test en modo no-flotante */}
             {!isFloating && (
               <div className="flex items-center gap-2">
                 {hasValidSipCredentials ? (
@@ -1082,7 +1122,6 @@ export default function SoftphoneDialer({
             )}
           </div>
 
-          {/* Pestañas (Marcador vs Configuración) */}
           {showTabs && (
             <SoftphoneTabs
               activeTab={activeTab}
@@ -1094,7 +1133,6 @@ export default function SoftphoneDialer({
             />
           )}
 
-          {/* Display del Número y Estado (SIEMPRE VISIBLE) */}
           <SoftphoneDisplay
             phoneNumber={phoneNumber}
             onPhoneNumberChange={setPhoneNumber}
@@ -1109,9 +1147,7 @@ export default function SoftphoneDialer({
             onDigitType={playDtmfTone}
           />
 
-          {/* Cuerpo según la Pestaña Activa */}
           {activeTab === 'dialer' || (!showTabs && isFloating) ? (
-            /* PESTAÑA 1: Teclado DTMF Compacto */
             <div className="space-y-2">
               <SoftphoneKeypad
                 onDigitPress={handleDigitPress}
@@ -1120,7 +1156,6 @@ export default function SoftphoneDialer({
               />
             </div>
           ) : (
-            /* PESTAÑA 2: Configuración (Selectores de Carrier, Caller ID, Campaña, Cliente) */
             <div className="space-y-2">
               <SoftphoneConfig
                 providers={providers}
@@ -1152,7 +1187,6 @@ export default function SoftphoneDialer({
             </div>
           )}
 
-          {/* BOTONES DE ACCIÓN PRINCIPALES (SIEMPRE VISIBLES FUERA DE LAS PESTAÑAS) */}
           <div className="pt-2.5">
             {callStatus === 'idle' ? (
               <div className="flex items-center gap-2">
@@ -1179,7 +1213,6 @@ export default function SoftphoneDialer({
               </div>
             ) : (
               <div className="space-y-2">
-                {/* Controles en Vivo durante la Llamada */}
                 <div className="grid grid-cols-4 gap-1.5">
                   <button
                     type="button"
@@ -1238,7 +1271,6 @@ export default function SoftphoneDialer({
                   </button>
                 </div>
 
-                {/* Botón Colgar */}
                 <button
                   type="button"
                   onClick={handleHangup}
@@ -1251,7 +1283,6 @@ export default function SoftphoneDialer({
             )}
           </div>
 
-          {/* Consola SIP Colapsable en la parte inferior */}
           <SoftphoneSipConsole
             logs={sipLogs}
             isOpen={showConsole}
@@ -1264,7 +1295,6 @@ export default function SoftphoneDialer({
         </>
       )}
 
-      {/* Modal de Configuración Integral de APIs & Troncales VoIP */}
       <VoipProviderModal
         isOpen={isProviderModalOpen}
         onClose={() => {
@@ -1278,7 +1308,6 @@ export default function SoftphoneDialer({
         }}
       />
 
-      {/* Modal para Actualizar login_token (JWT) de Telnyx WebRTC */}
       <AnimatePresence>
         {isTelnyxTokenModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
