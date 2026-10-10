@@ -206,6 +206,7 @@ class TelnyxWebRTCService {
 
   /**
    * Realiza una llamada saliente mediante Telnyx WebRTC
+   * Incluye remoteElement para reproducir el audio del otro lado
    */
   public async makeCall(destinationNumber: string, callerIdNumber?: string): Promise<any> {
     if (!this.state.loginToken) {
@@ -214,15 +215,26 @@ class TelnyxWebRTCService {
 
     console.log(`[TelnyxWebRTC] Iniciando llamada a ${destinationNumber} con Caller ID ${callerIdNumber || 'default'}`);
 
-    if (this.client?.newCall) {
-      this.currentCall = this.client.newCall({
-        destinationNumber: destinationNumber,
-        callerNumber: callerIdNumber
-      });
-      return this.currentCall;
+    if (!this.client?.newCall) {
+      throw new Error('El cliente TelnyxRTC no está inicializado.');
     }
 
-    throw new Error('El cliente TelnyxRTC no está inicializado.');
+    this.currentCall = this.client.newCall({
+      destinationNumber: destinationNumber,
+      callerNumber: callerIdNumber,
+      remoteElement: 'remote-audio'
+    });
+
+    this.currentCall.on('telnyx.notification', (notification: any) => {
+      console.log('[TelnyxWebRTC] Evento de llamada:', notification);
+      if (notification?.call?.state) {
+        console.log('[TelnyxWebRTC] Estado de llamada:', notification.call.state);
+        this.state.activeCallId = notification.call.id || null;
+        this.notify();
+      }
+    });
+
+    return this.currentCall;
   }
 
   /**

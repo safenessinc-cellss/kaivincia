@@ -844,7 +844,9 @@ export default function SoftphoneDialer({
             : 'fixed bottom-6 right-6 z-50 w-84 sm:w-92 rounded-3xl p-3.5 sm:p-4 select-none shadow-[0_20px_40px_rgba(0,0,0,0.7)]'
           : 'relative rounded-3xl p-4 sm:p-6'
       } ${className}`}
+      <audio id="remote-audio" autoPlay playsInline />
     >
+<audio id="remote-audio" autoPlay playsInline />
       {/* Toast Notification Flotante */}
       <AnimatePresence>
         {toastMessage && (
