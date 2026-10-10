@@ -1,4 +1,4 @@
-   import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { 
   Phone, 
   PhoneOff, 
@@ -94,6 +94,15 @@ const DEFAULT_PROVIDERS: VoipProvider[] = [
   }
 ];
 
+// Números reales de Telnyx para usar como Caller ID
+const REAL_TELNYX_CALLER_IDS = [
+  '+19707631270',
+  '+17602814871',
+  '+16199608220',
+  '+13239967765',
+  '+13234053577'
+];
+
 export default function SoftphoneDialer({
   mode = 'embedded',
   initialPhoneNumber = '',
@@ -186,8 +195,8 @@ export default function SoftphoneDialer({
   const [showConsole, setShowConsole] = useState(false);
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
-  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
-  const [selectedCallerId, setSelectedCallerId] = useState<string>('+13055550199');
+  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>(REAL_TELNYX_CALLER_IDS);
+  const [selectedCallerId, setSelectedCallerId] = useState<string>('+19707631270');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -206,7 +215,8 @@ export default function SoftphoneDialer({
     });
     return unsub;
   }, []);
-    // Inicializar el cliente Telnyx automáticamente al cargar el componente
+
+  // Inicializar el cliente Telnyx automáticamente al cargar el componente
   useEffect(() => {
     let cancelled = false;
 
@@ -353,13 +363,17 @@ export default function SoftphoneDialer({
     });
 
     // Suscripción a asignaciones de números de Telnyx para la colaboradora actual
-    let sharedPoolNumbers: string[] = ['+13055550199'];
+    let sharedPoolNumbers: string[] = [...REAL_TELNYX_CALLER_IDS];
+
     const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
       if (!snapshot.empty) {
-        sharedPoolNumbers = snapshot.docs
+        const dbNumbers = snapshot.docs
           .map(d => d.data())
           .filter((n: any) => n.status !== 'disabled' && (n.isSharedPool || n.assignedAgentIds?.includes(user.uid)))
           .map((n: any) => n.phoneNumber);
+        if (dbNumbers.length > 0) {
+          sharedPoolNumbers = dbNumbers;
+        }
       }
     }, () => {});
 
@@ -382,11 +396,11 @@ export default function SoftphoneDialer({
           if (sharedPoolNumbers.length > 0) setSelectedCallerId(sharedPoolNumbers[0]);
         }
       } else {
-        setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+        setAuthorizedCallerIds(REAL_TELNYX_CALLER_IDS);
       }
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
-      setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+      setAuthorizedCallerIds(REAL_TELNYX_CALLER_IDS);
     });
 
     return () => {
@@ -456,6 +470,13 @@ export default function SoftphoneDialer({
   }, [getAudioContext]);
 
   // Ringback tone
+  const stopRingback = useCallback(() => {
+    if (ringIntervalRef.current) {
+      clearInterval(ringIntervalRef.current);
+      ringIntervalRef.current = null;
+    }
+  }, []);
+
   const startRingback = useCallback(() => {
     stopRingback();
     const ctx = getAudioContext();
@@ -492,14 +513,7 @@ export default function SoftphoneDialer({
 
     playCycle();
     ringIntervalRef.current = setInterval(playCycle, 4000);
-  }, [getAudioContext]);
-
-  const stopRingback = useCallback(() => {
-    if (ringIntervalRef.current) {
-      clearInterval(ringIntervalRef.current);
-      ringIntervalRef.current = null;
-    }
-  }, []);
+  }, [getAudioContext, stopRingback]);
 
   const playConnectBeep = useCallback(() => {
     const ctx = getAudioContext();
@@ -591,136 +605,8 @@ export default function SoftphoneDialer({
     return true;
   }, [activeCarrierObj]);
 
-  // Iniciar llamada REAL usando el SDK de Telnyx
-  const handleStartCall = async (targetPhone?: string) => {
-    const dialNum = targetPhone || phoneNumber;
-    if (!dialNum || dialNum.trim().length === 0) return;
-
-    // Validación de al menos 8 dígitos numéricos
-    const cleanDigits = dialNum.replace(/\D/g, '');
-    if (cleanDigits.length < 8) {
-      showToast(t('voip.min_digits', 'El número debe tener al menos 8 dígitos'));
-      return;
-    }
-
-    currentCallStartedAtRef.current = new Date().toISOString();
-    setCallStatus('calling');
-    setDuration(0);
-    setIsMuted(false);
-    setIsOnHold(false);
-    setIsRecording(false);
-
-    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
-    const telnyxJwt = telnyxWebRTCService.getLoginToken();
-
-    setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] 📞 Iniciando llamada a ${dialNum} vía ${activeCarrierObj.name}`,
-      ...(isTelnyxCarrier ? [
-        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC SDK -> ${telnyxJwt ? `Autenticando con login_token (${telnyxJwt.slice(0, 10)}...${telnyxJwt.slice(-6)})` : 'Aviso: login_token (JWT) no configurado aún en /crm/calls'}`
-      ] : []),
-      ...prev.slice(0, 30)
-    ]);
-
-    // Si es Telnyx, usar el SDK REAL
-    if (isTelnyxCarrier) {
-      try {
-        console.log(`[SoftphoneDialer] Llamando vía Telnyx SDK a ${dialNum}`);
-
-        const call = await telnyxWebRTCService.makeCall(dialNum, selectedCallerId);
-
-        setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] ✅ Llamada Telnyx iniciada (ID: ${call?.id || 'unknown'})`,
-          `[${new Date().toLocaleTimeString()}] Caller ID: ${selectedCallerId}`,
-          ...prev.slice(0, 30)
-        ]);
-
-        // Escuchar eventos de la llamada para actualizar el estado
-        if (call && call.on) {
-          call.on('telnyx.notification', (notification: any) => {
-            console.log('[SoftphoneDialer] Evento llamada:', notification);
-
-            const state = notification?.call?.state;
-            if (state === 'ringing') {
-              setCallStatus('calling');
-            } else if (state === 'active' || state === 'answered') {
-              setCallStatus('connected');
-              playConnectBeep();
-              if (!callDurationIntervalRef.current) {
-                callDurationIntervalRef.current = setInterval(() => {
-                  setDuration(prev => prev + 1);
-                  setLiveLatency(20 + Math.floor(Math.random() * 8));
-                  setLiveJitter(parseFloat((1.0 + Math.random() * 0.4).toFixed(1)));
-                }, 1000);
-              }
-            } else if (state === 'hangup' || state === 'destroyed') {
-              handleHangup();
-            }
-          });
-        }
-
-        onCallStart?.(dialNum);
-
-      } catch (err: any) {
-        console.error('[SoftphoneDialer] Error en llamada Telnyx:', err);
-        showToast(`Error: ${err.message || 'No se pudo iniciar la llamada'}`);
-        setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`,
-          ...prev.slice(0, 30)
-        ]);
-        setCallStatus('idle');
-        return;
-      }
-    } else {
-      // Para carriers NO Telnyx, usar simulación local
-      startRingback();
-      onCallStart?.(dialNum);
-
-      const ringTimeout = setTimeout(() => {
-        stopRingback();
-        playConnectBeep();
-        setCallStatus('connected');
-        setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] SIP 200 OK -> Llamada simulada`,
-          ...prev.slice(0, 30)
-        ]);
-
-        callDurationIntervalRef.current = setInterval(() => {
-          setDuration(prev => prev + 1);
-        }, 1000);
-      }, 3500);
-
-      timeoutsRef.current.push(ringTimeout);
-    }
-  };
-
-  // Forzar conexión inmediata
-  const handleForceConnectNow = () => {
-    if (callStatus !== 'calling') return;
-    clearAllTimeouts();
-    stopRingback();
-    playConnectBeep();
-    setCallStatus('connected');
-    setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] FORCED 200 OK -> Sesión de llamada conectada manualmente`,
-      ...prev.slice(0, 30)
-    ]);
-    if (!callDurationIntervalRef.current) {
-      callDurationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-      }, 1000);
-    }
-  };
-
-  // Llamada demo
-  const handleDemoTestCall = () => {
-    const demoNumbers = ['+13055550144', '+14158829901', '+34912345678'];
-    const randomNum = demoNumbers[Math.floor(Math.random() * demoNumbers.length)];
-    setPhoneNumber(randomNum);
-    handleStartCall(randomNum);
-  };
-
-  // Colgar llamada
-  const handleHangup = () => {
+  // Colgar llamada - declarado antes para que handleStartCall lo use
+  const handleHangup = useCallback(() => {
     stopRingback();
     clearAllTimeouts();
     playHangupBeep();
@@ -781,6 +667,110 @@ export default function SoftphoneDialer({
       setIsRecording(false);
     }, 1500);
     timeoutsRef.current.push(resetTimeout);
+  }, [duration, phoneNumber, selectedClientName, selectedCallerId, activeCarrierObj, selectedProject, isRecording, agentAssignment, onCallEnd, stopRingback, clearAllTimeouts, playHangupBeep, user]);
+
+  // Iniciar llamada REAL usando el SDK de Telnyx
+  const handleStartCall = async (targetPhone?: string) => {
+    const dialNum = targetPhone || phoneNumber;
+    if (!dialNum || dialNum.trim().length === 0) return;
+
+    // Validación de al menos 8 dígitos numéricos
+    const cleanDigits = dialNum.replace(/\D/g, '');
+    if (cleanDigits.length < 8) {
+      showToast(t('voip.min_digits', 'El número debe tener al menos 8 dígitos'));
+      return;
+    }
+
+    currentCallStartedAtRef.current = new Date().toISOString();
+    setCallStatus('calling');
+    setDuration(0);
+    setIsMuted(false);
+    setIsOnHold(false);
+    setIsRecording(false);
+
+    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
+    const telnyxJwt = telnyxWebRTCService.getLoginToken();
+
+    setSipLogs(prev => [
+      `[${new Date().toLocaleTimeString()}] 📞 Iniciando llamada a ${dialNum} vía ${activeCarrierObj.name}`,
+      ...(isTelnyxCarrier ? [
+        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC SDK -> ${telnyxJwt ? `Autenticando con login_token (${telnyxJwt.slice(0, 10)}...${telnyxJwt.slice(-6)})` : 'Aviso: login_token (JWT) no configurado aún en /crm/calls'}`
+      ] : []),
+      ...prev.slice(0, 30)
+    ]);
+
+    // Si es Telnyx, usar el SDK REAL
+    if (isTelnyxCarrier) {
+      try {
+        console.log(`[SoftphoneDialer] Llamando vía Telnyx SDK a ${dialNum} con Caller ID ${selectedCallerId}`);
+
+        const call = await telnyxWebRTCService.makeCall(dialNum, selectedCallerId);
+
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] ✅ Llamada Telnyx iniciada (ID: ${call?.id || 'unknown'})`,
+          `[${new Date().toLocaleTimeString()}] Caller ID: ${selectedCallerId}`,
+          ...prev.slice(0, 30)
+        ]);
+
+        onCallStart?.(dialNum);
+
+      } catch (err: any) {
+        console.error('[SoftphoneDialer] Error en llamada Telnyx:', err);
+        showToast(`Error: ${err.message || 'No se pudo iniciar la llamada'}`);
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`,
+          ...prev.slice(0, 30)
+        ]);
+        setCallStatus('idle');
+        return;
+      }
+    } else {
+      // Para carriers NO Telnyx, usar simulación local
+      startRingback();
+      onCallStart?.(dialNum);
+
+      const ringTimeout = setTimeout(() => {
+        stopRingback();
+        playConnectBeep();
+        setCallStatus('connected');
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] SIP 200 OK -> Llamada simulada`,
+          ...prev.slice(0, 30)
+        ]);
+
+        callDurationIntervalRef.current = setInterval(() => {
+          setDuration(prev => prev + 1);
+        }, 1000);
+      }, 3500);
+
+      timeoutsRef.current.push(ringTimeout);
+    }
+  };
+
+  // Forzar conexión inmediata
+  const handleForceConnectNow = () => {
+    if (callStatus !== 'calling') return;
+    clearAllTimeouts();
+    stopRingback();
+    playConnectBeep();
+    setCallStatus('connected');
+    setSipLogs(prev => [
+      `[${new Date().toLocaleTimeString()}] FORCED 200 OK -> Sesión de llamada conectada manualmente`,
+      ...prev.slice(0, 30)
+    ]);
+    if (!callDurationIntervalRef.current) {
+      callDurationIntervalRef.current = setInterval(() => {
+        setDuration(prev => prev + 1);
+      }, 1000);
+    }
+  };
+
+  // Llamada demo
+  const handleDemoTestCall = () => {
+    const demoNumbers = ['+13055550144', '+14158829901', '+34912345678'];
+    const randomNum = demoNumbers[Math.floor(Math.random() * demoNumbers.length)];
+    setPhoneNumber(randomNum);
+    handleStartCall(randomNum);
   };
 
   const toggleMute = () => {
@@ -878,7 +868,7 @@ export default function SoftphoneDialer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [callStatus, phoneNumber, isFloating, handleClose, copyPhoneNumber, pastePhoneNumber]);
+  }, [callStatus, phoneNumber, isFloating, handleClose, copyPhoneNumber, pastePhoneNumber, handleHangup]);
 
   // Limpieza al desmontar
   useEffect(() => {
