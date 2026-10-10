@@ -164,8 +164,10 @@ class TelnyxWebRTCService {
         }
 
         this.client = new TelnyxRTCClass({
-          login_token: token
-        });
+  login_token: token,
+  debug: true,
+  debugOutput: 'socket'
+});
 
         this.client.on('telnyx.ready', () => {
           console.log('[TelnyxWebRTC] Cliente conectado y listo.');
