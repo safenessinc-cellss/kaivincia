@@ -176,6 +176,8 @@ export interface TelnyxGlobalConfig {
   connectionType?: 'sip_credential' | 'call_control';
   apiKeyMasked?: string;
   webhookUrl: string;
+  login_token?: string;
+  webrtcJwt?: string;
   maxConcurrentCalls: number;
   recordCallsByDefault: boolean;
   alertOnLimitReached: boolean;

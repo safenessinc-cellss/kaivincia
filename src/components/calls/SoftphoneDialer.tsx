@@ -18,7 +18,10 @@ import {
   GripHorizontal,
   Copy,
   ClipboardPaste,
-  RotateCcw
+  RotateCcw,
+  Radio,
+  Check,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { collection, onSnapshot, addDoc } from 'firebase/firestore';
@@ -35,6 +38,7 @@ import SoftphoneDisplay, { sanitizeDialNumber } from './SoftphoneDisplay';
 import SoftphoneKeypad from './SoftphoneKeypad';
 import SoftphoneConfig from './SoftphoneConfig';
 import SoftphoneSipConsole from './SoftphoneSipConsole';
+import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
 
 interface SoftphoneDialerProps {
   mode?: 'embedded' | 'floating';
@@ -187,6 +191,66 @@ export default function SoftphoneDialer({
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
+
+  // Estados de Telnyx WebRTC login_token (JWT)
+  const [isTelnyxTokenModalOpen, setIsTelnyxTokenModalOpen] = useState(false);
+  const [telnyxTokenInput, setTelnyxTokenInput] = useState('');
+  const [isSavingTelnyxToken, setIsSavingTelnyxToken] = useState(false);
+  const [isGeneratingBackendToken, setIsGeneratingBackendToken] = useState(false);
+  const [currentWebRtcJwt, setCurrentWebRtcJwt] = useState(() => telnyxWebRTCService.getLoginToken());
+
+  // Sincronizar token en vivo con el servicio
+  useEffect(() => {
+    const unsub = telnyxWebRTCService.subscribe((rtcState) => {
+      setCurrentWebRtcJwt(rtcState.loginToken);
+    });
+    return unsub;
+  }, []);
+
+  const handleSaveTelnyxToken = async () => {
+    const token = telnyxTokenInput.trim();
+    if (!token) {
+      showToast('Por favor introduce un JWT válido');
+      return;
+    }
+    setIsSavingTelnyxToken(true);
+    try {
+      await telnyxWebRTCService.setLoginToken(token, true);
+      const testRes = await telnyxWebRTCService.initClient(token);
+      showToast(testRes.message || 'login_token de Telnyx actualizado');
+      setSipLogs(prev => [
+        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> login_token actualizado (${token.slice(0, 10)}...${token.slice(-6)})`,
+        ...prev.slice(0, 30)
+      ]);
+      setIsTelnyxTokenModalOpen(false);
+      setTelnyxTokenInput('');
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setIsSavingTelnyxToken(false);
+    }
+  };
+
+  const handleGenerateBackendTelnyxToken = async () => {
+    setIsGeneratingBackendToken(true);
+    try {
+      const res = await telnyxWebRTCService.fetchFreshTokenFromBackend();
+      if (res.success && res.token) {
+        showToast('Nuevo login_token generado vía API de Telnyx');
+        setSipLogs(prev => [
+          `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> Nuevo login_token generado vía API (${res.token.slice(0, 10)}...${res.token.slice(-6)})`,
+          ...prev.slice(0, 30)
+        ]);
+        setIsTelnyxTokenModalOpen(false);
+      } else {
+        showToast(res.message || 'No se pudo generar token');
+      }
+    } catch (err: any) {
+      showToast(`Error: ${err.message}`);
+    } finally {
+      setIsGeneratingBackendToken(false);
+    }
+  };
 
   // Referencias para gestión segura de audio y temporizadores
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -506,8 +570,14 @@ export default function SoftphoneDialer({
     setIsMuted(false);
     setIsOnHold(false);
     setIsRecording(false);
+    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
+    const telnyxJwt = telnyxWebRTCService.getLoginToken();
+
     setSipLogs(prev => [
       `[${new Date().toLocaleTimeString()}] SIP INVITE -> ${dialNum} (Carrier: ${activeCarrierObj.name})`,
+      ...(isTelnyxCarrier ? [
+        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC SDK -> ${telnyxJwt ? `Autenticando con login_token (${telnyxJwt.slice(0, 10)}...${telnyxJwt.slice(-6)})` : 'Aviso: login_token (JWT) no configurado aún en /crm/calls'}`
+      ] : []),
       ...prev.slice(0, 30)
     ]);
 
@@ -957,9 +1027,29 @@ export default function SoftphoneDialer({
                     </span>
                   )}
                 </h3>
-                <p className="text-[10px] text-slate-400 font-medium truncate max-w-[170px] sm:max-w-none">
-                  {activeCarrierObj?.name || 'Telnyx WebRTC'} · OPUS
-                </p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-[10px] text-slate-400 font-medium truncate max-w-[170px] sm:max-w-none">
+                    {activeCarrierObj?.name || 'Telnyx WebRTC'} · OPUS
+                  </p>
+                  {(selectedCarrier === 'telnyx' || activeCarrierObj?.name?.includes('Telnyx')) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTelnyxTokenInput(currentWebRtcJwt || '');
+                        setIsTelnyxTokenModalOpen(true);
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold transition-all cursor-pointer ${
+                        currentWebRtcJwt 
+                          ? 'bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/60'
+                          : 'bg-amber-950/70 text-amber-300 border border-amber-500/30 hover:bg-amber-900/60 animate-pulse'
+                      }`}
+                      title="Configurar o actualizar login_token (JWT) de Telnyx WebRTC"
+                    >
+                      <Radio className="w-2.5 h-2.5 text-cyan-400" />
+                      <span>{currentWebRtcJwt ? 'JWT Activo' : 'Configurar JWT'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1186,6 +1276,103 @@ export default function SoftphoneDialer({
           setSelectedCarrier(saved.id);
         }}
       />
+
+      {/* Modal para Actualizar login_token (JWT) de Telnyx WebRTC */}
+      <AnimatePresence>
+        {isTelnyxTokenModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-tight">
+                      Telnyx WebRTC — login_token (JWT)
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      /crm/calls · SDK TelnyxRTC
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsTelnyxTokenModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                    Token JWT Actual:
+                  </label>
+                  {currentWebRtcJwt ? (
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded">
+                      ● {currentWebRtcJwt.slice(0, 8)}...{currentWebRtcJwt.slice(-6)}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-amber-400 font-bold bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">
+                      No configurado
+                    </span>
+                  )}
+                </div>
+
+                <textarea
+                  rows={4}
+                  value={telnyxTokenInput}
+                  onChange={(e) => setTelnyxTokenInput(e.target.value)}
+                  placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 resize-none"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Este token se guardará en Firestore (<code className="text-cyan-400 font-mono">settings/telnyx_config</code>) y se aplicará de inmediato al cliente WebRTC en esta sesión y para todos los agentes del CRM.
+                </p>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleGenerateBackendTelnyxToken}
+                  disabled={isGeneratingBackendToken}
+                  className="w-full sm:w-auto px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                  title="Generar automáticamente desde /api/telnyx-token"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingBackendToken ? 'animate-spin' : ''}`} />
+                  <span>{isGeneratingBackendToken ? 'Generando...' : 'Generar vía API Backend'}</span>
+                </button>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsTelnyxTokenModalOpen(false)}
+                    className="px-3.5 py-2 text-xs text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveTelnyxToken}
+                    disabled={isSavingTelnyxToken || !telnyxTokenInput.trim()}
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>{isSavingTelnyxToken ? 'Guardando...' : 'Actualizar login_token'}</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

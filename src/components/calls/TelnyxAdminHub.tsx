@@ -35,6 +35,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { useGlobalContext } from '../../contexts/GlobalContext';
 import { TelnyxGlobalConfig, TelnyxPhoneNumber, TelnyxAgentAssignment } from '../../types/calls';
+import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
 
 const DEFAULT_CONFIG: TelnyxGlobalConfig = {
   connectionId: '3046958032463333200',
@@ -106,6 +107,21 @@ export default function TelnyxAdminHub() {
   const [maxCallsInput, setMaxCallsInput] = useState(10);
   const [recordByDefault, setRecordByDefault] = useState(true);
 
+  // Estados de WebRTC SDK login_token (JWT)
+  const [loginTokenInput, setLoginTokenInput] = useState('');
+  const [isEditingLoginToken, setIsEditingLoginToken] = useState(false);
+  const [showLoginTokenPlain, setShowLoginTokenPlain] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [isSavingToken, setIsSavingToken] = useState(false);
+  const [isGeneratingBackendToken, setIsGeneratingBackendToken] = useState(false);
+  const [isTestingWebRtc, setIsTestingWebRtc] = useState(false);
+  const [webRtcStatus, setWebRtcStatus] = useState<{ initialized: boolean; connected: boolean; error: string | null }>({
+    initialized: false,
+    connected: false,
+    error: null
+  });
+  const [webRtcTestMsg, setWebRtcTestMsg] = useState<{ success: boolean; message: string } | null>(null);
+
   // Estados de test & backend sync
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string; httpStatus?: number } | null>(null);
@@ -132,6 +148,18 @@ export default function TelnyxAdminHub() {
 
   // Cargar configuración y datos de Firestore en tiempo real
   useEffect(() => {
+    // 0. Suscripción a estado de WebRTC SDK
+    const unsubWebRtc = telnyxWebRTCService.subscribe((rtcState) => {
+      setWebRtcStatus({
+        initialized: rtcState.isInitialized,
+        connected: rtcState.isConnected,
+        error: rtcState.lastError
+      });
+      if (rtcState.loginToken && !loginTokenInput) {
+        setLoginTokenInput(rtcState.loginToken);
+      }
+    });
+
     // 1. Suscripción a config global
     const unsubConfig = onSnapshot(doc(db, 'settings', 'telnyx_config'), (snap) => {
       if (snap.exists()) {
@@ -142,6 +170,10 @@ export default function TelnyxAdminHub() {
         setConnectionTypeInput(data.connectionType || 'sip_credential');
         setMaxCallsInput(data.maxConcurrentCalls || 10);
         setRecordByDefault(data.recordCallsByDefault ?? true);
+        const jwtFromDb = (data.login_token || data.webrtcJwt || '').trim();
+        if (jwtFromDb) {
+          setLoginTokenInput(jwtFromDb);
+        }
       } else {
         // Inicializar documento base
         setDoc(doc(db, 'settings', 'telnyx_config'), DEFAULT_CONFIG).catch(console.error);
@@ -172,6 +204,7 @@ export default function TelnyxAdminHub() {
     }, (err) => console.warn('Could not load telnyx_agent_assignments:', err));
 
     return () => {
+      unsubWebRtc();
       unsubConfig();
       unsubNumbers();
       unsubAssignments();
@@ -263,6 +296,12 @@ export default function TelnyxAdminHub() {
         updatedConfigData.apiKeyMasked = masked;
       }
 
+      if (loginTokenInput.trim()) {
+        updatedConfigData.login_token = loginTokenInput.trim();
+        updatedConfigData.webrtcJwt = loginTokenInput.trim();
+        await telnyxWebRTCService.setLoginToken(loginTokenInput.trim(), false);
+      }
+
       await setDoc(doc(db, 'settings', 'telnyx_config'), updatedConfigData, { merge: true });
 
       setIsEditingKey(false);
@@ -274,6 +313,72 @@ export default function TelnyxAdminHub() {
     } finally {
       setIsSavingConfig(false);
     }
+  };
+
+  // Guardar login_token (JWT) específico de Telnyx WebRTC
+  const handleSaveLoginToken = async (customToken?: string) => {
+    const token = (customToken !== undefined ? customToken : loginTokenInput).trim();
+    if (!token) {
+      alert('Por favor introduce un JWT válido para el login_token de Telnyx WebRTC.');
+      return;
+    }
+    setIsSavingToken(true);
+    setWebRtcTestMsg(null);
+    try {
+      await telnyxWebRTCService.setLoginToken(token, true);
+      const testRes = await telnyxWebRTCService.initClient(token);
+      setWebRtcTestMsg(testRes);
+      setIsEditingLoginToken(false);
+      setSaveSuccessMsg('¡login_token (JWT) de Telnyx WebRTC actualizado y guardado en Firestore!');
+      setTimeout(() => setSaveSuccessMsg(''), 4000);
+    } catch (err: any) {
+      setWebRtcTestMsg({ success: false, message: `Error guardando login_token: ${err.message}` });
+    } finally {
+      setIsSavingToken(false);
+    }
+  };
+
+  // Generar nuevo token 24h desde backend de Telnyx
+  const handleGenerateFreshToken = async () => {
+    setIsGeneratingBackendToken(true);
+    setWebRtcTestMsg(null);
+    try {
+      const res = await telnyxWebRTCService.fetchFreshTokenFromBackend();
+      if (res.success && res.token) {
+        setLoginTokenInput(res.token);
+        setWebRtcTestMsg({ success: true, message: res.message });
+        setSaveSuccessMsg('¡Nuevo login_token generado exitosamente desde la API de Telnyx!');
+        setTimeout(() => setSaveSuccessMsg(''), 4000);
+      } else {
+        setWebRtcTestMsg({ success: false, message: res.message });
+      }
+    } catch (err: any) {
+      setWebRtcTestMsg({ success: false, message: `Error generando token: ${err.message}` });
+    } finally {
+      setIsGeneratingBackendToken(false);
+    }
+  };
+
+  // Probar cliente WebRTC con el token actual
+  const handleTestWebRtcClient = async () => {
+    setIsTestingWebRtc(true);
+    setWebRtcTestMsg(null);
+    try {
+      const res = await telnyxWebRTCService.initClient(loginTokenInput);
+      setWebRtcTestMsg(res);
+    } catch (err: any) {
+      setWebRtcTestMsg({ success: false, message: err.message || 'Error en prueba WebRTC' });
+    } finally {
+      setIsTestingWebRtc(false);
+    }
+  };
+
+  // Copiar token al portapapeles
+  const handleCopyLoginToken = () => {
+    if (!loginTokenInput) return;
+    navigator.clipboard.writeText(loginTokenInput);
+    setCopiedToken(true);
+    setTimeout(() => setCopiedToken(false), 2000);
   };
 
   // Sincronizar Números desde la API de Telnyx
@@ -694,6 +799,156 @@ export default function TelnyxAdminHub() {
                         Cancelar
                       </button>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* TELNYX WebRTC SDK — login_token (JWT) */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-950/70 rounded-2xl border border-cyan-500/20 dark:border-cyan-500/30 space-y-3 relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Radio className="w-4 h-4 text-cyan-400" />
+                    <div>
+                      <label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                        <span>Telnyx WebRTC SDK — login_token (JWT)</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Token JWT de autenticación para el cliente <code className="text-cyan-400 font-mono text-[10px]">TelnyxRTC(&#123; login_token &#125;)</code> en /crm/calls
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    {loginTokenInput ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span>JWT Activo</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Pendiente JWT</span>
+                      </span>
+                    )}
+                    {webRtcStatus.connected && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">
+                        WebRTC Conectado
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {!isEditingLoginToken ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex-1 font-mono text-xs text-slate-700 dark:text-slate-300 font-semibold truncate select-all">
+                        {loginTokenInput ? (
+                          showLoginTokenPlain ? (
+                            <span className="break-all">{loginTokenInput}</span>
+                          ) : (
+                            <span>{`${loginTokenInput.slice(0, 16)}••••••••••••••••••••••••${loginTokenInput.slice(-10)}`}</span>
+                          )
+                        ) : (
+                          <span className="text-slate-500 italic">No hay login_token configurado aún. Haz clic en "Actualizar JWT" o genera uno nuevo.</span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        {loginTokenInput && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setShowLoginTokenPlain(!showLoginTokenPlain)}
+                              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                              title={showLoginTokenPlain ? "Ocultar token" : "Ver token completo"}
+                            >
+                              {showLoginTokenPlain ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCopyLoginToken}
+                              className="p-1.5 text-slate-400 hover:text-cyan-400 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                              title="Copiar token"
+                            >
+                              {copiedToken ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                            </button>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingLoginToken(true)}
+                          className="px-2.5 py-1 text-xs font-black uppercase text-cyan-500 hover:text-cyan-400 bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 rounded-lg transition-colors cursor-pointer"
+                        >
+                          {loginTokenInput ? 'Actualizar JWT' : 'Configurar JWT'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <textarea
+                      rows={3}
+                      value={loginTokenInput}
+                      onChange={(e) => setLoginTokenInput(e.target.value)}
+                      placeholder="Pega aquí el nuevo login_token JWT de Telnyx (eyJhbGciOi...)"
+                      className="w-full bg-white dark:bg-slate-900 border border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-white focus:outline-none resize-none"
+                    />
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                      <span>Este token se persistirá en Firestore (<code className="text-cyan-400 font-mono">settings/telnyx_config</code>) y se aplicará inmediatamente a las llamadas.</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingLoginToken(false)}
+                          className="px-3 py-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSavingToken || !loginTokenInput.trim()}
+                          onClick={() => handleSaveLoginToken()}
+                          className="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-black uppercase text-xs transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isSavingToken ? 'Guardando...' : 'Guardar y Aplicar JWT'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Acciones Rápidas para el SDK WebRTC */}
+                <div className="pt-1 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateFreshToken}
+                    disabled={isGeneratingBackendToken}
+                    className="px-3 py-1.5 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    title="Obtener un nuevo JWT 24h directamente desde la API backend de Telnyx"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingBackendToken ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingBackendToken ? 'Generando JWT...' : 'Generar Nuevo JWT (Backend API)'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestWebRtcClient}
+                    disabled={isTestingWebRtc || !loginTokenInput.trim()}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    title="Verificar inicialización del cliente TelnyxRTC con este token"
+                  >
+                    <Activity className={`w-3.5 h-3.5 ${isTestingWebRtc ? 'animate-pulse text-cyan-400' : 'text-cyan-400'}`} />
+                    <span>{isTestingWebRtc ? 'Probando WebRTC...' : 'Probar SDK WebRTC'}</span>
+                  </button>
+                </div>
+
+                {/* Resultado de Prueba o Generación de WebRTC */}
+                {webRtcTestMsg && (
+                  <div className={`p-2.5 rounded-xl text-xs font-medium border flex items-center gap-2 ${
+                    webRtcTestMsg.success
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                      : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                  }`}>
+                    {webRtcTestMsg.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
+                    <span>{webRtcTestMsg.message}</span>
                   </div>
                 )}
               </div>
