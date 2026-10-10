@@ -216,23 +216,23 @@ class TelnyxWebRTCService {
     console.log(`[TelnyxWebRTC] Iniciando llamada a ${destinationNumber} con Caller ID ${callerIdNumber || 'default'}`);
 
     if (!this.client?.newCall) {
-      throw new Error('El cliente TelnyxRTC no está inicializado.');
+      throw new Error('El cliente TelnyxRTC no está inicializado. Ve a la pestaña de configuración del softphone y pulsa "Configurar JWT" para autenticarte con Telnyx.');
     }
 
+    // Crear la llamada con remoteElement para reproducir el audio entrante
     this.currentCall = this.client.newCall({
       destinationNumber: destinationNumber,
       callerNumber: callerIdNumber,
       remoteElement: 'remote-audio'
     });
 
-    this.currentCall.on('telnyx.notification', (notification: any) => {
-      console.log('[TelnyxWebRTC] Evento de llamada:', notification);
-      if (notification?.call?.state) {
-        console.log('[TelnyxWebRTC] Estado de llamada:', notification.call.state);
-        this.state.activeCallId = notification.call.id || null;
-        this.notify();
-      }
-    });
+    console.log('[TelnyxWebRTC] Llamada creada:', this.currentCall);
+
+    // Guardar el ID de la llamada activa
+    if (this.currentCall?.id) {
+      this.state.activeCallId = this.currentCall.id;
+      this.notify();
+    }
 
     return this.currentCall;
   }
