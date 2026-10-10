@@ -29,10 +29,7 @@ export default async function handler(req: any, res: any) {
       '[telnyx-numbers] Auth header:',
       authHeader ? `${String(authHeader).substring(0, 40)}...` : 'AUSENTE'
     );
-    console.log(
-      '[telnyx-numbers] Tipo de authHeader:',
-      typeof authHeader
-    );
+    console.log('[telnyx-numbers] Tipo de authHeader:', typeof authHeader);
 
     if (!authHeader) {
       console.error('[telnyx-numbers] ❌ No hay header Authorization');
@@ -100,7 +97,9 @@ export default async function handler(req: any, res: any) {
     // ============================================================
     // Obtener números
     // ============================================================
+    console.log('[telnyx-numbers] Usuario autenticado. Obteniendo números...');
     const result = await TelnyxBackendService.getAccountPhoneNumbers();
+
     res.statusCode = result.success ? 200 : 400;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(result));
