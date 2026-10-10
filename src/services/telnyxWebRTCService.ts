@@ -6,6 +6,7 @@
 
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { TelnyxRTC } from '@telnyx/webrtc';
 
 // Token JWT por defecto para inicialización del SDK de Telnyx WebRTC
 export let TELNYX_WEBRTC_LOGIN_TOKEN = '';
@@ -155,49 +156,48 @@ class TelnyxWebRTCService {
     try {
       console.log('[TelnyxWebRTC] Inicializando TelnyxRTC con login_token:', `${token.slice(0, 15)}...${token.slice(-10)}`);
 
-      // Si existe el objeto global TelnyxRTC (vía script o paquete)
-      const TelnyxRTCClass = (window as any).TelnyxRTC;
+      // Desconectar cliente existente antes de crear uno nuevo
+      if (this.client) {
+        try { this.client.disconnect(); } catch {}
+      }
 
-      if (TelnyxRTCClass) {
-        if (this.client) {
-          try { this.client.disconnect(); } catch {}
-        }
+      // Crear cliente usando el SDK importado desde @telnyx/webrtc
+      this.client = new TelnyxRTC({
+        login_token: token,
+        debug: true,
+        debugOutput: 'socket'
+      });
 
-        this.client = new TelnyxRTCClass({
-  login_token: token,
-  debug: true,
-  debugOutput: 'socket'
-});
-
-        this.client.on('telnyx.ready', () => {
-          console.log('[TelnyxWebRTC] Cliente conectado y listo.');
-          this.state.isConnected = true;
-          this.state.isInitialized = true;
-          this.state.lastError = null;
-          this.notify();
-        });
-
-        this.client.on('telnyx.error', (error: any) => {
-          console.error('[TelnyxWebRTC] Error en cliente:', error);
-          this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
-          this.notify();
-        });
-
-        this.client.connect();
-      } else {
-        // Modo fallback: el SDK está configurado y el token es válido
-        this.state.isInitialized = true;
+      this.client.on('telnyx.ready', () => {
+        console.log('[TelnyxWebRTC] ✅ Cliente conectado y listo.');
         this.state.isConnected = true;
+        this.state.isInitialized = true;
         this.state.lastError = null;
         this.notify();
-      }
+      });
+
+      this.client.on('telnyx.error', (error: any) => {
+        console.error('[TelnyxWebRTC] ❌ Error en cliente:', error);
+        this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
+        this.notify();
+      });
+
+      this.client.on('telnyx.notification', (notification: any) => {
+        console.log('[TelnyxWebRTC] Notificación:', notification);
+        if (notification?.call) {
+          this.state.activeCallId = notification.call.id;
+          this.notify();
+        }
+      });
+
+      this.client.connect();
 
       return {
         success: true,
         message: 'SDK de Telnyx WebRTC inicializado correctamente con el nuevo login_token.'
       };
     } catch (err: any) {
-      console.error('[TelnyxWebRTC] Error inicializando SDK:', err);
+      console.error('[TelnyxWebRTC] ❌ Error inicializando SDK:', err);
       this.state.lastError = err?.message || 'Error desconocido al inicializar Telnyx';
       this.notify();
       return { success: false, message: err?.message || 'Error al inicializar cliente' };
@@ -216,13 +216,13 @@ class TelnyxWebRTCService {
 
     if (this.client?.newCall) {
       this.currentCall = this.client.newCall({
-        destination_number: destinationNumber,
-        caller_id_number: callerIdNumber
+        destinationNumber: destinationNumber,
+        callerNumber: callerIdNumber
       });
       return this.currentCall;
     }
 
-    return { destinationNumber, callerIdNumber, status: 'simulated_connected' };
+    throw new Error('El cliente TelnyxRTC no está inicializado.');
   }
 
   /**
