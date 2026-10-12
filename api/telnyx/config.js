@@ -1,4 +1,4 @@
-import { TelnyxBackendService } from '../../server/telnyxBackend';
+import { TelnyxBackendService } from '../../server/telnyxBackend.js';
 
 /**
  * Endpoint de configuración de Telnyx (/api/telnyx/config)

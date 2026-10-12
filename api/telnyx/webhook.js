@@ -1,4 +1,4 @@
-import { TelnyxBackendService } from '../../server/telnyxBackend';
+import { TelnyxBackendService } from '../../server/telnyxBackend.js';
 
 /**
  * Webhook de Telnyx (/api/telnyx/webhook)
