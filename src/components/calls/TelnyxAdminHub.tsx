@@ -236,7 +236,7 @@ export default function TelnyxAdminHub() {
     setIsTesting(true);
     setTestResult(null);
     try {
-      const res = await fetch('/api/telnyx-test', {
+      const res = await fetch('/api/telnyx/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connectionId: connectionIdInput })
