@@ -46,10 +46,6 @@ function telnyxDevApiPlugin(env: Record<string, string>): Plugin {
           return metaWebhookHandler(req, res);
         }
 
-        if (pathname === '/api/meta-test') {
-          const { default: metaTestHandler } = await import('./api/meta-test.js');
-          return metaTestHandler(req, res);
-        }
 
         if ((pathname === '/api/telnyx/config' || pathname === '/api/telnyx-config') && req.method === 'GET') {
           try {
