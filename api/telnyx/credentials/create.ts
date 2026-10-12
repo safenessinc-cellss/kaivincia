@@ -4,12 +4,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, 
-Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
-  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); 
-return; }
-
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
@@ -18,10 +15,8 @@ return; }
   }
 
   try {
-    const authHeader = req.headers['authorization'] || 
-req.headers['Authorization'];
-    const authUser = await 
-TelnyxBackendService.verifyAuthToken(authHeader);
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
 
     if (!authUser?.uid) {
       res.statusCode = 401;
@@ -35,16 +30,14 @@ TelnyxBackendService.verifyAuthToken(authHeader);
     if (!nombre || !operadorUid) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Faltan campos: nombre y 
-operadorUid' }));
+      res.end(JSON.stringify({ error: 'Faltan campos: nombre y operadorUid' }));
       return;
     }
 
     const apiKey = process.env.TELNYX_API_KEY;
     const connId = connectionId || process.env.TELNYX_CONNECTION_ID;
 
-    const telnyxResponse = await 
-fetch('https://api.telnyx.com/v2/telephony_credentials', {
+    const telnyxResponse = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
@@ -61,8 +54,7 @@ fetch('https://api.telnyx.com/v2/telephony_credentials', {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
-        error: `Error creando credencial (${telnyxResponse.status}): 
-${errorText}`
+        error: `Error creando credencial (${telnyxResponse.status}): ${errorText}`
       }));
       return;
     }
@@ -73,8 +65,7 @@ ${errorText}`
 
     const db = getFirestore();
 
-    await 
-db.collection('telnyx_sip_credentials').doc(credentialId).set({
+    await db.collection('telnyx_sip_credentials').doc(credentialId).set({
       id: credentialId,
       telnyxUsername: sipUsername,
       connectionId: connId,

@@ -4,12 +4,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, 
-Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
 
-  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); 
-return; }
-
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
@@ -18,10 +15,8 @@ return; }
   }
 
   try {
-    const authHeader = req.headers['authorization'] || 
-req.headers['Authorization'];
-    const authUser = await 
-TelnyxBackendService.verifyAuthToken(authHeader);
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
 
     if (!authUser?.uid) {
       res.statusCode = 401;
@@ -44,10 +39,8 @@ TelnyxBackendService.verifyAuthToken(authHeader);
 
     for (const num of result.numbers) {
       const docId = `num_${num.phone_number.replace(/\D/g, '')}`;
-      const existingDoc = await 
-db.collection('telnyx_phone_numbers').doc(docId).get();
-      const codigoArea = num.phone_number.replace(/\D/g, 
-'').substring(1, 4);
+      const existingDoc = await db.collection('telnyx_phone_numbers').doc(docId).get();
+      const codigoArea = num.phone_number.replace(/\D/g, '').substring(1, 4);
 
       await db.collection('telnyx_phone_numbers').doc(docId).set({
         id: docId,
