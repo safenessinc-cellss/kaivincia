@@ -52,8 +52,8 @@ import FormTemplates from './pages/FormTemplates';
 import Integrations from './pages/Integrations';
 import CompanyAuth from './pages/b2b/CompanyAuth';
 import CompanyDashboard from './pages/b2b/CompanyDashboard';
-import RouteGuard from './components/RouteGuard';
-
+import CallCenterAdmin from './pages/CallCenterAdmin';
+import RouteGuard from "./components/RouteGuard";
 export default function App() {
   const [user, setUser] = useState<any>(() => {
     try {
@@ -365,6 +365,7 @@ export default function App() {
           <Route path="calendar" element={<CalendarView />} />
           <Route path="chat" element={<Chat />} />
           <Route path="cobranza" element={<Cobranza />} />
+          <Route path="call-center" element={userData?.role !== "superadmin" && userData?.role !== "admin" ? <Navigate to="/crm/dashboard" /> : <CallCenterAdmin />} />
           
           {/* New Modules */}
           <Route path="superadmin" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SuperAdmin />} />
