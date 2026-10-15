@@ -152,7 +152,7 @@ export default function MetaAdminHub() {
         } catch (e) {}
       }
 
-      const res = await fetch('/api/meta-test', {
+      const res = await fetch('/api/meta-config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -170,7 +170,7 @@ export default function MetaAdminHub() {
         results: {
           general: {
             success: false,
-            message: `Error de red al contactar /api/meta-test: ${err.message}`
+            message: `Error de red al contactar /api/meta-config: ${err.message}`
           }
         }
       });
