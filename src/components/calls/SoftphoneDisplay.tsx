@@ -5,6 +5,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 
 export interface SoftphoneDisplayProps {
   phoneNumber: string;
+  callerId?: string;
   onPhoneNumberChange: (val: string) => void;
   onBackspace: () => void;
   onClear?: () => void;
@@ -63,6 +64,7 @@ export function formatDialNumberPreview(num: string): string {
 
 export default function SoftphoneDisplay({
   phoneNumber,
+  callerId,
   onPhoneNumberChange,
   onBackspace,
   onClear,
@@ -178,6 +180,14 @@ export default function SoftphoneDisplay({
       <div className="flex items-center justify-between text-[10px] sm:text-[11px] mb-1.5 font-mono">
         {/* Indicador de Estado */}
         <div className="flex items-center gap-1.5">
+          {callerId && (
+            <span
+              className="text-[9px] font-mono font-bold text-cyan-300 bg-cyan-500/10 border border-cyan-500/30 rounded-full px-1.5 py-0.5"
+              title="Caller ID de salida"
+            >
+              {callerId}
+            </span>
+          )}
           {callStatus === 'idle' && (
             <span className="flex items-center gap-1 text-slate-400 font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
