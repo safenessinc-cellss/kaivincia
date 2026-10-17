@@ -207,7 +207,15 @@ export default function TelnyxAdminHub() {
       }
     }, (err) => console.warn('Could not load telnyx_agent_assignments:', err));
 
-  // Cargar lista de agentes para asignar credenciales
+    return () => {
+      unsubWebRtc();
+      unsubConfig();
+      unsubNumbers();
+      unsubAssignments();
+    };
+  }, []);
+
+  // Cargar lista de agentes para asignar credenciales (al nivel superior del componente)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
       const agents = snap.docs
@@ -221,14 +229,6 @@ export default function TelnyxAdminHub() {
       setAgentOptions(agents);
     }, (err) => console.warn('Could not load users for agentOptions:', err));
     return () => unsub();
-  }, []);
-
-    return () => {
-      unsubWebRtc();
-      unsubConfig();
-      unsubNumbers();
-      unsubAssignments();
-    };
   }, []);
 
   // Lista normalizada de colaboradoras (contextUsers + fallback seguro)
