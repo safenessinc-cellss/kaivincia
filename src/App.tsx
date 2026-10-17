@@ -65,14 +65,7 @@ export default function App() {
       return null;
     }
   });
-  const [userData, setUserData] = useState<any>(() => {
-    try {
-      const savedData = localStorage.getItem('kaivincia_user_data');
-      return savedData ? JSON.parse(savedData) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
@@ -103,65 +96,61 @@ export default function App() {
 
       if (currentUser) {
         try {
-          const userRef = doc(db, 'users', currentUser.uid);
+          const userRef = doc(db, "users", currentUser.uid);
           const userSnap = await getDoc(userRef);
-          const isSuperAdmin = currentUserRole === 'superadmin' || currentUserRole === 'admin';
-          
+
+          const existingData = userSnap.exists() ? userSnap.data() : null;
+          const currentUserRole = existingData?.role ?? null;
+          const isSuperAdmin = currentUserRole === "superadmin" || currentUserRole === "admin";
+
           let currentProfile: any = null;
           if (!userSnap.exists()) {
             const newUser = {
               uid: currentUser.uid,
-              name: currentUser.displayName || 'Agente TLMK',
+              name: currentUser.displayName || "Agente TLMK",
               email: currentUser.email,
-              role: isSuperAdmin ? 'superadmin' : 'tlmk',
-              status: 'active', // Default to active so agents can work immediately
-              avatarUrl: currentUser.photoURL || '',
+              role: isSuperAdmin ? "superadmin" : "tlmk",
+              status: "active",
+              avatarUrl: currentUser.photoURL || "",
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString()
             };
             await setDoc(userRef, newUser);
             currentProfile = newUser;
           } else {
-            const data = userSnap.data();
-            // Ensure operational agents have active status and valid role
-            const updatedRole = data.role && data.role !== 'none' ? data.role : (isSuperAdmin ? 'superadmin' : 'tlmk');
-            const updatedStatus = 'active'; // keep always active for logged in operators
-            
-            await setDoc(userRef, { 
+            const data = existingData!;
+            const updatedRole = data.role && data.role !== "none" ? data.role : (isSuperAdmin ? "superadmin" : "tlmk");
+            const updatedStatus = "active";
+
+            await setDoc(userRef, {
               lastLogin: new Date().toISOString(),
               status: updatedStatus,
               role: updatedRole
             }, { merge: true });
-            
+
             currentProfile = { ...data, status: updatedStatus, role: updatedRole };
           }
 
           setUserData(currentProfile);
           setUser(currentUser);
-          localStorage.setItem('kaivincia_active_user', JSON.stringify({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }));
-          localStorage.setItem('kaivincia_user_data', JSON.stringify(currentProfile));
+          localStorage.setItem("kaivincia_active_user", JSON.stringify({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }));
 
-          // Listen to user data changes
           unsubUserDoc = onSnapshot(userRef, (docSnap) => {
             if (docSnap.exists()) {
               const liveData = docSnap.data();
-              // Guarantee active status to prevent sudden kicks
-              const stabilizedData = { ...liveData, status: liveData.status || 'active' };
+              const stabilizedData = { ...liveData, status: liveData.status || "active" };
               setUserData(stabilizedData);
-              localStorage.setItem('kaivincia_user_data', JSON.stringify(stabilizedData));
             }
           }, (error) => {
             console.warn("User data listener warning (handled):", error);
           });
         } catch (authErr) {
           console.error("Error setting up user profile:", authErr);
-          // Fallback user data so the agent is never kicked out
           const fallback = {
-            uid: currentUser.uid,
-            name: currentUser.displayName || 'Agente TLMK',
+            name: currentUser.displayName || "Agente TLMK",
             email: currentUser.email,
-            role: 'tlmk',
-            status: 'active'
+            role: "tlmk",
+            status: "active"
           };
           setUser(currentUser);
           setUserData(fallback);

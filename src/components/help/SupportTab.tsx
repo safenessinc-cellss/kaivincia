@@ -71,11 +71,8 @@ export default function SupportTab({ onCloseDrawer, onTicketCountChange }: Suppo
 
   const currentUser = auth.currentUser;
   const isAdminOrManager = useMemo(() => {
-    const email = currentUser?.email || '';
-    return (
-      ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole) ||
-    );
-  }, [userRole, currentUser]);
+    return ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole);
+  }, [userRole]);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -85,17 +82,6 @@ export default function SupportTab({ onCloseDrawer, onTicketCountChange }: Suppo
   // 1. Detección de rol y lista de operadores para asignación
   useEffect(() => {
     if (!currentUser) return;
-
-    // Obtener rol desde cache inicial si existe
-    try {
-      const cached = localStorage.getItem('kaivincia_user_data');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.role) setUserRole(parsed.role);
-      }
-    } catch (e) {
-      console.warn('Error reading cached user data', e);
-    }
 
     const unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
       const currentDoc = snapshot.docs.find(d => d.id === currentUser.uid);
