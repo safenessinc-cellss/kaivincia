@@ -178,6 +178,35 @@ class TelnyxWebRTCService {
         this.notify();
       });
 
+      this.client.on('telnyx.warning', async (warning: any) => {
+        if (warning?.code === 34001) {
+          console.log('[TelnyxWebRTC] 🔄 Token por expirar, renovando automáticamente...');
+          try {
+            const { getAuth } = await import('firebase/auth');
+            const user = getAuth().currentUser;
+            if (!user) throw new Error('No hay usuario autenticado');
+            const firebaseToken = await user.getIdToken();
+
+            const res = await fetch('/api/telnyx-token', {
+              headers: { 'Authorization': `Bearer ${firebaseToken}` },
+            });
+            if (!res.ok) throw new Error(`Backend respondió ${res.status}`);
+            const data = await res.json();
+            const newToken = data.token;
+            if (!newToken) throw new Error('Respuesta sin token');
+
+            this.client!.updateToken(newToken);
+            console.log('[TelnyxWebRTC] ✅ Token renovado correctamente');
+          } catch (err: any) {
+            console.error('[TelnyxWebRTC] ❌ Fallo al renovar token:', err.message);
+            try { this.client?.disconnect(); } catch {}
+            this.state.isConnected = false;
+            this.state.lastError = 'Sesión expirada. Vuelve a autenticarte.';
+            this.notify();
+          }
+        }
+      });
+
       this.client.on('telnyx.error', (error: any) => {
         console.error('[TelnyxWebRTC] ❌ Error en cliente:', error);
         this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
