@@ -70,14 +70,9 @@ const DEFAULT_PROVIDERS: VoipProvider[] = [
   }
 ];
 
-// Números reales de Telnyx para usar como Caller ID
-const REAL_TELNYX_CALLER_IDS = [
-  '+19707631270',
-  '+17602814871',
-  '+16199608220',
-  '+13239967765',
-  '+13234053577'
-];
+// Números de Caller ID: se cargan SOLO desde Telnyx (telnyx_phone_numbers en Firestore).
+// No hardcodear números aquí para evitar el error 403 "originator number is invalid".
+const REAL_TELNYX_CALLER_IDS: string[] = [];
 
 export default function SoftphoneDialer({
   mode = 'embedded',
@@ -176,7 +171,7 @@ export default function SoftphoneDialer({
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
   const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>(REAL_TELNYX_CALLER_IDS);
-  const [selectedCallerId, setSelectedCallerId] = useState<string>('+19707631270');
+  const [selectedCallerId, setSelectedCallerId] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -609,7 +604,7 @@ export default function SoftphoneDialer({
     const endedRecord: any = {
       contactPhone: phoneNumber,
       contactName: selectedClientName ? `${selectedClientName} (${phoneNumber})` : `Contacto ${phoneNumber}`,
-      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '+1 (305) 555-0199',
+      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '',
       duration: finalDuration,
       status: finalDuration > 0 ? 'completed' : 'missed',
       direction: 'outbound',
@@ -622,7 +617,7 @@ export default function SoftphoneDialer({
       agentEmail: auth.currentUser?.email || user?.email || 'agent@kaivincia.com',
       projectName: selectedProject || 'General',
       disposition: finalDuration > 0 ? 'Conectada / Éxito' : 'Sin contestar',
-      notes: `Caller ID: ${selectedCallerId || 'Central'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
+      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
       isRecorded: isRecording || Boolean(agentAssignment?.recordCalls)
     };
 
@@ -666,6 +661,12 @@ export default function SoftphoneDialer({
         showToast(`⛔ Zona no autorizada. Solo puedes llamar a: ${authorizedZones.map((z: any) => z.zoneName).join(', ')}`);
         return;
       }
+    }
+
+    // Validar que haya un Caller ID seleccionado (viene de telnyx_phone_numbers)
+    if (!selectedCallerId) {
+      showToast('⚠️ No hay Caller ID seleccionado. Sincroniza números desde Telnyx en el admin.');
+      return;
     }
 
     currentCallStartedAtRef.current = new Date().toISOString();
