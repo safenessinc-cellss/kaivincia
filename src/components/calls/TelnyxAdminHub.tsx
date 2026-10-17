@@ -434,6 +434,35 @@ export default function TelnyxAdminHub() {
     }
   };
 
+  // Importar credenciales/usuarios desde Telnyx
+  const handleImportCredentials = async () => {
+    setIsImportingCredentials(true);
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (!user) {
+        alert('No hay usuario autenticado.');
+        return;
+      }
+      const token = await user.getIdToken();
+      const res = await fetch('/api/telnyx/credentials/list', {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.credentials)) {
+        setImportedCredentials(data.credentials);
+        alert(`Importados ${data.credentials.length} usuarios de Telnyx.`);
+      } else {
+        alert(data.error || 'Telnyx respondio sin credenciales.');
+      }
+    } catch (err: any) {
+      alert(`Error al importar usuarios: ${err.message}`);
+    } finally {
+      setIsImportingCredentials(false);
+    }
+  };
+
   // Activar o desactivar número sin eliminar
   const handleToggleNumberStatus = async (numberItem: TelnyxPhoneNumber) => {
     const nextStatus = numberItem.status === 'disabled' ? 'available' : 'disabled';
@@ -622,6 +651,16 @@ export default function TelnyxAdminHub() {
             >
               <RefreshCw className={`w-4 h-4 ${isSyncingNumbers ? 'animate-spin' : ''}`} />
               <span>{isSyncingNumbers ? 'Sincronizando...' : 'Sincronizar Telnyx'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleImportCredentials}
+              disabled={isImportingCredentials}
+              className="px-4 py-2.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] cursor-pointer disabled:opacity-50"
+            >
+              <Users className={`w-4 h-4 ${isImportingCredentials ? 'animate-spin' : ''}`} />
+              <span>{isImportingCredentials ? 'Importando...' : 'Importar Usuarios'}</span>
             </button>
           </div>
         </div>
