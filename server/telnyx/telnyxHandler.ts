@@ -1,4 +1,4 @@
-import { adminAuth } from '../../api/_lib/firebaseAdmin.js';
+import { adminAuth } from '../_lib/firebaseAdmin.js';
 
 export interface TelnyxHandlerOptions {
   methods?: string[];

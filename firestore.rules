@@ -400,6 +400,11 @@ service cloud.firestore {
       allow delete: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
     }
 
+    match /settings/telnyx_config {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // ===============================================================
     // Deny-all
     // ===============================================================
