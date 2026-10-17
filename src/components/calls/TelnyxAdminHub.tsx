@@ -135,6 +135,7 @@ export default function TelnyxAdminHub() {
   const [isSyncingNumbers, setIsSyncingNumbers] = useState(false);
   const [isImportingCredentials, setIsImportingCredentials] = useState(false);
   const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
+  const [agentOptions, setAgentOptions] = useState<Array<{uid:string;email:string;name:string}>>([]);
   const [numberSearch, setNumberSearch] = useState('');
   const [numberStatusFilter, setNumberStatusFilter] = useState<'all' | 'available' | 'assigned' | 'disabled'>('all');
   
@@ -205,6 +206,22 @@ export default function TelnyxAdminHub() {
         setAssignments(map);
       }
     }, (err) => console.warn('Could not load telnyx_agent_assignments:', err));
+
+  // Cargar lista de agentes para asignar credenciales
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const agents = snap.docs
+        .map(d => ({ uid: d.id, ...(d.data() as any) }))
+        .filter((u: any) => u.status === 'active' || u.role === 'tlmk' || u.role === 'agente' || u.role === 'admin' || u.role === 'supervisor')
+        .map((u: any) => ({
+          uid: u.uid,
+          email: u.email || u.uid,
+          name: u.name || u.displayName || u.email || u.uid,
+        }));
+      setAgentOptions(agents);
+    }, (err) => console.warn('Could not load users for agentOptions:', err));
+    return () => unsub();
+  }, []);
 
     return () => {
       unsubWebRtc();
@@ -463,6 +480,23 @@ export default function TelnyxAdminHub() {
     }
   };
 
+  const handleAssignCredential = async (cred: {id:string;name:string;sipUsername:string;connectionId:string}, agentUid: string) => {
+    if (!agentUid) return;
+    try {
+      const agent = agentOptions.find(a => a.uid === agentUid);
+      await setDoc(doc(db, 'telnyx_agent_assignments', agentUid), {
+        agentEmail: agent?.email || '',
+        agentName: agent?.name || '',
+        telnyxCredentialId: cred.id,
+        telnyxUsername: cred.sipUsername,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      alert(`Credencial ${cred.name} asignada a ${agent?.email || agentUid}`);
+    } catch (err: any) {
+      alert(`Error asignando credencial: ${err.message}`);
+    }
+  };
+
   // Activar o desactivar número sin eliminar
   const handleToggleNumberStatus = async (numberItem: TelnyxPhoneNumber) => {
     const nextStatus = numberItem.status === 'disabled' ? 'available' : 'disabled';
@@ -663,6 +697,44 @@ export default function TelnyxAdminHub() {
               <span>{isImportingCredentials ? 'Importando...' : 'Importar Usuarios'}</span>
             </button>
           </div>
+
+          {importedCredentials.length > 0 && (
+            <details className="mt-4 bg-slate-950/60 border border-cyan-500/30 rounded-2xl p-4" open>
+              <summary className="cursor-pointer text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Usuarios de Telnyx importados ({importedCredentials.length})
+              </summary>
+
+              <div className="mt-4 space-y-2">
+                {importedCredentials.map((cred) => (
+                  <div
+                    key={cred.id}
+                    className="flex items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="text-xs font-bold text-white truncate">{cred.name}</div>
+                      <div className="text-[10px] text-slate-400 font-mono truncate">
+                        SIP: {cred.sipUsername} · ID: {cred.id}
+                      </div>
+                    </div>
+
+                    <select
+                      defaultValue=""
+                      onChange={(e) => handleAssignCredential(cred, e.target.value)}
+                      className="bg-slate-950 border border-cyan-500/40 rounded-lg px-2 py-1 text-[10px] text-cyan-300 font-mono cursor-pointer"
+                    >
+                      <option value="">Asignar a...</option>
+                      {agentOptions.map((agent) => (
+                        <option key={agent.uid} value={agent.uid}>
+                          {agent.email}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
 
         {/* Notificación de Resultado del Test */}
