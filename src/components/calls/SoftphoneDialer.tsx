@@ -85,7 +85,7 @@ export default function SoftphoneDialer({
 }: SoftphoneDialerProps) {
   const handleClose = onClose || onCloseFloating;
   const { t } = useLanguage();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const { clients = [] } = useGlobalContext();
 
   const isFloating = mode === 'floating';
@@ -218,7 +218,7 @@ export default function SoftphoneDialer({
     };
     initTelnyx();
     return () => { cancelled = true; };
-  }, [user, authLoading]);
+  }, [user, authLoading, userData?.role]);
 
   // ============================================================
   // Renovación automática del JWT cada 24 horas
@@ -358,28 +358,55 @@ export default function SoftphoneDialer({
       }
     }, (err) => console.warn('Could not read esim_profiles:', err));
 
-    // ── Caller IDs: SOLO los asignados por admin/supervisor ──────────────────
+    // ── Caller IDs: privilegiados ven todos; agentes solo los asignados ──────
     let assignmentData: any | null = null;
+    let allTelnyxNumbers: string[] = [];
+
+    const PRIVILEGED_ROLES = ['admin', 'superadmin', 'owner', 'supervisor'];
 
     const recomputeAuthorizedCallerIds = () => {
-      // Solo los números que el admin/supervisor asignó explícitamente al agente
+      const role = String(userData?.role || '').toLowerCase().trim();
+      const isPrivileged = PRIVILEGED_ROLES.includes(role);
+
+      if (isPrivileged) {
+        setAuthorizedCallerIds(allTelnyxNumbers);
+        setSelectedCallerId(allTelnyxNumbers[0] || '');
+        return;
+      }
+
       const authorized: string[] = Array.isArray(assignmentData?.authorizedNumbers)
         ? assignmentData.authorizedNumbers.filter(Boolean)
         : [];
-
       setAuthorizedCallerIds(authorized);
 
       const defaultId = assignmentData?.defaultCallerId;
       if (defaultId && authorized.includes(defaultId)) {
         setSelectedCallerId(defaultId);
-      } else if (authorized.length > 0) {
-        setSelectedCallerId(authorized[0]);
       } else {
-        setSelectedCallerId('');
+        setSelectedCallerId(authorized[0] || '');
       }
     };
 
-    // Ya no leemos telnyx_phone_numbers aquí: los números válidos vienen del assignment
+    const isPrivilegedUser = PRIVILEGED_ROLES.includes(
+      String(userData?.role || '').toLowerCase().trim()
+    );
+
+    let unsubNumbers: (() => void) | null = null;
+    if (isPrivilegedUser) {
+      unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
+        const dbNumbers = snapshot.docs
+          .map(d => d.data())
+          .filter((n: any) => n.status !== 'disabled' && n.phoneNumber)
+          .map((n: any) => n.phoneNumber)
+          .filter(Boolean);
+        allTelnyxNumbers = dbNumbers;
+        recomputeAuthorizedCallerIds();
+      }, (err) => {
+        console.warn('Could not read telnyx_phone_numbers:', err);
+        recomputeAuthorizedCallerIds();
+      });
+    }
+
     const unsubAssignments = onSnapshot(collection(db, 'telnyx_agent_assignments'), (snapshot) => {
       if (!snapshot.empty) {
         const found = snapshot.docs.find(d => d.id === user.uid || d.data().agentEmail === user.email);
@@ -406,6 +433,7 @@ export default function SoftphoneDialer({
 
     return () => {
       unsubVoip(); unsubEsim(); unsubAssignments();
+      if (unsubNumbers) unsubNumbers();
     };
   }, [user, authLoading]);
 
