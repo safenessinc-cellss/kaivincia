@@ -6,6 +6,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/telnyx/config",
+      "destination": "/api/telnyx-config"
+    },
+    {
       "source": "/api/telnyx/:path*",
       "destination": "/api/telnyx-router"
     },
