@@ -1,6 +1,18 @@
 import type { IncomingMessage, ServerResponse } from 'http';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+
+// Inicializar Firebase Admin a nivel de módulo (obligatorio en Vercel serverless)
+if (!getApps().length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+    initializeApp({ credential: cert(serviceAccount) });
+    console.log('[telnyx-token] Firebase Admin inicializado');
+  } catch (err) {
+    console.error('[telnyx-token] Error inicializando Firebase Admin:', err);
+  }
+}
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');
