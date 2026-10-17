@@ -74,8 +74,6 @@ export default function SupportTab({ onCloseDrawer, onTicketCountChange }: Suppo
     const email = currentUser?.email || '';
     return (
       ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole) ||
-      email === 'safeness.c.a@gmail.com' ||
-      email === 'deuwyrobert@gmail.com'
     );
   }, [userRole, currentUser]);
 

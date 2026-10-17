@@ -1439,7 +1439,7 @@ export default function Chat() {
               </div>
             ) : (
               <div className="p-3 bg-white/2 rounded-xl border border-white/5 text-gray-500 text-[10px] leading-relaxed">
-                🔒 La configuración administrativa de cuentas de colaboradores está restringida. Inicia sesión con una cuenta de nivel Administrador o el correo principal <strong className="text-white">safeness.c.a@gmail.com</strong> para modificar este perfil.
+                🔒 La configuración administrativa de cuentas de colaboradores está restringida. Inicia sesión con una cuenta de nivel Administrador para modificar este perfil.
               </div>
             )}
           </div>

@@ -45,26 +45,11 @@ export default function OperationsSupervision() {
   const currentUser = auth.currentUser;
   const [userRole, setUserRole] = useState<string>('collaborator');
 
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem('kaivincia_user_data');
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (parsed.role) setUserRole(parsed.role);
-      }
-    } catch (e) {
-      console.warn('Error reading cached user role', e);
-    }
-  }, []);
+  
 
   const isSupervisor = useMemo(() => {
-    const email = currentUser?.email || '';
-    return (
-      ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole) ||
-      email === 'safeness.c.a@gmail.com' ||
-      email === 'deuwyrobert@gmail.com'
-    );
-  }, [userRole, currentUser]);
+    return ['superadmin', 'admin', 'ceo', 'gestor'].includes(userRole);
+  }, [userRole]);
 
   // Suscripción reactiva a métricas operativas consolidadas
   useEffect(() => {
