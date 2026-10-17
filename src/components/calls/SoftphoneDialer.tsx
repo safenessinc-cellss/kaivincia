@@ -363,43 +363,67 @@ export default function SoftphoneDialer({
       }
     }, (err) => console.warn('Could not read esim_profiles:', err));
 
+    // ── Números compartidos (shared pool) y asignaciones ──────────────────────
     let sharedPoolNumbers: string[] = [...REAL_TELNYX_CALLER_IDS];
+    let assignmentData: any | null = null;
+
+    const recomputeAuthorizedCallerIds = () => {
+      const authorized: string[] = assignmentData?.authorizedNumbers || [];
+      const allowSharedPool = assignmentData?.allowSharedPool !== false; // default: permitir shared pool
+      const combined = Array.from(new Set([
+        ...authorized,
+        ...(allowSharedPool ? sharedPoolNumbers : [])
+      ]));
+
+      // Fallback: si quedó vacío, usar SIEMPRE los números reales de Telnyx
+      const finalList = combined.length > 0 ? combined : [...REAL_TELNYX_CALLER_IDS];
+
+      setAuthorizedCallerIds(finalList);
+
+      const defaultId = assignmentData?.defaultCallerId;
+      if (defaultId && finalList.includes(defaultId)) {
+        setSelectedCallerId(defaultId);
+      } else if (finalList.length > 0) {
+        setSelectedCallerId(finalList[0]);
+      }
+    };
 
     const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
       if (!snapshot.empty) {
         const dbNumbers = snapshot.docs
           .map(d => d.data())
           .filter((n: any) => n.status !== 'disabled' && (n.isSharedPool || n.assignedAgentIds?.includes(user.uid)))
-          .map((n: any) => n.phoneNumber);
-        if (dbNumbers.length > 0) sharedPoolNumbers = dbNumbers;
+          .map((n: any) => n.phoneNumber)
+          .filter(Boolean);
+        if (dbNumbers.length > 0) {
+          sharedPoolNumbers = dbNumbers;
+        }
       }
-    }, () => {});
+      recomputeAuthorizedCallerIds();
+    }, (err) => {
+      console.warn('Could not read telnyx_phone_numbers:', err);
+      recomputeAuthorizedCallerIds();
+    });
 
     const unsubAssignments = onSnapshot(collection(db, 'telnyx_agent_assignments'), (snapshot) => {
       if (!snapshot.empty) {
         const found = snapshot.docs.find(d => d.id === user.uid || d.data().agentEmail === user.email);
         if (found) {
-          const assignData = found.data();
-          setAgentAssignment(assignData);
-          setAuthorizedZones(assignData.authorizedZones || []);
-          const authorized = assignData.authorizedNumbers || [];
-          const combined = Array.from(new Set([...authorized, ...(assignData.allowSharedPool ? sharedPoolNumbers : [])]));
-          setAuthorizedCallerIds(combined);
-          if (assignData.defaultCallerId && combined.includes(assignData.defaultCallerId)) {
-            setSelectedCallerId(assignData.defaultCallerId);
-          } else if (combined.length > 0) {
-            setSelectedCallerId(combined[0]);
-          }
+          assignmentData = found.data();
+          setAgentAssignment(assignmentData);
+          setAuthorizedZones(assignmentData.authorizedZones || []);
         } else {
-          setAuthorizedCallerIds(sharedPoolNumbers);
-          if (sharedPoolNumbers.length > 0) setSelectedCallerId(sharedPoolNumbers[0]);
+          assignmentData = null;
+          setAgentAssignment(null);
+          setAuthorizedZones([]);
         }
       } else {
-        setAuthorizedCallerIds(REAL_TELNYX_CALLER_IDS);
+        assignmentData = null;
       }
+      recomputeAuthorizedCallerIds();
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
-      setAuthorizedCallerIds(REAL_TELNYX_CALLER_IDS);
+      recomputeAuthorizedCallerIds();
     });
 
     return () => {
