@@ -358,48 +358,28 @@ export default function SoftphoneDialer({
       }
     }, (err) => console.warn('Could not read esim_profiles:', err));
 
-    // ── Números compartidos (shared pool) y asignaciones ──────────────────────
-    let sharedPoolNumbers: string[] = [...REAL_TELNYX_CALLER_IDS];
+    // ── Caller IDs: SOLO los asignados por admin/supervisor ──────────────────
     let assignmentData: any | null = null;
 
     const recomputeAuthorizedCallerIds = () => {
-      const authorized: string[] = assignmentData?.authorizedNumbers || [];
-      const allowSharedPool = assignmentData?.allowSharedPool !== false; // default: permitir shared pool
-      const combined = Array.from(new Set([
-        ...authorized,
-        ...(allowSharedPool ? sharedPoolNumbers : [])
-      ]));
+      // Solo los números que el admin/supervisor asignó explícitamente al agente
+      const authorized: string[] = Array.isArray(assignmentData?.authorizedNumbers)
+        ? assignmentData.authorizedNumbers.filter(Boolean)
+        : [];
 
-      // Fallback: si quedó vacío, usar SIEMPRE los números reales de Telnyx
-      const finalList = combined.length > 0 ? combined : [...REAL_TELNYX_CALLER_IDS];
-
-      setAuthorizedCallerIds(finalList);
+      setAuthorizedCallerIds(authorized);
 
       const defaultId = assignmentData?.defaultCallerId;
-      if (defaultId && finalList.includes(defaultId)) {
+      if (defaultId && authorized.includes(defaultId)) {
         setSelectedCallerId(defaultId);
-      } else if (finalList.length > 0) {
-        setSelectedCallerId(finalList[0]);
+      } else if (authorized.length > 0) {
+        setSelectedCallerId(authorized[0]);
+      } else {
+        setSelectedCallerId('');
       }
     };
 
-    const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
-      if (!snapshot.empty) {
-        const dbNumbers = snapshot.docs
-          .map(d => d.data())
-          .filter((n: any) => n.status !== 'disabled' && (n.isSharedPool || n.assignedAgentIds?.includes(user.uid)))
-          .map((n: any) => n.phoneNumber)
-          .filter(Boolean);
-        if (dbNumbers.length > 0) {
-          sharedPoolNumbers = dbNumbers;
-        }
-      }
-      recomputeAuthorizedCallerIds();
-    }, (err) => {
-      console.warn('Could not read telnyx_phone_numbers:', err);
-      recomputeAuthorizedCallerIds();
-    });
-
+    // Ya no leemos telnyx_phone_numbers aquí: los números válidos vienen del assignment
     const unsubAssignments = onSnapshot(collection(db, 'telnyx_agent_assignments'), (snapshot) => {
       if (!snapshot.empty) {
         const found = snapshot.docs.find(d => d.id === user.uid || d.data().agentEmail === user.email);
@@ -414,15 +394,18 @@ export default function SoftphoneDialer({
         }
       } else {
         assignmentData = null;
+        setAgentAssignment(null);
+        setAuthorizedZones([]);
       }
       recomputeAuthorizedCallerIds();
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
+      assignmentData = null;
       recomputeAuthorizedCallerIds();
     });
 
     return () => {
-      unsubVoip(); unsubEsim(); unsubNumbers(); unsubAssignments();
+      unsubVoip(); unsubEsim(); unsubAssignments();
     };
   }, [user, authLoading]);
 

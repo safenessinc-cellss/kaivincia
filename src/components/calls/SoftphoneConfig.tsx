@@ -133,7 +133,7 @@ export default function SoftphoneConfig({
             </select>
           ) : (
             <div className="bg-slate-950 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-[10px] text-amber-300 font-medium">
-              Central: +1 (305) 555-0199
+              Sin números asignados. Contacta a tu supervisor.
             </div>
           )}
         </div>
