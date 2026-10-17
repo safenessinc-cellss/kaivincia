@@ -255,9 +255,14 @@ export default function TelnyxAdminHub() {
     setIsTesting(true);
     setTestResult(null);
     try {
+      const { getAuth } = await import('firebase/auth');
+      const authToken = await getAuth().currentUser?.getIdToken();
       const res = await fetch('/api/telnyx/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({ connectionId: connectionIdInput })
       });
       const data = await res.json();
@@ -291,9 +296,14 @@ export default function TelnyxAdminHub() {
     setSaveSuccessMsg('');
     try {
       // 1. Notificar al backend sobre cambios en key o connectionId
+      const { getAuth } = await import('firebase/auth');
+      const authToken = await getAuth().currentUser?.getIdToken();
       await fetch('/api/telnyx/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           apiKey: newApiKey.trim() || undefined,
           connectionId: connectionIdInput.trim(),
