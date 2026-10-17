@@ -1,0 +1,1166 @@
+===== FILE: api/telnyx-config.ts =====
+import { TelnyxBackendService } from '../server/telnyxBackend.js';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  try {
+    // GET: Devuelve la configuración actual (sin exponer la API Key completa)
+    if (req.method === 'GET') {
+      const config = TelnyxBackendService.getConfig();
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(config));
+      return;
+    }
+
+    // POST: Actualiza la configuración
+    if (req.method === 'POST') {
+      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+      const authUser = await TelnyxBackendService.verifyAuthToken(authHeader as string);
+
+      if (!authUser?.uid) {
+        res.statusCode = 401;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'No autorizado. Token de Firebase inválido o ausente.' }));
+        return;
+      }
+
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const updatedConfig = TelnyxBackendService.updateConfig({
+        apiKey: body?.apiKey,
+        connectionId: body?.connectionId,
+        maxConcurrentCalls: body?.maxConcurrentCalls
+      });
+
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true, config: updatedConfig }));
+      return;
+    }
+
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+  } catch (err: any) {
+    console.error('[API /api/telnyx-config] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, error: err.message || 'Error en configuración de Telnyx' }));
+  }
+}
+
+===== FILE: api/telnyx-numbers.ts =====
+import { TelnyxBackendService } from '../server/telnyxBackend.js';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
+  if (req.method !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    const authHeader =
+      req.headers['authorization'] || req.headers['Authorization'];
+
+    console.log(
+      '[telnyx-numbers] Auth header:',
+      authHeader ? `${String(authHeader).substring(0, 40)}...` : 'AUSENTE'
+    );
+
+    if (!authHeader) {
+      console.error('[telnyx-numbers] ❌ No hay header Authorization');
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'Falta header Authorization',
+        })
+      );
+      return;
+    }
+
+    console.log(
+      '[telnyx-numbers] TelnyxBackendService:',
+      typeof TelnyxBackendService,
+      TelnyxBackendService ? '✅ existe' : '❌ undefined'
+    );
+
+    if (!TelnyxBackendService) {
+      console.error('[telnyx-numbers] ❌ TelnyxBackendService no importado');
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'Error de importación del servicio',
+        })
+      );
+      return;
+    }
+
+    console.log('[telnyx-numbers] Llamando a verifyAuthToken...');
+    const authUser = await TelnyxBackendService.verifyAuthToken(
+      authHeader as string
+    );
+
+    console.log(
+      '[telnyx-numbers] Resultado verifyAuthToken:',
+      authUser ? `✅ uid=${authUser.uid}` : '❌ null'
+    );
+
+    if (!authUser?.uid) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          success: false,
+          numbers: [],
+          error: 'No autorizado. Token de Firebase inválido o ausente.',
+        })
+      );
+      return;
+    }
+
+    console.log('[telnyx-numbers] Usuario autenticado. Obteniendo números...');
+    const result = await TelnyxBackendService.getAccountPhoneNumbers();
+
+    res.statusCode = result.success ? 200 : 400;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(result));
+  } catch (err: any) {
+    console.error('[telnyx-numbers] ❌ Error inesperado:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(
+      JSON.stringify({
+        success: false,
+        numbers: [],
+        error: err.message || 'Error al obtener números',
+      })
+    );
+  }
+}
+
+===== FILE: api/telnyx-test.ts =====
+import { TelnyxBackendService } from '../server/telnyxBackend.js';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        body = {};
+      }
+    }
+
+    const connectionId = body?.connectionId || process.env.TELNYX_CONNECTION_ID || '';
+    const result = await TelnyxBackendService.testConnection(connectionId);
+
+    res.statusCode = result.httpStatus >= 200 && result.httpStatus < 300 ? 200 : result.httpStatus;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(result));
+  } catch (err: any) {
+    console.error('[API /api/telnyx-test] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: false,
+      httpStatus: 500,
+      message: err.message || 'Error interno del servidor al probar conexión'
+    }));
+  }
+}
+
+===== FILE: api/telnyx-token.ts =====
+import type { IncomingMessage, ServerResponse } from 'http';
+import { TelnyxBackendService } from '../server/telnyxBackend.js';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+
+// Inicializar Firebase Admin a nivel de módulo (obligatorio en Vercel serverless)
+if (!getApps().length) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY || '{}');
+    initializeApp({ credential: cert(serviceAccount) });
+    console.log('[telnyx-token] Firebase Admin inicializado');
+  } catch (err) {
+    console.error('[telnyx-token] Error inicializando Firebase Admin:', err);
+  }
+}
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
+
+    if (!authUser?.uid) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'No autorizado. Se requiere token de Firebase.' }));
+      return;
+    }
+
+    console.log('[telnyx-token] Usuario autenticado:', authUser.uid, authUser.email);
+
+    const db = getFirestore();
+    const operadorDoc = await db.collection('operadores').doc(authUser.uid).get();
+
+    let operadorData: any;
+    let credentialId: string;
+    let sipUsername: string;
+
+    if (!operadorDoc.exists) {
+      console.log('[telnyx-token] Operador no existe, creando...');
+      const connectionId = (req.query?.connectionId as string) || process.env.TELNYX_CONNECTION_ID || '';
+      const credential = await TelnyxBackendService.getOrCreateTelephonyCredential(authUser.uid, connectionId);
+
+      operadorData = {
+        id: authUser.uid,
+        email: authUser.email || '',
+        nombre: authUser.email?.split('@')[0] || 'Operador',
+        rol: 'agente',
+        telnyxCredentialId: credential.id,
+        telnyxUsername: credential.sip_username,
+        numerosAsignados: [],
+        horario: {
+          inicio: '00:00',
+          fin: '23:59',
+          zonaHoraria: 'America/Los_Angeles',
+          diasLaborables: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'],
+        },
+        disponible: false,
+        enLlamada: false,
+        permiteSalientes: true,
+        permiteEntrantes: true,
+        activo: true,
+        creadoEn: new Date().toISOString(),
+      };
+
+      await db.collection('operadores').doc(authUser.uid).set(operadorData);
+      credentialId = credential.id;
+      sipUsername = credential.sip_username;
+    } else {
+      operadorData = operadorDoc.data();
+      credentialId = operadorData.telnyxCredentialId;
+      sipUsername = operadorData.telnyxUsername;
+
+      if (!credentialId) {
+        console.log('[telnyx-token] Operador sin credencial, creando...');
+        const connectionId = (req.query?.connectionId as string) || process.env.TELNYX_CONNECTION_ID || '';
+        const credential = await TelnyxBackendService.getOrCreateTelephonyCredential(authUser.uid, connectionId);
+        credentialId = credential.id;
+        sipUsername = credential.sip_username;
+
+        await db.collection('operadores').doc(authUser.uid).update({
+          telnyxCredentialId: credentialId,
+          telnyxUsername: sipUsername,
+          actualizadoEn: new Date().toISOString(),
+        });
+      }
+    }
+
+    if (operadorData.rol !== 'admin' && operadorData.rol !== 'supervisor') {
+      const enHorario = verificarHorario(operadorData.horario);
+      if (!enHorario) {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          error: 'Fuera de horario laboral. Contacta a tu supervisor.',
+          horario: operadorData.horario,
+        }));
+        return;
+      }
+    }
+
+    if (operadorData.activo === false) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Cuenta desactivada. Contacta al administrador.' }));
+      return;
+    }
+
+    console.log('[telnyx-token] Generando JWT para credencial:', credentialId);
+    const token = await TelnyxBackendService.generateAgentJwt(credentialId);
+
+    await db.collection('operadores').doc(authUser.uid).update({
+      disponible: true,
+      ultimaActividad: new Date().toISOString(),
+    });
+
+    const numerosAsignados: any[] = [];
+    if (operadorData.numerosAsignados && operadorData.numerosAsignados.length > 0) {
+      for (const numId of operadorData.numerosAsignados) {
+        const numDoc = await db.collection('telnyx_phone_numbers').doc(numId).get();
+        if (numDoc.exists) {
+          numerosAsignados.push({ id: numDoc.id, ...numDoc.data() });
+        }
+      }
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      token,
+      sipUsername,
+      credentialId,
+      connectionId: process.env.TELNYX_CONNECTION_ID || '',
+      operador: {
+        uid: authUser.uid,
+        nombre: operadorData.nombre,
+        rol: operadorData.rol,
+        horario: operadorData.horario,
+      },
+      numerosAsignados,
+      allowedNumbers: numerosAsignados.map((n) => n.phoneNumber),
+    }));
+  } catch (err: any) {
+    console.error('[API /api/telnyx-token] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message || 'Error interno al generar credenciales de Telnyx' }));
+  }
+}
+
+function verificarHorario(horario: any): boolean {
+  if (!horario || !horario.inicio || !horario.fin) return true;
+  try {
+    const zonaHoraria = horario.zonaHoraria || 'America/Los_Angeles';
+    const ahora = new Date().toLocaleString('en-US', { timeZone: zonaHoraria });
+    const fecha = new Date(ahora);
+    const horaActual = fecha.getHours() * 60 + fecha.getMinutes();
+    const [inicioH, inicioM] = horario.inicio.split(':').map(Number);
+    const [finH, finM] = horario.fin.split(':').map(Number);
+    const horaInicio = inicioH * 60 + inicioM;
+    const horaFin = finH * 60 + finM;
+
+    if (horario.diasLaborables && Array.isArray(horario.diasLaborables)) {
+      const diasMap = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
+      const diaActual = diasMap[fecha.getDay()];
+      if (!horario.diasLaborables.includes(diaActual)) return false;
+    }
+
+    if (horaFin < horaInicio) return horaActual >= horaInicio || horaActual <= horaFin;
+    return horaActual >= horaInicio && horaActual <= horaFin;
+  } catch (err) {
+    console.error('[verificarHorario] Error:', err);
+    return true;
+  }
+}
+
+===== FILE: api/telnyx/config.js =====
+import { TelnyxBackendService } from '../../server/telnyxBackend.js';
+
+/**
+ * Endpoint de configuración de Telnyx (/api/telnyx/config)
+ * Soporta GET para consultar estado seguro (sin exponer API key en claro)
+ * y POST para actualizar connectionId, apiKey y límites de concurrencia.
+ */
+export default async function handler(req, res) {
+  // Encabezados CORS universales para producción y desarrollo
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Dev-UID');
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  // GET: Retornar configuración activa con API key enmascarada
+  if (req.method === 'GET') {
+    try {
+      const config = TelnyxBackendService.getConfig();
+      res.statusCode = 200;
+      res.end(JSON.stringify({
+        success: true,
+        config
+      }));
+      return;
+    } catch (err) {
+      console.error('[API /api/telnyx/config GET] Error:', err);
+      res.statusCode = 500;
+      res.end(JSON.stringify({
+        success: false,
+        message: err.message || 'Error al obtener configuración de Telnyx'
+      }));
+      return;
+    }
+  }
+
+  // POST: Actualizar parámetros de conexión de Telnyx
+  if (req.method === 'POST') {
+    try {
+      let body = req.body;
+
+      // Soporte tanto para bodies pre-parseados (Vercel Serverless) como streams (Node estándar)
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          body = {};
+        }
+      } else if (!body && typeof req.on === 'function') {
+        const buffers = [];
+        for await (const chunk of req) {
+          buffers.push(chunk);
+        }
+        const dataStr = Buffer.concat(buffers).toString('utf-8');
+        body = dataStr ? JSON.parse(dataStr) : {};
+      } else if (!body) {
+        body = {};
+      }
+
+      const updated = TelnyxBackendService.updateConfig({
+        apiKey: body.apiKey,
+        connectionId: body.connectionId,
+        maxConcurrentCalls: body.maxConcurrentCalls
+      });
+
+      console.log(`[AUDIT] Action: TELNYX_CONFIG_UPDATED | Timestamp: ${new Date().toISOString()}`);
+
+      res.statusCode = 200;
+      res.end(JSON.stringify({
+        success: true,
+        config: updated,
+        message: 'Configuración de Telnyx actualizada exitosamente en el servidor.'
+      }));
+      return;
+    } catch (err) {
+      console.error('[API /api/telnyx/config POST] Error:', err);
+      res.statusCode = 500;
+      res.end(JSON.stringify({
+        success: false,
+        message: err.message || 'Error al guardar configuración de Telnyx'
+      }));
+      return;
+    }
+  }
+
+  res.statusCode = 405;
+  res.end(JSON.stringify({
+    success: false,
+    message: `Método ${req.method} no permitido en este endpoint.`
+  }));
+}
+
+===== FILE: api/telnyx/credentials/create.ts =====
+import { TelnyxBackendService } from '../../../server/telnyxBackend.js';
+import { getFirestore } from 'firebase-admin/firestore';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
+
+    if (!authUser?.uid) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'No autorizado' }));
+      return;
+    }
+
+    const { nombre, operadorUid, connectionId } = req.body;
+
+    if (!nombre || !operadorUid) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'Faltan campos: nombre y operadorUid' }));
+      return;
+    }
+
+    const apiKey = process.env.TELNYX_API_KEY;
+    const connId = connectionId || process.env.TELNYX_CONNECTION_ID;
+
+    const telnyxResponse = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        connection_id: connId,
+        name: nombre,
+      }),
+    });
+
+    if (!telnyxResponse.ok) {
+      const errorText = await telnyxResponse.text();
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        error: `Error creando credencial (${telnyxResponse.status}): ${errorText}`
+      }));
+      return;
+    }
+
+    const telnyxData = await telnyxResponse.json();
+    const credentialId = telnyxData.data.id;
+    const sipUsername = telnyxData.data.sip_username;
+
+    const db = getFirestore();
+
+    await db.collection('telnyx_sip_credentials').doc(credentialId).set({
+      id: credentialId,
+      telnyxUsername: sipUsername,
+      connectionId: connId,
+      operadorUid,
+      activo: true,
+      creadoEn: new Date().toISOString(),
+    });
+
+    await db.collection('operadores').doc(operadorUid).set({
+      telnyxCredentialId: credentialId,
+      telnyxUsername: sipUsername,
+      actualizadoEn: new Date().toISOString(),
+    }, { merge: true });
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: true,
+      credentialId,
+      sipUsername,
+      message: 'Credencial creada correctamente',
+    }));
+  } catch (err: any) {
+    console.error('[credentials/create] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+===== FILE: api/telnyx/credentials/list.ts =====
+import { TelnyxBackendService } from '../../../server/telnyxBackend.js';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
+
+    if (!authUser?.uid) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, error: 'No autorizado' }));
+      return;
+    }
+
+    const apiKey = process.env.TELNYX_API_KEY;
+    if (!apiKey) {
+      res.statusCode = 500;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, error: 'TELNYX_API_KEY no configurada' }));
+      return;
+    }
+
+    const telnyxRes = await fetch('https://api.telnyx.com/v2/telephony_credentials?page[size]=250', {
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+    });
+
+    if (!telnyxRes.ok) {
+      const errText = await telnyxRes.text();
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, error: `Telnyx ${telnyxRes.status}: ${errText}` }));
+      return;
+    }
+
+    const data = await telnyxRes.json();
+    const credentials = (data.data || []).map((c: any) => ({
+      id: c.id,
+      name: c.name,
+      sipUsername: c.sip_username,
+      connectionId: c.connection_id,
+      createdAt: c.created_at,
+    }));
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: true, total: credentials.length, credentials }));
+  } catch (err: any) {
+    console.error('[credentials/list] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, error: err.message }));
+  }
+}
+
+===== FILE: api/telnyx/numbers/sync.ts =====
+import { TelnyxBackendService } from '../../../server/telnyxBackend.js';
+import { getFirestore } from 'firebase-admin/firestore';
+
+export default async function handler(req: any, res: any) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    return;
+  }
+
+  try {
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
+
+    if (!authUser?.uid) {
+      res.statusCode = 401;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: 'No autorizado' }));
+      return;
+    }
+
+    const result = await TelnyxBackendService.getAccountPhoneNumbers();
+
+    if (!result.success) {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ error: result.message }));
+      return;
+    }
+
+    const db = getFirestore();
+    const numerosGuardados: string[] = [];
+
+    for (const num of result.numbers) {
+      const docId = `num_${num.phone_number.replace(/\D/g, '')}`;
+      const existingDoc = await db.collection('telnyx_phone_numbers').doc(docId).get();
+      const codigoArea = num.phone_number.replace(/\D/g, '').substring(1, 4);
+
+      await db.collection('telnyx_phone_numbers').doc(docId).set({
+        id: docId,
+        phoneNumber: num.phone_number,
+        status: num.status,
+        connectionId: num.connection_id,
+        friendlyName: existingDoc.exists
+          ? existingDoc.data()?.friendlyName
+          : `Línea ${codigoArea}`,
+        assignedUserId: existingDoc.exists
+          ? existingDoc.data()?.assignedUserId
+          : null,
+        codigoArea: existingDoc.exists
+          ? existingDoc.data()?.codigoArea
+          : codigoArea,
+        region: existingDoc.exists
+          ? existingDoc.data()?.region
+          : null,
+        isSharedPool: existingDoc.exists
+          ? existingDoc.data()?.isSharedPool
+          : true,
+        esPrincipal: existingDoc.exists
+          ? existingDoc.data()?.esPrincipal
+          : false,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
+      numerosGuardados.push(docId);
+    }
+
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: true,
+      total: numerosGuardados.length,
+      numbers: numerosGuardados,
+    }));
+  } catch (err: any) {
+    console.error('[numbers/sync] Error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+===== FILE: api/telnyx/webhook.js =====
+import { TelnyxBackendService } from '../../server/telnyxBackend.js';
+
+/**
+ * Webhook de Telnyx (/api/telnyx/webhook)
+ * Recibe eventos de llamadas, grabación y DTMF enviados por Telnyx Call Control / TeXML.
+ */
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, Telnyx-Signature-Ed25519, Telnyx-Timestamp');
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 200;
+    res.end();
+    return;
+  }
+
+  if (req.method !== 'POST') {
+    res.statusCode = 405;
+    res.end(JSON.stringify({ status: 'error', message: 'Método no permitido' }));
+    return;
+  }
+
+  try {
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        body = {};
+      }
+    } else if (!body && typeof req.on === 'function') {
+      const buffers = [];
+      for await (const chunk of req) {
+        buffers.push(chunk);
+      }
+      const dataStr = Buffer.concat(buffers).toString('utf-8');
+      body = dataStr ? JSON.parse(dataStr) : {};
+    } else if (!body) {
+      body = {};
+    }
+
+    const result = await TelnyxBackendService.handleWebhook(body);
+    res.statusCode = 200;
+    res.end(JSON.stringify({ status: 'ok', ...result }));
+  } catch (err) {
+    console.error('[API /api/telnyx/webhook] Error procesando evento:', err);
+    // Responder 200 a Telnyx para evitar reintentos continuos en caso de payloads malformados
+    res.statusCode = 200;
+    res.end(JSON.stringify({ status: 'ignored', error: err.message }));
+  }
+}
+
+===== FILE: server/telnyxBackend.ts =====
+import type { IncomingMessage, ServerResponse } from 'http';
+
+interface TelnyxCredentialResponse {
+  data?: {
+    id: string;
+    sip_username: string;
+    connection_id: string;
+  };
+  errors?: Array<{ detail: string; title: string }>;
+}
+
+interface TelnyxConnectionResponse {
+  data?: {
+    id: string;
+    connection_name: string;
+    active: boolean;
+    transport_protocol?: string;
+  };
+  errors?: Array<{ detail: string; title: string }>;
+}
+
+let dynamicApiKey = process.env.TELNYX_API_KEY || '';
+let dynamicConnectionId = process.env.TELNYX_CONNECTION_ID || '3046958032463333200';
+let dynamicMaxConcurrentCalls = 10;
+let activeCallsCount = 0;
+
+/**
+ * Backend Service for Telnyx Voice & WebRTC
+ * Securely handles API keys and generates ephemeral JWT tokens for agents.
+ */
+export class TelnyxBackendService {
+  public static getApiKey(): string {
+    return dynamicApiKey || process.env.TELNYX_API_KEY || '';
+  }
+
+  public static getDefaultConnectionId(): string {
+    return dynamicConnectionId || process.env.TELNYX_CONNECTION_ID || '';
+  }
+
+  public static maskApiKey(key: string): string {
+    if (!key) return '';
+    if (key.length <= 10) return '••••••••';
+    return `${key.slice(0, 7)}••••••••••••••••${key.slice(-6)}`;
+  }
+
+  public static getWebhookUrl(): string {
+    const appUrl = process.env.APP_URL || 'https://ais-dev-je7y4j4rkf2urn7d5cqnsz-316420818896.us-east1.run.app';
+    const cleanUrl = appUrl.replace(/\/$/, '');
+    return `${cleanUrl}/api/telnyx/webhook`;
+  }
+
+  public static getConfig() {
+    const key = this.getApiKey();
+    return {
+      connectionId: this.getDefaultConnectionId(),
+      apiKeyMasked: this.maskApiKey(key),
+      isKeyConfigured: Boolean(key && key.length > 5),
+      webhookUrl: this.getWebhookUrl(),
+      maxConcurrentCalls: dynamicMaxConcurrentCalls,
+      activeCallsCount,
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  public static updateConfig(params: {
+    apiKey?: string;
+    connectionId?: string;
+    maxConcurrentCalls?: number;
+  }) {
+    if (params.apiKey && params.apiKey.trim()) {
+      dynamicApiKey = params.apiKey.trim();
+      process.env.TELNYX_API_KEY = dynamicApiKey;
+    }
+    if (params.connectionId && params.connectionId.trim()) {
+      dynamicConnectionId = params.connectionId.trim();
+      process.env.TELNYX_CONNECTION_ID = dynamicConnectionId;
+    }
+    if (typeof params.maxConcurrentCalls === 'number' && params.maxConcurrentCalls > 0) {
+      dynamicMaxConcurrentCalls = params.maxConcurrentCalls;
+    }
+
+    return this.getConfig();
+  }
+
+  public static incrementActiveCalls(): { activeCalls: number; limitReached: boolean } {
+    activeCallsCount += 1;
+    return {
+      activeCalls: activeCallsCount,
+      limitReached: activeCallsCount >= dynamicMaxConcurrentCalls
+    };
+  }
+
+  public static decrementActiveCalls(): { activeCalls: number } {
+    if (activeCallsCount > 0) activeCallsCount -= 1;
+    return { activeCalls: activeCallsCount };
+  }
+
+  public static async handleWebhook(eventData: any): Promise<{ received: boolean; action?: string }> {
+    try {
+      const eventType = eventData?.data?.event_type || eventData?.event_type || 'unknown';
+      const payload = eventData?.data?.payload || eventData?.payload || {};
+
+      console.log(`[Telnyx Webhook] Received event: ${eventType}`, payload?.call_control_id || payload?.call_leg_id);
+
+      if (eventType.includes('initiated') || eventType.includes('ringing')) {
+        this.incrementActiveCalls();
+      } else if (eventType.includes('hangup') || eventType.includes('ended')) {
+        this.decrementActiveCalls();
+      }
+
+      return { received: true, action: eventType };
+    } catch (err: any) {
+      console.error('[Telnyx Webhook] Error processing event:', err);
+      return { received: false, action: err.message };
+    }
+  }
+
+  /**
+   * Validates Firebase ID Token from Authorization header
+   * Supports Google tokeninfo verification without requiring local service-account files.
+   */
+  public static async verifyAuthToken(authHeader?: string): Promise<{ uid: string; email?: string } | null> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.split('Bearer ')[1]?.trim();
+    if (!token) return null;
+
+    try {
+      // Decode or verify token using Google TokenInfo endpoint
+      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+      if (response.ok) {
+        const payload = await response.json();
+        return {
+          uid: payload.user_id || payload.sub,
+          email: payload.email
+        };
+      }
+
+      // Fallback for development if token format is simple json or simulated in preview
+      const parts = token.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
+        if (payload.user_id || payload.sub) {
+          return {
+            uid: payload.user_id || payload.sub,
+            email: payload.email
+          };
+        }
+      }
+    } catch (err) {
+      console.error('[Telnyx Backend] Token verification failed:', err);
+    }
+
+    return null;
+  }
+
+  /**
+   * Creates or retrieves a telephony credential for the specified agent
+   */
+  public static async getOrCreateTelephonyCredential(
+    uid: string, 
+    connectionId?: string
+  ): Promise<{ id: string; sip_username: string }> {
+    const apiKey = this.getApiKey();
+    const connId = connectionId || this.getDefaultConnectionId();
+
+    if (!apiKey) {
+      throw new Error('TELNYX_API_KEY no configurada en el servidor.');
+    }
+
+    // 1. List existing telephony credentials to check if one exists for this agent
+    const listRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      const existing = listData.data?.find((c: any) => c.name === `kaivincia-agent-${uid}`);
+      if (existing) {
+        return {
+          id: existing.id,
+          sip_username: existing.sip_username
+        };
+      }
+    }
+
+    // 2. If not found, create new telephony credential
+    const createRes = await fetch('https://api.telnyx.com/v2/telephony_credentials', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        connection_id: connId,
+        name: `kaivincia-agent-${uid}`
+      })
+    });
+
+    const createData: TelnyxCredentialResponse = await createRes.json();
+    if (!createRes.ok || !createData.data) {
+      const errMsg = createData.errors?.[0]?.detail || createData.errors?.[0]?.title || 'Error creando credencial en Telnyx';
+      throw new Error(errMsg);
+    }
+
+    return {
+      id: createData.data.id,
+      sip_username: createData.data.sip_username
+    };
+  }
+
+  /**
+   * Generates a 24-hour JWT token for the agent's WebRTC connection
+   */
+  public static async generateAgentJwt(credentialId: string): Promise<string> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      throw new Error('TELNYX_API_KEY no configurada en el servidor.');
+    }
+
+    const tokenRes = await fetch(`https://api.telnyx.com/v2/telephony_credentials/${credentialId}/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!tokenRes.ok) {
+      const text = await tokenRes.text();
+      throw new Error(`Error generando JWT de Telnyx (${tokenRes.status}): ${text}`);
+    }
+
+    // Telnyx returns raw JWT string or JSON with token
+    const contentType = tokenRes.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const json = await tokenRes.json();
+      return json.token || json.data?.token || JSON.stringify(json);
+    }
+
+    return await tokenRes.text();
+  }
+
+  /**
+   * Tests connection validity against Telnyx API
+   */
+  public static async testConnection(connectionId?: string): Promise<{
+    success: boolean;
+    httpStatus: number;
+    message: string;
+    connectionData?: any;
+  }> {
+    const apiKey = this.getApiKey();
+    const connId = connectionId || this.getDefaultConnectionId();
+
+    if (!apiKey) {
+      return {
+        success: false,
+        httpStatus: 400,
+        message: 'Falta configurar la variable TELNYX_API_KEY en el servidor.'
+      };
+    }
+
+    if (!connId) {
+      return {
+        success: false,
+        httpStatus: 400,
+        message: 'Debes proporcionar un Connection ID válido de Telnyx (Credential Connection).'
+      };
+    }
+
+    try {
+      const res = await fetch(`https://api.telnyx.com/v2/connections/${encodeURIComponent(connId)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data: TelnyxConnectionResponse = await res.json().catch(() => ({}));
+
+      if (res.ok && data.data) {
+        return {
+          success: true,
+          httpStatus: res.status,
+          message: `Conexión Telnyx "${data.data.connection_name}" verificada y activa.`,
+          connectionData: data.data
+        };
+      }
+
+      const errorDetail = data.errors?.[0]?.detail || data.errors?.[0]?.title || `Respuesta inesperada (${res.status})`;
+      return {
+        success: false,
+        httpStatus: res.status,
+        message: `Telnyx API rechazó la conexión: ${errorDetail}`,
+        connectionData: data
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        httpStatus: 500,
+        message: `Error de red al conectar con Telnyx API: ${err.message || 'Error desconocido'}`
+      };
+    }
+  }
+
+  /**
+   * Fetches active phone numbers (DIDs) available in the Telnyx account
+   */
+  public static async getAccountPhoneNumbers(): Promise<{
+    success: boolean;
+    numbers: Array<{ id: string; phone_number: string; status: string; connection_id?: string }>;
+    message?: string;
+  }> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      return { success: false, numbers: [], message: 'TELNYX_API_KEY no configurada.' };
+    }
+
+    try {
+      const res = await fetch('https://api.telnyx.com/v2/phone_numbers?filter[status]=active&page[size]=50', {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        return { success: false, numbers: [], message: `Error Telnyx (${res.status}): ${errorText}` };
+      }
+
+      const json = await res.json();
+      const numbers = (json.data || []).map((item: any) => ({
+        id: item.id,
+        phone_number: item.phone_number,
+        status: item.status,
+        connection_id: item.connection_id
+      }));
+
+      return { success: true, numbers };
+    } catch (err: any) {
+      return { success: false, numbers: [], message: err.message };
+    }
+  }
+}
+

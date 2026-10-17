@@ -1,0 +1,951 @@
+===== FILE: src/firebase.ts =====
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { initializeFirestore, getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
+import firebaseConfig from '../firebase-applet-config.json';
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// Initialize Firestore with auto-detect long polling and ignoreUndefinedProperties
+const databaseId = (firebaseConfig as any).firestoreDatabaseId;
+let dbInstance;
+
+try {
+  dbInstance = initializeFirestore(
+    app,
+    {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true
+    },
+    databaseId || undefined
+  );
+} catch (e) {
+  dbInstance = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+}
+
+export const db = dbInstance;
+export const auth = getAuth(app);
+
+// Initialize storage with explicit bucket URL if auto-detection fails
+let storageInstance;
+try {
+  storageInstance = getStorage(app);
+} catch (e) {
+  console.warn("Storage auto-initialization failed, trying with explicit bucket", e);
+  if ((firebaseConfig as any).storageBucket) {
+    storageInstance = getStorage(app, `gs://${(firebaseConfig as any).storageBucket}`);
+  }
+}
+export const storage = storageInstance!;
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string;
+    email?: string;
+    emailVerified?: boolean;
+    isAnonymous?: boolean;
+    tenantId?: string;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  // If user is unauthenticated during a read/listen subscription (GET/LIST), this is an expected
+  // transient state during initial page load, route transitions, or logout. Handled gracefully.
+  if (!auth.currentUser && (operationType === OperationType.GET || operationType === OperationType.LIST)) {
+    console.warn(`[Firestore] Unauthenticated read handled gracefully on ${path}`);
+    return;
+  }
+
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email || undefined,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId || undefined,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  
+  // Do not throw for read/listen subscriptions (GET/LIST) to prevent crashing the React UI.
+  // Throw for mutations (CREATE/UPDATE/DELETE/WRITE) so they can be caught by the action UI.
+  if (operationType !== OperationType.GET && operationType !== OperationType.LIST) {
+    throw new Error(JSON.stringify(errInfo));
+  }
+}
+
+===== FILE: src/config/gemini.ts =====
+// Configuração temporária para teste
+// Depois que funcionar, mova para variável de ambiente
+
+export const GEMINI_API_KEY = 'AIzaSyBlQ-7QHws8kal0SXvXvBK-2z_jgKnYNps';
+
+// Para produção, use:
+// export const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+
+===== FILE: src/utils/cryptoUtils.ts =====
+/**
+ * Cryptographic Utility for Kaivincia CRM
+ * Uses Web Crypto API (AES-GCM 256-bit with PBKDF2 Key Derivation)
+ * Native, cross-platform (Web browser + Node.js 18+ server environments)
+ */
+
+// Master project salt/passphrase derived for Kaivincia Firestore credentials
+const DEFAULT_SALT_SEED = 'kaivincia-crm-telnyx-vault-2026';
+
+function getCryptoInstance(): Crypto {
+  if (typeof window !== 'undefined' && window.crypto) {
+    return window.crypto;
+  }
+  if (typeof globalThis !== 'undefined' && globalThis.crypto) {
+    return globalThis.crypto;
+  }
+  throw new Error('Web Crypto API no disponible en este entorno.');
+}
+
+/**
+ * Derives an AES-GCM 256-bit CryptoKey using PBKDF2 with 100,000 iterations
+ */
+async function deriveEncryptionKey(cryptoInst: Crypto, salt: Uint8Array): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const passphrase = (typeof process !== 'undefined' && process.env?.VAULT_MASTER_KEY) 
+    ? process.env.VAULT_MASTER_KEY 
+    : DEFAULT_SALT_SEED;
+
+  const keyMaterial = await cryptoInst.subtle.importKey(
+    'raw',
+    enc.encode(passphrase),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveKey']
+  );
+
+  return await cryptoInst.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: salt as any,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Encrypts a sensitive plaintext string (e.g. API Key or Connection ID)
+ * Output format: ENC_V1:<salt_hex>:<iv_hex>:<ciphertext_hex>
+ */
+export async function encryptData(plaintext: string): Promise<string> {
+  if (!plaintext) return '';
+  const cryptoInst = getCryptoInstance();
+  const enc = new TextEncoder();
+
+  const salt = cryptoInst.getRandomValues(new Uint8Array(16));
+  const iv = cryptoInst.getRandomValues(new Uint8Array(12)); // 96-bit IV recommended for AES-GCM
+  const key = await deriveEncryptionKey(cryptoInst, salt);
+
+  const encryptedBuffer = await cryptoInst.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as any },
+    key,
+    enc.encode(plaintext)
+  );
+
+  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
+  const ivHex = Array.from(iv).map(b => b.toString(16).padStart(2, '0')).join('');
+  const cipherHex = Array.from(new Uint8Array(encryptedBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+  return `ENC_V1:${saltHex}:${ivHex}:${cipherHex}`;
+}
+
+/**
+ * Decrypts a ciphertext string generated by encryptData
+ * If string is not encrypted (legacy or plain), returns original string safely
+ */
+export async function decryptData(encryptedStr: string): Promise<string> {
+  if (!encryptedStr) return '';
+  if (!encryptedStr.startsWith('ENC_V1:')) {
+    return encryptedStr; // Return plain text if not encrypted
+  }
+
+  const parts = encryptedStr.split(':');
+  if (parts.length !== 4) {
+    throw new Error('Formato de cifrado ENC_V1 inválido o corrupto.');
+  }
+
+  const [, saltHex, ivHex, cipherHex] = parts;
+  const salt = new Uint8Array(saltHex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || []);
+  const iv = new Uint8Array(ivHex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || []);
+  const cipherBytes = new Uint8Array(cipherHex.match(/.{1,2}/g)?.map(b => parseInt(b, 16)) || []);
+
+  const cryptoInst = getCryptoInstance();
+  const key = await deriveEncryptionKey(cryptoInst, salt);
+
+  const decryptedBuffer = await cryptoInst.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv as any },
+    key,
+    cipherBytes
+  );
+
+  return new TextDecoder().decode(decryptedBuffer);
+}
+
+/**
+ * Mask an API key or sensitive identifier for UI display
+ * e.g. "KEY018...f9a"
+ */
+export function maskSensitiveKey(val?: string, visibleChars = 4): string {
+  if (!val) return '••••••••••••';
+  if (val.length <= visibleChars * 2) return '••••••••••••';
+  return `${val.slice(0, visibleChars)}••••••••${val.slice(-visibleChars)}`;
+}
+
+===== FILE: src/contexts/AuthContext.tsx =====
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged, User, signOut as fbSignOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from '../firebase';
+
+export interface UserProfile {
+  uid: string;
+  name: string;
+  email: string | null;
+  role: string;
+  status: string;
+  avatarUrl?: string;
+  company?: string;
+  department?: string;
+  createdAt?: string;
+  lastLogin?: string;
+  [key: string]: any;
+}
+
+export interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  userData: UserProfile | null;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  userData: null,
+  signOut: async () => {},
+  refreshProfile: async () => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [userData, setUserData] = useState<UserProfile | null>(() => {
+    try {
+      const saved = localStorage.getItem('kaivincia_user_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const fetchProfile = async (currentUser: User) => {
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      const snap = await getDoc(userRef);
+      if (snap.exists()) {
+        const data = snap.data() as UserProfile;
+        setUserData(data);
+        localStorage.setItem('kaivincia_user_data', JSON.stringify(data));
+      } else {
+        // Fallback default profile
+        let defaultRole = 'tlmk';
+        const email = currentUser.email || '';
+        if (email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com') {
+          defaultRole = 'superadmin';
+        }
+
+        const isSuperAdminEmail = email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com';
+        const newProfile: UserProfile = {
+          uid: currentUser.uid,
+          name: currentUser.displayName || email.split('@')[0] || 'Operador Kaivincia',
+          email: currentUser.email || null,
+          role: isSuperAdminEmail ? 'superadmin' : 'none',
+          status: isSuperAdminEmail ? 'active' : 'pending',
+          avatarUrl: currentUser.photoURL || '',
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString()
+        };
+
+        await setDoc(userRef, newProfile, { merge: true }).catch(console.warn);
+        setUserData(newProfile);
+        localStorage.setItem('kaivincia_user_data', JSON.stringify(newProfile));
+      }
+    } catch (err) {
+      console.warn('Could not fetch/create user profile in Firestore:', err);
+    }
+  };
+
+  useEffect(() => {
+    let unsubProfile: (() => void) | null = null;
+
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = null;
+      }
+
+      if (currentUser) {
+        await fetchProfile(currentUser);
+
+        // Realtime subscription to user's profile
+        try {
+          unsubProfile = onSnapshot(doc(db, 'users', currentUser.uid), (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data() as UserProfile;
+              setUserData(data);
+              localStorage.setItem('kaivincia_user_data', JSON.stringify(data));
+            }
+          }, (err) => {
+            console.warn('Profile sync snapshot handled:', err?.message);
+          });
+        } catch {
+          // Ignore
+        }
+
+        setLoading(false);
+      } else {
+        // Check if there is an operator session in local storage that should auto-authenticate anonymously
+        const hasOperatorSession = localStorage.getItem('kaivincia_operator_session');
+        const isGuest = localStorage.getItem('kaivincia_guest') === 'true';
+
+        setUserData(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      if (unsubProfile) unsubProfile();
+    };
+  }, []);
+
+  const handleSignOut = async () => {
+    try {
+      localStorage.removeItem('kaivincia_active_user');
+      localStorage.removeItem('kaivincia_user_data');
+      localStorage.removeItem('kaivincia_operator_session');
+      localStorage.removeItem('kaivincia_guest');
+      await fbSignOut(auth);
+      setUser(null);
+      setUserData(null);
+    } catch (err) {
+      console.error('Error signing out:', err);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (auth.currentUser) {
+      await fetchProfile(auth.currentUser);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, loading, userData, signOut: handleSignOut, refreshProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+===== FILE: src/hooks/useAuth.ts =====
+export { useAuth, AuthProvider, AuthContext } from '../contexts/AuthContext';
+export type { UserProfile, AuthContextType } from '../contexts/AuthContext';
+
+===== FILE: src/components/auth/RoleGuard.tsx =====
+import React from 'react';
+
+export const DEFAULT_ALLOWED_ROLES = ['admin', 'superadmin', 'owner', 'supervisor'] as const;
+
+interface RoleGuardProps {
+  userRole?: string | null;
+  allowedRoles?: string[];
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+export const RoleGuard: React.FC<RoleGuardProps> = ({
+  userRole,
+  allowedRoles = [...DEFAULT_ALLOWED_ROLES],
+  children,
+  fallback = null,
+}) => {
+  if (!userRole) return <>{fallback}</>;
+  const normalized = String(userRole).toLowerCase().trim();
+  const allowed = allowedRoles.map((r) => r.toLowerCase().trim());
+  if (allowed.includes(normalized)) return <>{children}</>;
+  return <>{fallback}</>;
+};
+
+export function isPrivilegedRole(role?: string | null): boolean {
+  if (!role) return false;
+  const normalized = String(role).toLowerCase().trim();
+  return (DEFAULT_ALLOWED_ROLES as readonly string[]).includes(normalized);
+}
+
+export default RoleGuard;
+
+===== FILE: src/components/RouteGuard.tsx =====
+import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+
+interface RouteGuardProps {
+  children: React.ReactNode;
+}
+
+/**
+ * RouteGuard
+ * Ensures Firebase auth has resolved before mounting any protected CRM component.
+ * Blocks unauthenticated access and avoids triggering Firestore calls with null auth credentials.
+ */
+export default function RouteGuard({ children }: RouteGuardProps) {
+  const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#07090E] flex flex-col items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-2 border-[#00F0FF] border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs font-mono text-[#00F0FF] tracking-widest uppercase">
+            Verificando credenciales de acceso...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+
+===== FILE: firestore.rules =====
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helpers
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["admin", "superadmin", "ceo", "gestor"])
+      );
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["superadmin", "admin"])
+      );
+    }
+
+    function isUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // Validation Helpers
+    // ===============================================================
+    function isValidProject(data) {
+      return (data.get('clientId', '') is string || data.get('client', '') is string) &&
+             data.name is string && data.name.size() > 0 &&
+             data.status in ['Planificación', 'En ejecución', 'En riesgo', 'Finalizado'];
+    }
+
+    function isValidInvoice(data) {
+      return (data.get('clientId', '') is string || data.get('client', '') is string) &&
+             data.amount is number &&
+             data.status in ['Pendiente', 'Pagada', 'Vencida', 'Cancelada'];
+    }
+
+    function isValidTimeLog(data) {
+      return data.projectId is string &&
+             data.hours is number &&
+             (data.get('userUid', '') == request.auth.uid || data.get('userId', '') == request.auth.uid);
+    }
+
+    function isValidJob(data) {
+      return data.title is string && data.title.size() > 0 &&
+             data.department is string &&
+             data.status in ['active', 'closed'];
+    }
+
+    // ===============================================================
+    // Users & Sesiones
+    // ===============================================================
+    match /users/{userId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow update: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /user_sessions/{sessionId} {
+      allow read:   if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Clients & Interactions (Operación comercial y pipeline)
+    // ===============================================================
+    match /clients/{clientId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    match /leads/{leadId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /form_templates/{templateId} {
+      allow read:   if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /client_interactions/{interactionId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /tasks/{taskId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /chat_messages/{messageId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() &&
+                       (isAdmin() ||
+                        resource.data.get('targetId', '') == request.auth.uid ||
+                        resource.data.get('senderId', '') == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Helpdesk / Support Tickets
+    // ===============================================================
+    match /support_tickets/{ticketId} {
+      allow read:   if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Omnicanal & VoIP
+    // ===============================================================
+    match /omnichannel_threads/{threadId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read, create, update: if isAuthenticated();
+        allow delete: if isAdmin();
+      }
+    }
+
+    match /voip_call_history/{callId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /voip_providers/{providerId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /telnyx_phone_numbers/{numberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /telnyx_agent_assignments/{assignmentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /telnyx_sip_credentials/{sipId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /esim_profiles/{profileId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /shared_whatsapp_chats/{chatId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /company_profiles/{profileId} {
+      allow read, create: if true;
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /call_dispositions/{dispositionId} {
+      allow read, create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // ===============================================================
+    // Reclutamiento & Empleo
+    // ===============================================================
+    match /candidates/{candidateId} {
+      allow read:   if isAuthenticated();
+      allow create: if true; // Postulación pública
+      allow update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /jobs/{jobId} {
+      allow get, list:      if true; // Portal público de vacantes
+      allow create, update: if (isAdmin() || isAuthenticated()) && isValidJob(incoming());
+      allow delete:         if isAdmin();
+    }
+
+    // ===============================================================
+    // Entidades B2B, Suscripciones y Academia
+    // ===============================================================
+    match /b2b_entities/{entityId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /subscriptions/{subId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /academic_progress/{progressId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /settings/appearance {
+      allow read:  if true;
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /settings/voip_providers {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    match /settings/integrations {
+      allow read, write: if isSuperAdmin() || isAdmin();
+
+      match /{subcollection}/{docId} {
+        allow read, write: if isSuperAdmin() || isAdmin();
+      }
+    }
+
+    match /settings_integrations/{integrationId} {
+      allow read, write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /settings/{document=**} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ===============================================================
+    // Integraciones Externas (Módulo 9)
+    // ===============================================================
+    match /integrations/{integrationId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /integration_test_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Auditoría & Seguridad
+    // ===============================================================
+    match /audit_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false; // Inmutables
+    }
+
+    match /security_alerts/{alertId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /automation_rules/{ruleId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    match /automation_logs/{logId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    match /collaborators/{collaboratorId} {
+      allow read:  if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    match /prospects/{prospectId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===============================================================
+    // Proyectos, Facturación & Control Horario
+    // ===============================================================
+    match /projects/{projectId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidProject(incoming());
+      allow update: if isAuthenticated() && isValidProject(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /invoices/{invoiceId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidInvoice(incoming());
+      allow update: if isAuthenticated() && isValidInvoice(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /time_logs/{logId} {
+      allow read:   if isAuthenticated();
+      allow create: if isAuthenticated() && isValidTimeLog(incoming());
+      allow update: if isAuthenticated() &&
+                       (isAdmin() ||
+                        (existing().get('userUid', '') == request.auth.uid && isValidTimeLog(incoming())));
+      allow delete: if isAdmin();
+    }
+
+    match /automation_workflows/{workflowId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /system_events/{eventId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    match /system_logs/{logId} {
+      allow read:   if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if false;
+    }
+
+    // ===============================================================
+    // Asistencia & Permisos
+    // ===============================================================
+    match /attendance_logs/{logId} {
+      allow read:   if isAdmin() ||
+                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /absence_requests/{requestId} {
+      allow read:   if isAdmin() ||
+                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /documents/{documentId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===============================================================
+    // Deny-all por defecto
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+===== FILE: vercel.json =====
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/((?!api/|images/|assets/|favicon.ico|robots.txt|vite.svg).*)",
+      "destination": "/index.html"
+    }
+  ]
+}
+
+===== FILE: package.json =====
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@google/genai": "^1.51.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@telnyx/webrtc": "^2.27.10",
+    "@types/papaparse": "^5.5.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.3",
+    "firebase": "^12.13.0",
+    "firebase-admin": "^14.5.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "papaparse": "^5.5.3",
+    "pdfjs-dist": "^5.6.205",
+    "react": "^19.0.0",
+    "react-big-calendar": "^1.19.4",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.14.1",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.1.14",
+    "vite": "^6.2.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^22.14.0",
+    "@types/react-big-calendar": "^1.16.3",
+    "autoprefixer": "^10.4.21",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2"
+  }
+}
+
+===== FILE: tsconfig.json =====
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": { "@/*": ["./*"] },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src", "api", "server"]
+}
+

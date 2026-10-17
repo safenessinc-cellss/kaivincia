@@ -1,0 +1,1218 @@
+===== FILE: src/pages/Dashboard.tsx =====
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { 
+  DollarSign, Activity, Wallet, Users, 
+  Target, TrendingUp, ShieldAlert, Zap, Sparkles, 
+  CheckCircle2, Clock, 
+  BrainCircuit, BarChart3, BookOpen, ChevronRight, 
+  History, RefreshCw, FileText,
+  Cpu, Layers, Network, ShieldCheck, ArrowLeft
+} from 'lucide-react';
+import { 
+  AreaChart, Area, Tooltip, 
+  ResponsiveContainer
+} from 'recharts';
+import { collection, query, onSnapshot, limit } from 'firebase/firestore';
+import { db, handleFirestoreError, OperationType } from '../firebase';
+import { useAuth } from '../hooks/useAuth';
+import { format } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
+import IAAdvisor from '../components/IAAdvisor';
+import { useDashboardConfig } from '../hooks/useDashboardConfig';
+
+interface SystemEvent {
+  id: string;
+  module: 'Finanzas' | 'Proyectos' | 'Talento' | 'Academia' | 'Seguridad';
+  type: 'success' | 'warning' | 'error';
+  message: string;
+  timestamp: Date;
+  impact: string;
+}
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { userData } = useOutletContext<{ userData: any }>();
+  const { config } = useDashboardConfig();
+  
+  // Data State
+  const [clients, setClients] = useState<any[]>([]);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+  
+  // System Events Feed
+  const [events, setEvents] = useState<SystemEvent[]>([
+    { 
+      id: '1', 
+      module: 'Proyectos', 
+      type: 'warning', 
+      message: 'Retraso detectado en Proyecto TechCorp v2', 
+      timestamp: new Date(), 
+      impact: '-12% Liquidez Proyectada' 
+    },
+    { 
+      id: '2', 
+      module: 'Talento', 
+      type: 'success', 
+      message: 'Carlos Ruiz alcanzó ROI de 210%', 
+      timestamp: new Date(Date.now() - 1000 * 60 * 15), 
+      impact: 'Bono Nómina Aplicado' 
+    },
+    { 
+      id: '3', 
+      module: 'Seguridad', 
+      type: 'error', 
+      message: 'Palabra clave de riesgo "Reembolso" en Chat #402', 
+      timestamp: new Date(Date.now() - 1000 * 60 * 45), 
+      impact: 'Log CISO Generado' 
+    }
+  ]);
+
+  const { user, loading: authLoading } = useAuth();
+
+  const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending' || u.role === 'none'), [users]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) return;
+
+    // Listeners for real database connection test
+    const unsubClients = onSnapshot(collection(db, 'clients'), (snap) => {
+      setClients(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("Dashboard clients listener handled:", error?.message);
+    });
+
+    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+      setUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.warn("Dashboard users listener handled:", error?.message);
+    });
+
+    return () => {
+      unsubClients();
+      unsubUsers();
+    };
+  }, [user, authLoading]);
+
+  // Intelligence Pulse Metrics
+  const mrr = useMemo(() => clients.reduce((acc, c) => acc + (Number(c.amount) || 0), 0), [clients]);
+  const avgHealth = 88; 
+  const teamROI = 185; 
+  const academyGrowth = 24;
+
+  const handleAiOptimization = () => {
+    setIsOptimizing(true);
+    setTimeout(() => {
+      setIsOptimizing(false);
+      const newEvent: SystemEvent = {
+        id: Math.random().toString(),
+        module: 'Talento',
+        type: 'success',
+        message: 'Optimización IA: Carga redistribuida según certificaciones Academia',
+        timestamp: new Date(),
+        impact: '+15% Eficiencia Operativa'
+      };
+      setEvents([newEvent, ...events.slice(0, 4)]);
+    }, 2000);
+  };
+
+  const chartData = [
+    { name: 'Lun', revenue: 4000, expenses: 2400 },
+    { name: 'Mar', revenue: 3000, expenses: 1398 },
+    { name: 'Mie', revenue: 2000, expenses: 9800 },
+    { name: 'Jue', revenue: 2780, expenses: 3908 },
+    { name: 'Vie', revenue: 1890, expenses: 4800 },
+    { name: 'Sab', revenue: 2390, expenses: 3800 },
+    { name: 'Dom', revenue: 3490, expenses: 4300 },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#0B0E14] text-gray-400 font-sans p-6 lg:p-10 pb-20">
+      
+      {/* HEADER: DYNAMIC STATUS BAR */}
+      <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-[#10B981] shadow-[0_0_20px_rgba(16,185,129,0.1)]">
+            <Cpu className="w-8 h-8 animate-pulse" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Nervous System</h1>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
+              </span>
+              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
+                Kaivincia Architecture v5.0
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Botón Volver a la página anterior */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate('/crm');
+              }
+            }}
+            className="px-4 py-3 bg-white/5 hover:bg-white/10 active:scale-95 border border-white/10 hover:border-cyan-500/40 rounded-xl text-xs font-black text-white flex items-center gap-2 transition-all cursor-pointer shadow-sm group"
+            title="Volver a la página anterior"
+          >
+            <ArrowLeft className="w-4 h-4 text-cyan-400 group-hover:-translate-x-1 transition-transform" />
+            <span className="uppercase tracking-wider text-[10px]">Volver</span>
+          </button>
+
+          <button 
+            onClick={handleAiOptimization}
+            disabled={isOptimizing}
+            className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#F59E0B] hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/30 transition-all flex items-center gap-3 group relative overflow-hidden"
+          >
+            <AnimatePresence mode="wait">
+              {isOptimizing ? (
+                <motion.div 
+                  key="optimizing"
+                  initial={{ rotate: 0 }} 
+                  animate={{ rotate: 360 }} 
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </motion.div>
+              ) : (
+                <Sparkles key="idle" className="w-4 h-4 group-hover:scale-125 transition-transform" />
+              )}
+            </AnimatePresence>
+            {isOptimizing ? 'Optimizando...' : 'IA Optimization'}
+          </button>
+          <div className="flex items-center gap-4 px-6 py-3 bg-white/5 border border-white/10 rounded-xl">
+             <div className="text-right">
+                <p className="text-[8px] font-black uppercase text-gray-500">Security Pulse</p>
+                <p className="text-xs font-black text-white">99.8% Encrypted</p>
+             </div>
+             <ShieldAlert className="w-5 h-5 text-emerald-500" />
+          </div>
+        </div>
+      </div>
+
+      {/* Hero Illustration */}
+      <div className="w-full aspect-[21/9] md:aspect-[21/6] rounded-3xl overflow-hidden relative border border-white/10 group mb-10">
+         <div className="absolute inset-0 bg-gradient-to-t from-[#0B0E14] via-[#0B0E14]/50 to-transparent z-10" />
+         <img 
+           src="https://images.unsplash.com/photo-1555255707-c07966088b7b?auto=format&fit=crop&w=1600&q=80" 
+           alt="Sistema Nervioso Neural" 
+           className="w-full h-full object-cover opacity-80 group-hover:scale-105 group-hover:opacity-100 transition-all duration-1000"
+         />
+         <div className="absolute bottom-6 left-6 z-20 flex flex-col gap-2">
+            <h2 className="text-white text-2xl font-black uppercase italic tracking-tighter drop-shadow-md">Command Center & Neural Chat</h2>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-[#deff9a] shadow-[0_0_10px_#deff9a] animate-pulse" />
+              <span className="text-[10px] font-mono text-[#deff9a] uppercase tracking-[0.2em] drop-shadow-md">glowing holographic brain interconnected with data nodes</span>
+            </div>
+         </div>
+      </div>
+
+      {/* Pending Authorizations Alert for SuperAdmins */}
+      <AnimatePresence>
+        {userData?.role === 'superadmin' && pendingUsers.length > 0 && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="mb-8"
+          >
+            <div className="bg-amber-100 border-2 border-amber-500 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden shadow-2xl">
+               <div className="absolute top-0 right-0 p-6 opacity-10">
+                  <ShieldCheck className="w-24 h-24 text-amber-600" />
+               </div>
+               <div className="flex items-center gap-6 relative z-10">
+                  <div className="h-14 w-14 bg-amber-500 rounded-2xl flex items-center justify-center text-white shadow-xl animate-pulse">
+                     <Users className="w-8 h-8" />
+                  </div>
+                  <div>
+                     <h3 className="text-xl font-black text-amber-900 uppercase tracking-tighter italic">Alerta de Seguridad: Autorizaciones Pendientes</h3>
+                     <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest mt-1">
+                        Hay {pendingUsers.length} Nodo(s) solicitando acceso a la Red Kaivincia.
+                     </p>
+                  </div>
+               </div>
+               <button 
+                onClick={() => navigate('/crm/superadmin')}
+                className="bg-gray-900 text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all shadow-xl relative z-10"
+               >
+                 Gestionar Nodos
+               </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        
+        {/* NEW: PREDICTIVE INSIGHTS RADAR (INSIGHTS DE MAÑANA) */}
+        <div className="xl:col-span-12">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-[#151921] to-[#1a1f28] border border-[#00F0FF]/20 rounded-[3rem] p-8 relative overflow-hidden group shadow-[0_0_50px_rgba(181,154,69,0.05)]"
+          >
+            <div className="absolute top-0 right-0 p-10 opacity-10 group-hover:opacity-20 transition-opacity">
+               <Zap className="w-32 h-32 text-[#00F0FF]" />
+            </div>
+            
+            <div className="flex flex-col lg:flex-row items-center gap-10 relative z-10">
+               <div className="lg:w-1/3 flex flex-col items-center text-center lg:items-start lg:text-left">
+                  <div className="flex items-center gap-2 text-[#00F0FF] mb-4">
+                     <BrainCircuit className="w-6 h-6" />
+                     <span className="text-[10px] font-black uppercase tracking-[0.4em] italic">Insights de Mañana</span>
+                  </div>
+                  <h2 className="text-3xl font-black text-white uppercase tracking-tighter italic leading-none mb-6">
+                     Predicciones <br/> Algorítmicas
+                  </h2>
+                  <p className="text-xs text-gray-500 font-medium leading-relaxed max-w-sm mb-8">
+                     Nuestro motor RAG analiza el Banco de Datos y flujos de sentimiento para anticipar cuellos de botella operativos antes de que ocurran.
+                  </p>
+                  <button 
+                    onClick={() => navigate('/crm/reports')}
+                    className="flex items-center gap-3 px-8 py-4 bg-[#00F0FF] text-black rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-[#00F0FF]/20"
+                  >
+                     <FileText className="w-4 h-4" /> Ver Reporte de Estrategia
+                  </button>
+               </div>
+
+               <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+                  {[
+                    { 
+                      title: 'Retención de Talento', 
+                      desc: 'Probabilidad de Burnout en Módulo de Proyectos: Baja (12%)', 
+                      icon: <Users className="w-5 h-5" />, 
+                      val: '94%',
+                      color: 'emerald'
+                    },
+                    { 
+                      title: 'Punto de Equilibrio', 
+                      desc: 'Capacidad de contratación sugerida: 2 nuevos Agentes Sr.', 
+                      icon: <TrendingUp className="w-5 h-5" />, 
+                      val: '18/05',
+                      color: 'blue'
+                    },
+                    { 
+                      title: 'Riesgo de Churn', 
+                      desc: 'Análisis de sentimiento detectó fricción en Facturación Q2.', 
+                      icon: <ShieldAlert className="w-5 h-5" />, 
+                      val: 'High Q',
+                      color: 'amber'
+                    }
+                  ].map((insight, idx) => (
+                    <div key={idx} className="p-6 bg-white/5 border border-white/5 rounded-3xl hover:border-[#00F0FF]/30 transition-all group/card">
+                       <div className={`h-12 w-12 rounded-2xl bg-${insight.color}-500/10 text-${insight.color}-500 flex items-center justify-center mb-6 group-hover/card:scale-110 transition-transform`}>
+                          {insight.icon}
+                       </div>
+                       <p className="text-[9px] font-black uppercase text-gray-500 tracking-widest mb-2">{insight.title}</p>
+                       <p className="text-xs font-bold text-gray-300 leading-relaxed mb-4">{insight.desc}</p>
+                       <div className="flex items-center justify-between mt-auto pt-4 border-t border-white/5">
+                          <span className={`text-xl font-black italic tracking-tighter text-${insight.color}-500`}>{insight.val}</span>
+                          <ChevronRight className="w-4 h-4 text-gray-700" />
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* LEFT COLUMN: NEURAL PULSE, IA OVERVIEW & 4 QUADRANTS MAP */}
+        <div className="xl:col-span-9 space-y-8">
+
+          {/* NEURAL PULSE & AI OVERVIEW */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+           <div className="lg:col-span-8">
+              <IAAdvisor 
+                moduleName="Estrategia Ejecutiva"
+                insights={[
+                  { 
+                    type: 'automation', 
+                    message: "Análisis Sistémico: El 12% del Revenue de este mes provino de cierres en 'Despliegue Táctico'. Sugerencia: Escalar rutas en Zona Norte para maximizar ROI.",
+                    action: { label: "Optimizar Rutas", onClick: () => navigate('/crm/tactical') }
+                  },
+                  { 
+                    type: 'alert', 
+                    message: "Alerta de Salud: 2 clientes muestran deserción en el Módulo de Academia. Impacto proyectado: -$4.2k MRR.",
+                    action: { label: "Intervenir Academia", onClick: () => navigate('/crm/academia') }
+                  }
+                ]}
+              />
+           </div>
+           
+           <div className="lg:col-span-4 bg-[#0B0E14] border border-[#1F2937] rounded-[2.5rem] p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 to-transparent pointer-events-none" />
+              <div className="flex justify-between items-start mb-4">
+                 <div>
+                    <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Global System Pulse</h4>
+                    <p className="text-xl font-black text-white italic tracking-tighter uppercase mt-1">Operational Health</p>
+                 </div>
+                 <Activity className="w-5 h-5 text-cyan-500 animate-pulse" />
+              </div>
+              
+              <div className="space-y-4">
+                 {[
+                   { label: 'Uso de API GenAI', value: '88%', color: 'bg-cyan-500' },
+                   { label: 'Sincronización GPS', value: 'Active', color: 'bg-emerald-500' },
+                   { label: 'Latencia de Nodo', value: '14ms', color: 'bg-[#A855F7]' }
+                 ].map(stat => (
+                   <div key={stat.label} className="flex flex-col gap-1.5">
+                      <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-gray-500">
+                         <span>{stat.label}</span>
+                         <span className="text-white">{stat.value}</span>
+                      </div>
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                         <div className={`h-full ${stat.color} w-[80%]`} />
+                      </div>
+                   </div>
+                 ))}
+              </div>
+           </div>
+        </div>
+
+        {/* THE CORE: 4 QUADRANTS OPERATIONAL MAP */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          {/* A. FLOW OF CAPITAL (FINANCE) */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            onClick={() => navigate('/crm/commissions')}
+            className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-8 relative z-10">
+              <div>
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">I. Cash Flow Analytics</h3>
+                <p className="text-4xl font-black text-white italic tracking-tighter">${(mrr > 0 ? mrr/1000 : 57.2).toFixed(1)}K <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+12.4%</span></p>
+              </div>
+              <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-2xl border border-emerald-500/20">
+                <Wallet className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="h-48 w-full min-h-80">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} initialDimension={{ width: 400, height: 192 }}>
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0B0E14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px', color: '#fff' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#10B981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-6 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-gray-500">
+               <span>Operativo: $45,200</span>
+               <span className="text-emerald-500">Neto: +$12,400</span>
+            </div>
+          </motion.div>
+
+          {/* B. CLIENT HEALTH HEATMAP (CRM/PROJECTS) */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            onClick={() => navigate('/crm/operations')}
+            className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-8 relative z-10">
+              <div>
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">II. Customer Nervous Health</h3>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{avgHealth}% <span className="text-xs text-amber-500 font-bold tracking-widest uppercase ml-2">-2% Risk</span></p>
+              </div>
+              <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20">
+                <Activity className="w-5 h-5" />
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-6 gap-2 h-48 content-center">
+              {[...Array(24)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-full w-full rounded-lg transition-all duration-500 cursor-pointer hover:scale-110 active:scale-95 border ${
+                    i === 3 || i === 12 ? 'bg-[#EF4444] border-red-500/50' : 
+                    i % 5 === 0 ? 'bg-[#F59E0B22] border-amber-500/30' : 'bg-[#10B98122] border-emerald-500/30'
+                  }`}
+                  title="Unit Status"
+                />
+              ))}
+            </div>
+            
+            <div className="mt-6 flex justify-between items-center">
+               <div className="flex gap-4">
+                 <div className="flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                   <span className="text-[8px] font-black uppercase tracking-widest">Normal</span>
+                 </div>
+                 <div className="flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 bg-[#EF4444] rounded-full" />
+                   <span className="text-[8px] font-black uppercase tracking-widest">Error Node</span>
+                 </div>
+               </div>
+               <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">2 Entities Delayed</span>
+            </div>
+          </motion.div>
+
+          {/* C. TEAM PERFORMANCE RANKING (TALENTO) */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            onClick={() => navigate('/crm/team')}
+            className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-8 relative z-10">
+              <div>
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">III. Performance Node Score</h3>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{teamROI}% <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+15% Efficient</span></p>
+              </div>
+              <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl border border-blue-500/20">
+                <Users className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="space-y-4 h-48 overflow-y-auto pr-2 scrollbar-hide">
+               {[
+                 { name: 'Carlos Ruiz', roi: 210, impact: 'Peak' },
+                 { name: 'Ana Silva', roi: 195, impact: 'High' },
+                 { name: 'Marta García', roi: 160, impact: 'Target' },
+                 { name: 'Roberto S.', roi: 155, impact: 'Target' },
+               ].map((member, i) => (
+                 <div key={i} className="flex items-center gap-4 bg-white/5 p-3 rounded-2xl border border-white/5 hover:bg-white/10 transition-colors">
+                    <div className="h-8 w-8 rounded-xl bg-gray-900 border border-white/10 flex items-center justify-center text-[10px] font-black text-white">{member.name.charAt(0)}</div>
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-1">
+                         <span className="text-[10px] font-bold text-white uppercase">{member.name}</span>
+                         <span className="text-[9px] font-black text-emerald-500">{member.roi}% ROI</span>
+                      </div>
+                      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-[#10B981]" style={{ width: `${(member.roi/2.1)}%` }} />
+                      </div>
+                    </div>
+                 </div>
+               ))}
+            </div>
+
+            <button onClick={() => navigate('/crm/team')} className="mt-6 w-full text-center text-[9px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Audit Leaderboard →</button>
+          </motion.div>
+
+          {/* D. INTEL GROWTH HUB (ACADEMIA/SALES) */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            onClick={() => navigate('/crm/academia')}
+            className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
+          >
+            <div className="flex justify-between items-start mb-8 relative z-10">
+              <div>
+                <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">IV. Growth Systemic Expansion</h3>
+                <p className="text-4xl font-black text-white italic tracking-tighter">+{academyGrowth}% <span className="text-xs text-blue-500 font-bold tracking-widest uppercase ml-2">Scale Active</span></p>
+              </div>
+              <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl border border-purple-500/20">
+                <BarChart3 className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 h-48 content-center">
+               <div className="p-5 bg-white/5 border border-white/5 rounded-3xl text-center">
+                  <BookOpen className="w-6 h-6 text-purple-400 mx-auto mb-3" />
+                  <p className="text-2xl font-black text-white tracking-widest">42</p>
+                  <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Certificaciones Mes</p>
+               </div>
+               <div className="p-5 bg-white/5 border border-white/5 rounded-3xl text-center">
+                  <TrendingUp className="w-6 h-6 text-emerald-400 mx-auto mb-3" />
+                  <p className="text-2xl font-black text-white tracking-widest">12</p>
+                  <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Nuevos Leads (High Q)</p>
+               </div>
+            </div>
+
+             <div className="mt-6 flex justify-between gap-4">
+               <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-full bg-purple-500 w-[75%]" />
+               </div>
+               <div className="flex-1 h-1 bg-white/5 rounded-full overflow-hidden">
+                 <div className="h-full bg-emerald-500 w-[45%]" />
+               </div>
+             </div>
+          </motion.div>
+
+        </div>
+
+      </div>
+
+      {/* RIGHT SIDEBAR: SYSTEMIC EVENT FEED */}
+      <div className="xl:col-span-3 space-y-8">
+          
+          <div className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 shadow-2xl h-full flex flex-col">
+            <h3 className="text-xs font-black text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
+              <History className="w-4 h-4 text-[#F59E0B]" /> Intelligence Feed
+            </h3>
+            
+            <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
+              <AnimatePresence initial={false}>
+                {events.map((event) => (
+                  <motion.div 
+                    key={event.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ type: 'spring', damping: 20 }}
+                    className="p-5 rounded-[2rem] bg-white/5 border border-white/5 relative overflow-hidden group hover:bg-white/[0.07] transition-colors"
+                  >
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                      event.type === 'success' ? 'bg-emerald-500' : 
+                      event.type === 'warning' ? 'bg-amber-500' : 'bg-[#EF4444]'
+                    }`} />
+                    
+                    <div className="flex justify-between items-start mb-2">
+                      <span className={`text-[7px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border ${
+                        event.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' : 
+                        event.type === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 'bg-[#EF4444]/10 border-red-500/20 text-red-500'
+                      }`}>
+                        {event.module}
+                      </span>
+                      <span className="text-[7px] font-black text-gray-600 font-mono italic">
+                        {format(event.timestamp, 'HH:mm:ss')}
+                      </span>
+                    </div>
+                    
+                    <p className="text-[10px] font-bold text-gray-200 leading-snug mb-3">
+                      {event.message}
+                    </p>
+                    
+                    <div className="flex items-center gap-2">
+                       <Layers className="w-3 h-3 text-gray-700" />
+                       <span className={`text-[9px] font-black uppercase tracking-widest ${
+                         event.type === 'error' ? 'text-red-400' : 'text-[#F59E0B]'
+                       }`}>
+                         Impact: {event.impact}
+                       </span>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-white/5">
+               <div className="bg-white/5 border border-white/5 p-6 rounded-3xl relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                     <Network className="w-8 h-8 text-white opacity-20" />
+                     <p className="text-[9px] font-black uppercase tracking-widest text-center text-gray-500 leading-relaxed">
+                        Red Neuronal Kaivincia <br/> <span className="text-white">Active Node: Austin-Cluster-01</span>
+                     </p>
+                  </div>
+               </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* GLOBAL FOOTER METRICS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pb-10">
+         {[
+           { label: 'Cloud Load', val: '14.2%', color: 'text-emerald-500' },
+           { label: 'User Synapses', val: '1,242/s', color: 'text-blue-500' },
+           { label: 'Integrity', val: '100.00%', color: 'text-emerald-500' },
+           { label: 'Latency', val: '12ms', color: 'text-blue-500' }
+         ].map((stat, i) => (
+           <div key={i} className="bg-white/5 border border-white/5 px-6 py-4 rounded-2xl flex justify-between items-center transition-all hover:bg-white/10">
+              <span className="text-[8px] font-black uppercase tracking-widest text-gray-600">{stat.label}</span>
+              <span className={`text-[10px] font-black ${stat.color} font-mono tracking-tighter`}>{stat.val}</span>
+           </div>
+         ))}
+      </div>
+
+    </div>
+  );
+}
+
+===== FILE: src/hooks/useDashboardConfig.ts =====
+import { useState, useEffect } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from './useAuth';
+
+export interface DashboardConfig {
+  widgets: Record<string, boolean>;
+  widgetOrder: string[];
+  updatedAt?: string;
+}
+
+export const DASHBOARD_WIDGETS = [
+  { key: 'header', label: 'Header + Stats' },
+  { key: 'mainContent', label: 'Gráficos y KPIs' },
+  { key: 'sidebar', label: 'Feed de Eventos + Red Neuronal' },
+  { key: 'footerMetrics', label: 'Métricas del Footer' },
+] as const;
+
+const ALL_KEYS = DASHBOARD_WIDGETS.map(w => w.key);
+
+const DEFAULT_BY_ROLE: Record<string, DashboardConfig> = {
+  superadmin: {
+    widgets: { header: true, mainContent: true, sidebar: true, footerMetrics: true },
+    widgetOrder: [...ALL_KEYS],
+  },
+  admin: {
+    widgets: { header: true, mainContent: true, sidebar: true, footerMetrics: true },
+    widgetOrder: [...ALL_KEYS],
+  },
+  supervisor: {
+    widgets: { header: true, mainContent: true, sidebar: true, footerMetrics: false },
+    widgetOrder: [...ALL_KEYS],
+  },
+  agente: {
+    widgets: { header: true, mainContent: true, sidebar: false, footerMetrics: false },
+    widgetOrder: [...ALL_KEYS],
+  },
+};
+
+const FALLBACK: DashboardConfig = DEFAULT_BY_ROLE.agente;
+
+export function getDefaultConfigForRole(role?: string | null): DashboardConfig {
+  const r = String(role || '').toLowerCase().trim();
+  return DEFAULT_BY_ROLE[r] || FALLBACK;
+}
+
+export function useDashboardConfig() {
+  const { user, userData } = useAuth();
+  const [config, setConfig] = useState<DashboardConfig>(() =>
+    getDefaultConfigForRole(userData?.role)
+  );
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.uid) { setLoading(false); return; }
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
+      const data = snap.data();
+      if (data?.dashboardConfig) {
+        setConfig(data.dashboardConfig);
+      } else {
+        setConfig(getDefaultConfigForRole(userData?.role));
+      }
+      setLoading(false);
+    }, () => setLoading(false));
+    return () => unsub();
+  }, [user?.uid, userData?.role]);
+
+  const saveConfig = async (newConfig: DashboardConfig) => {
+    if (!user?.uid) return;
+    await setDoc(doc(db, 'users', user.uid), {
+      dashboardConfig: { ...newConfig, updatedAt: new Date().toISOString() }
+    }, { merge: true });
+  };
+
+  const resetConfig = async () => {
+    const def = getDefaultConfigForRole(userData?.role);
+    await saveConfig(def);
+  };
+
+  return { config, loading, saveConfig, resetConfig };
+}
+
+===== FILE: src/components/admin/DashboardCustomizer.tsx =====
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowUp, ArrowDown, Save, RotateCcw, ArrowLeft, LayoutDashboard } from 'lucide-react';
+import { useDashboardConfig, DASHBOARD_WIDGETS, DashboardConfig } from '../../hooks/useDashboardConfig';
+
+export default function DashboardCustomizer() {
+  const navigate = useNavigate();
+  const { config, loading, saveConfig, resetConfig } = useDashboardConfig();
+  const [draft, setDraft] = useState<DashboardConfig>(config);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setDraft(config); }, [config]);
+
+  const toggleWidget = (key: string) => {
+    setDraft(prev => ({
+      ...prev,
+      widgets: { ...prev.widgets, [key]: !prev.widgets[key] },
+    }));
+  };
+
+  const moveWidget = (key: string, dir: -1 | 1) => {
+    setDraft(prev => {
+      const order = [...prev.widgetOrder];
+      const idx = order.indexOf(key);
+      if (idx === -1) return prev;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= order.length) return prev;
+      [order[idx], order[newIdx]] = [order[newIdx], order[idx]];
+      return { ...prev, widgetOrder: order };
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await saveConfig(draft);
+      alert('Configuración del dashboard guardada.');
+      navigate('/crm/dashboard');
+    } catch (err: any) {
+      alert(`Error guardando: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!confirm('¿Restablecer la configuración por defecto de tu rol?')) return;
+    setSaving(true);
+    try {
+      await resetConfig();
+      alert('Configuración restablecida.');
+      navigate('/crm/dashboard');
+    } catch (err: any) {
+      alert(`Error restableciendo: ${err.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-slate-400">Cargando configuración...</div>;
+  }
+
+  const orderedWidgets = draft.widgetOrder
+    .map(key => DASHBOARD_WIDGETS.find(w => w.key === key))
+    .filter(Boolean) as Array<{ key: string; label: string }>;
+
+  return (
+    <div className="max-w-3xl mx-auto p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/crm/dashboard')}
+            className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div>
+            <h1 className="text-xl font-black text-white flex items-center gap-2">
+              <LayoutDashboard className="w-5 h-5 text-cyan-400" />
+              Personalizar Dashboard
+            </h1>
+            <p className="text-xs text-slate-400">
+              Elige qué widgets ver y en qué orden. Solo afecta a tu cuenta.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-2">
+        {orderedWidgets.map((w, i) => (
+          <div
+            key={w.key}
+            className="flex items-center justify-between gap-3 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2"
+          >
+            <label className="flex items-center gap-2 flex-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!draft.widgets[w.key]}
+                onChange={() => toggleWidget(w.key)}
+                className="w-4 h-4 accent-cyan-500"
+              />
+              <span className="text-sm font-bold text-white">{w.label}</span>
+            </label>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => moveWidget(w.key, -1)}
+                disabled={i === 0}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 disabled:opacity-30"
+              >
+                <ArrowUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => moveWidget(w.key, 1)}
+                disabled={i === orderedWidgets.length - 1}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 disabled:opacity-30"
+              >
+                <ArrowDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-5 py-2.5 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider flex items-center gap-2 disabled:opacity-50"
+        >
+          <Save className="w-4 h-4" />
+          {saving ? 'Guardando...' : 'Guardar'}
+        </button>
+        <button
+          onClick={handleReset}
+          disabled={saving}
+          className="px-5 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold text-xs uppercase tracking-wider flex items-center gap-2 disabled:opacity-50"
+        >
+          <RotateCcw className="w-4 h-4" />
+          Restablecer
+        </button>
+      </div>
+    </div>
+  );
+}
+
+===== FILE: src/App.tsx =====
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, db } from './firebase';
+import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { motion } from 'motion/react';
+import { Zap } from 'lucide-react';
+
+import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
+import Apply from './pages/Apply';
+import Careers from './pages/Careers';
+import CRMLayout from './components/CRMLayout';
+import Dashboard from './pages/Dashboard';
+import DashboardCustomizer from './components/admin/DashboardCustomizer';
+import PendingApproval from './pages/PendingApproval';
+import Clients from './pages/Clients';
+import Pipeline from './pages/Pipeline';
+import Tasks from './pages/Tasks';
+import Chat from './pages/Chat';
+import StrategicReport from './pages/StrategicReport';
+import Cobranza from './pages/Cobranza';
+import SuperAdmin from './pages/SuperAdmin';
+import AppearancePanel from './components/admin/AppearancePanel';
+import AcademyInternal from './pages/AcademyInternal';
+import AcademyExternal from './pages/AcademyExternal';
+import DigitalProducts from './pages/DigitalProducts';
+import CallSystem from './pages/CallSystem';
+import Recruitment from './pages/Recruitment';
+import TeamManagement from './pages/TeamManagement';
+import Payroll from './pages/Payroll';
+import Accounting from './pages/Accounting';
+import ClientManagement from './pages/ClientManagement';
+import Billing from './pages/Billing';
+import Operations from './pages/Operations';
+import Marketing from './pages/Marketing';
+import Projects from './pages/Projects';
+import Reports from './pages/Reports';
+import Commissions from './pages/Commissions';
+import ClientPortal from './pages/ClientPortal';
+import UserPortal from './pages/UserPortal';
+import CalendarView from './pages/CalendarView';
+import Automations from './pages/Automations';
+import StrategyBlog from './pages/StrategyBlog';
+import TacticalDeployment from './pages/TacticalDeployment';
+import SOPManuals from './pages/SOPManuals';
+import MasterForms from './pages/MasterForms';
+import Helpdesk from './pages/Helpdesk';
+import DocumentDrive from './pages/DocumentDrive';
+import SecurityCenter from './pages/SecurityCenter';
+import AuditsSGI from './pages/AuditsSGI';
+import NervousSystem from './pages/NervousSystem';
+import FormTemplates from './pages/FormTemplates';
+import Integrations from './pages/Integrations';
+import CompanyAuth from './pages/b2b/CompanyAuth';
+import CompanyDashboard from './pages/b2b/CompanyDashboard';
+import CallCenterAdmin from './pages/CallCenterAdmin';
+import RouteGuard from "./components/RouteGuard";
+export default function App() {
+  const [user, setUser] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('kaivincia_active_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [userData, setUserData] = useState<any>(() => {
+    try {
+      const savedData = localStorage.getItem('kaivincia_user_data');
+      return savedData ? JSON.parse(savedData) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
+
+  useEffect(() => {
+    // Check if guest or operator mode was active
+    const guestStatus = localStorage.getItem('kaivincia_guest');
+    const operatorSession = localStorage.getItem('kaivincia_operator_session');
+    if (guestStatus === 'true' || operatorSession) {
+      setIsGuest(true);
+      if (operatorSession && !userData) {
+        try {
+          const parsed = JSON.parse(operatorSession);
+          setUser(parsed);
+          setUserData(parsed);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+
+    let unsubUserDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          const isSuperAdmin = currentUser.email === 'safeness.c.a@gmail.com' || currentUser.email === 'deuwyrobert@gmail.com';
+          
+          let currentProfile: any = null;
+          if (!userSnap.exists()) {
+            const newUser = {
+              uid: currentUser.uid,
+              name: currentUser.displayName || 'Agente TLMK',
+              email: currentUser.email,
+              role: isSuperAdmin ? 'superadmin' : 'tlmk',
+              status: 'active', // Default to active so agents can work immediately
+              avatarUrl: currentUser.photoURL || '',
+              createdAt: new Date().toISOString(),
+              lastLogin: new Date().toISOString()
+            };
+            await setDoc(userRef, newUser);
+            currentProfile = newUser;
+          } else {
+            const data = userSnap.data();
+            // Ensure operational agents have active status and valid role
+            const updatedRole = data.role && data.role !== 'none' ? data.role : (isSuperAdmin ? 'superadmin' : 'tlmk');
+            const updatedStatus = 'active'; // keep always active for logged in operators
+            
+            await setDoc(userRef, { 
+              lastLogin: new Date().toISOString(),
+              status: updatedStatus,
+              role: updatedRole
+            }, { merge: true });
+            
+            currentProfile = { ...data, status: updatedStatus, role: updatedRole };
+          }
+
+          setUserData(currentProfile);
+          setUser(currentUser);
+          localStorage.setItem('kaivincia_active_user', JSON.stringify({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }));
+          localStorage.setItem('kaivincia_user_data', JSON.stringify(currentProfile));
+
+          // Listen to user data changes
+          unsubUserDoc = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+              const liveData = docSnap.data();
+              // Guarantee active status to prevent sudden kicks
+              const stabilizedData = { ...liveData, status: liveData.status || 'active' };
+              setUserData(stabilizedData);
+              localStorage.setItem('kaivincia_user_data', JSON.stringify(stabilizedData));
+            }
+          }, (error) => {
+            console.warn("User data listener warning (handled):", error);
+          });
+        } catch (authErr) {
+          console.error("Error setting up user profile:", authErr);
+          // Fallback user data so the agent is never kicked out
+          const fallback = {
+            uid: currentUser.uid,
+            name: currentUser.displayName || 'Agente TLMK',
+            email: currentUser.email,
+            role: 'tlmk',
+            status: 'active'
+          };
+          setUser(currentUser);
+          setUserData(fallback);
+        }
+      } else {
+        setUser(null);
+        setUserData(null);
+        localStorage.removeItem('kaivincia_active_user');
+        localStorage.removeItem('kaivincia_user_data');
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      if (unsubUserDoc) unsubUserDoc();
+      unsubscribeAuth();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#05070a] relative flex flex-col items-center justify-center overflow-hidden">
+        {/* Background stars */}
+        <div className="absolute inset-0 z-0 opacity-50">
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="w-1 h-1 bg-white rounded-full absolute"
+              style={{
+                top: `${Math.random() * 100}%`,
+                left: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                opacity: [0.2, 1, 0.2],
+                scale: [1, 1.5, 1],
+              }}
+              transition={{
+                duration: 2 + Math.random() * 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Spaceship animation */}
+        <div className="relative z-10 flex items-center h-32 w-full max-w-3xl justify-center">
+          <motion.div
+            className="absolute left-1/2 -translate-x-1/2 flex items-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            {/* The Text being revealed/formed */}
+            <div className="relative overflow-hidden flex items-center">
+              <motion.div
+                className="absolute inset-y-0 right-0 bg-[#05070a] z-20 origin-right"
+                initial={{ width: "100%" }}
+                animate={{ width: "0%" }}
+                transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
+              />
+              <h1 className="text-4xl md:text-6xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#00F0FF] via-white to-[#00F0FF] uppercase italic relative z-10">
+                Kaivincia Corp
+              </h1>
+            </div>
+
+            {/* Spaceship shooting */}
+            <motion.div
+              className="absolute text-[#00F0FF] right-0 z-30"
+              initial={{ right: "100%", x: "0%" }}
+              animate={{ right: "0%", x: "100%" }}
+              transition={{ duration: 2.5, ease: "easeInOut", delay: 0.5 }}
+            >
+              {/* Laser beam */}
+              <motion.div 
+                className="absolute right-full top-1/2 -translate-y-1/2 h-0.5 bg-[#00F0FF] shadow-[0_0_10px_#00F0FF]"
+                initial={{ width: 0 }}
+                animate={{ width: 40 }}
+                transition={{ duration: 0.2, repeat: Infinity, repeatType: "reverse" }}
+              />
+              <svg className="w-12 h-12 rotate-90 drop-shadow-[0_0_15px_rgba(0,240,255,0.8)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>
+                <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>
+                <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>
+                <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+              </svg>
+            </motion.div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // Usuario logueado pero pendiente de aprobación → pantalla de espera (sin auto-activación)
+  if (user && userData && (userData.status === 'pending' || !userData.role || userData.role === 'none')) {
+    return <PendingApproval />;
+  }
+
+  const effectiveUserData = userData || {
+    name: user?.displayName || 'Agente TLMK',
+    email: user?.email || 'operador@kaivincia.com',
+    role: 'tlmk',
+    status: 'active'
+  };
+
+  const hasAccess = Boolean(user || isGuest);
+
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage onGuestMode={() => {
+          localStorage.setItem('kaivincia_guest', 'true');
+          setIsGuest(true);
+        }} />} />
+        <Route path="/apply" element={<Apply />} />
+        <Route path="/guest-academy" element={<AcademyExternal />} />
+        <Route path="/strategy-blog" element={<StrategyBlog />} />
+        <Route path="/careers" element={<Careers />} />
+        <Route path="/team" element={<Navigate to="/crm/team" />} />
+        <Route path="/empresas/login" element={<CompanyAuth initialMode="login" />} />
+        <Route path="/empresas/register" element={<CompanyAuth initialMode="register" />} />
+        <Route path="/empresas/dashboard" element={<CompanyDashboard />} />
+        <Route path="/empresas" element={<Navigate to="/empresas/dashboard" />} />
+        <Route path="/login" element={user ? <Navigate to="/crm/dashboard" replace /> : <LoginPage />} />
+        
+        {/* CRM Routes - Resilient Session Protected by RouteGuard */}
+        <Route 
+          path="/crm" 
+          element={
+            <RouteGuard>
+              <CRMLayout userData={effectiveUserData} />
+            </RouteGuard>
+          }
+        >
+          <Route index element={<Navigate to={effectiveUserData?.role === 'alumno' ? "/crm/academy-internal" : (effectiveUserData?.role === 'tlmk' ? "/crm/pipeline" : "/crm/dashboard")} />} />
+          <Route path="dashboard" element={userData?.role === 'alumno' ? <Navigate to="/crm/academy-internal" /> : <Dashboard />} />
+          <Route path="strategic-report" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <StrategicReport />} />
+          <Route path="clients" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Clients />} />
+          <Route path="pipeline" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Pipeline />} />
+          <Route path="tasks" element={<Tasks />} />
+          <Route path="calendar" element={<CalendarView />} />
+          <Route path="chat" element={<Chat />} />
+          <Route path="cobranza" element={<Cobranza />} />
+          <Route path="call-center" element={userData?.role !== "superadmin" && userData?.role !== "admin" ? <Navigate to="/crm/dashboard" /> : <CallCenterAdmin />} />
+          
+          {/* New Modules */}
+          <Route path="superadmin" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SuperAdmin />} />
+          <Route path="appearance" element={userData?.role !== 'superadmin' && userData?.role !== 'admin' ? <Navigate to="/crm/dashboard" /> : <AppearancePanel />} />
+          <Route path="automations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Automations />} />
+          <Route path="form-templates" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <FormTemplates />} />
+          <Route path="integrations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Integrations />} />
+          <Route path="academy-internal" element={<AcademyInternal />} />
+          <Route path="academy-external" element={<AcademyExternal />} />
+          <Route path="digital-products" element={<DigitalProducts />} />
+          <Route path="calls" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <CallSystem />} />
+          
+          {/* Administrativo */}
+          <Route path="recruitment" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Recruitment />} />
+          <Route path="team" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TeamManagement />} />
+          <Route path="payroll" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Payroll />} />
+          <Route path="accounting" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Accounting />} />
+          <Route path="client-management" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <ClientManagement />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="operations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Operations />} />
+          <Route path="marketing" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Marketing />} />
+          <Route path="projects" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Projects />} />
+          <Route path="reports" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Reports />} />
+          <Route path="commissions" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Commissions />} />
+          <Route path="tactical" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TacticalDeployment />} />
+          <Route path="manuales" element={<SOPManuals />} />
+          <Route path="turs" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <MasterForms />} />
+          <Route path="helpdesk" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Helpdesk />} />
+          <Route path="drive" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <DocumentDrive />} />
+          <Route path="audits" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <AuditsSGI />} />
+          <Route path="security" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SecurityCenter />} />
+          <Route path="nervous" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <NervousSystem />} />
+          <Route path="strategy-blog" element={<StrategyBlog />} />
+          
+          {/* Portales */}
+          <Route path="client-portal" element={<ClientPortal />} />
+          <Route path="user-portal" element={<UserPortal />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+

@@ -1,3 +1,4 @@
+import { adminAuth } from '../api/_lib/firebaseAdmin.js';
 import type { IncomingMessage, ServerResponse } from 'http';
 
 interface TelnyxCredentialResponse {
@@ -116,44 +117,24 @@ export class TelnyxBackendService {
   }
 
   /**
-   * Validates Firebase ID Token from Authorization header
-   * Supports Google tokeninfo verification without requiring local service-account files.
+   * Validates Firebase ID Token from Authorization header.
+   * Verifica firma, expiración, emisor y audience con Firebase Admin SDK.
+   * Rechaza cualquier token que no sea un ID token legítimo del proyecto.
    */
-  public static async verifyAuthToken(authHeader?: string): Promise<{ uid: string; email?: string } | null> {
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
-
-    const token = authHeader.split('Bearer ')[1]?.trim();
+  public static async verifyAuthToken(
+    authHeader?: string
+  ): Promise<{ uid: string; email?: string } | null> {
+    if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
+    const token = authHeader.slice(7).trim();
     if (!token) return null;
 
     try {
-      // Decode or verify token using Google TokenInfo endpoint
-      const response = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
-      if (response.ok) {
-        const payload = await response.json();
-        return {
-          uid: payload.user_id || payload.sub,
-          email: payload.email
-        };
-      }
-
-      // Fallback for development if token format is simple json or simulated in preview
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
-        if (payload.user_id || payload.sub) {
-          return {
-            uid: payload.user_id || payload.sub,
-            email: payload.email
-          };
-        }
-      }
-    } catch (err) {
-      console.error('[Telnyx Backend] Token verification failed:', err);
+      const decoded = await adminAuth.verifyIdToken(token, true);
+      return { uid: decoded.uid, email: decoded.email };
+    } catch (err: any) {
+      console.warn("[Telnyx Backend] verifyIdToken failed:", err?.code || err?.message);
+      return null;
     }
-
-    return null;
   }
 
   /**
