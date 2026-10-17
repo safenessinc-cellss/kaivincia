@@ -63,12 +63,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           defaultRole = 'superadmin';
         }
 
+        const isSuperAdminEmail = email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com';
         const newProfile: UserProfile = {
           uid: currentUser.uid,
           name: currentUser.displayName || email.split('@')[0] || 'Operador Kaivincia',
           email: currentUser.email || null,
-          role: defaultRole,
-          status: 'active',
+          role: isSuperAdminEmail ? 'superadmin' : 'none',
+          status: isSuperAdminEmail ? 'active' : 'pending',
           avatarUrl: currentUser.photoURL || '',
           createdAt: new Date().toISOString(),
           lastLogin: new Date().toISOString()

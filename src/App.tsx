@@ -12,6 +12,7 @@ import Apply from './pages/Apply';
 import Careers from './pages/Careers';
 import CRMLayout from './components/CRMLayout';
 import Dashboard from './pages/Dashboard';
+import PendingApproval from './pages/PendingApproval';
 import Clients from './pages/Clients';
 import Pipeline from './pages/Pipeline';
 import Tasks from './pages/Tasks';
@@ -253,71 +254,9 @@ export default function App() {
     );
   }
 
-  // If user is logged in but pending authorization, allow self-activating operational TLMK profile
+  // Usuario logueado pero pendiente de aprobación → pantalla de espera (sin auto-activación)
   if (user && userData && (userData.status === 'pending' || !userData.role || userData.role === 'none')) {
-    const activateTLMK = async () => {
-      const updated = {
-        ...userData,
-        role: 'tlmk',
-        status: 'active'
-      };
-      setUserData(updated);
-      localStorage.setItem('kaivincia_user_data', JSON.stringify(updated));
-      try {
-        if (user.uid) {
-          await setDoc(doc(db, 'users', user.uid), { role: 'tlmk', status: 'active' }, { merge: true });
-        }
-      } catch (e) {
-        console.warn("Could not sync online, local operational mode enabled:", e);
-      }
-    };
-
-    return (
-      <div className="min-h-screen bg-[#05070a] flex flex-col items-center justify-center p-6 text-center">
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-          <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#00F0FF]/20 via-transparent to-transparent"></div>
-        </div>
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="relative z-10 max-w-lg"
-        >
-          <div className="w-24 h-24 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(0,240,255,0.1)] p-4 backdrop-blur-md">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia Corp" 
-              className="w-full h-full object-contain" 
-            />
-          </div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-4">Acceso Operativo</h1>
-          <p className="text-gray-400 font-bold uppercase text-xs tracking-[0.2em] mb-8 leading-relaxed">
-            Hola <span className="text-[#00F0FF]">{userData.name || 'Agente'}</span>, activa tu perfil operativo para ingresar al CRM de <span className="text-white">Kaivincia Corp</span>.
-          </p>
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 space-y-4">
-            <p className="text-gray-300 text-sm font-medium">
-              Puedes comenzar de inmediato con tu perfil de Telemarketing (TLMK), Oportunidades y Discador Telefónico.
-            </p>
-            <button 
-              onClick={activateTLMK}
-              className="w-full py-4 bg-[#00F0FF] hover:bg-[#22D3EE] text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all shadow-[0_0_25px_rgba(0,240,255,0.3)] cursor-pointer"
-            >
-              Ingresar como TLMK / Agente Comercial
-            </button>
-          </div>
-          <button 
-            onClick={() => {
-              localStorage.removeItem('kaivincia_active_user');
-              localStorage.removeItem('kaivincia_user_data');
-              localStorage.removeItem('kaivincia_operator_session');
-              auth.signOut();
-            }}
-            className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
-          >
-            Cerrar Sesión
-          </button>
-        </motion.div>
-      </div>
-    );
+    return <PendingApproval />;
   }
 
   const effectiveUserData = userData || {
