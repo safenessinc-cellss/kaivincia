@@ -1,4 +1,4 @@
-import { adminDb } from './_lib/firebaseAdmin.js';
+import { adminDb } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 export default async function handler(req: any, res: any) {

@@ -4,6 +4,11 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
+  "functions": {
+    "api/telnyx-router.ts": {
+      "includeFiles": "server/_lib/firebaseAdmin.ts"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/telnyx/config",

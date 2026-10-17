@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from '../_lib/firebaseAdmin.js';
+import { adminAuth, adminDb } from '../../server/_lib/firebaseAdmin.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
 const SUPERADMINS = (process.env.SUPERADMIN_EMAILS || '')
