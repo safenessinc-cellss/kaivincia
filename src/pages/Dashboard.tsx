@@ -252,7 +252,15 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
         {/* NEW: PREDICTIVE INSIGHTS RADAR (INSIGHTS DE MAÑANA) */}
-        <div className="xl:col-span-12">
+        <div className="xl:col-span-12 relative">
+          <div className="absolute top-4 right-4 z-20">
+            <button
+              onClick={() => navigate('/crm/dashboard/customize')}
+              className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs uppercase tracking-wider shadow-lg cursor-pointer"
+            >
+              Personalizar
+            </button>
+          </div>
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
