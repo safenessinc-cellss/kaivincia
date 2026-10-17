@@ -819,7 +819,7 @@ export default function SoftphoneDialer({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const showTabs = (!isFloating || isFloatingExpanded) && dialerMode === 'full';
+  const showTabs = !isFloating || isFloatingExpanded;
 
   return (
     <motion.div
@@ -995,7 +995,7 @@ export default function SoftphoneDialer({
 
           <SoftphoneDisplay phoneNumber={phoneNumber} callerId={selectedCallerId} onPhoneNumberChange={setPhoneNumber} onBackspace={handleBackspace} onClear={handleClear} callStatus={callStatus} duration={duration} onForceConnect={handleForceConnectNow} compact={isFloating} onCopySuccess={showToast} onPasteSuccess={showToast} onDigitType={playDtmfTone} />
 
-          {activeTab === 'dialer' || dialerMode === 'compact' || (!showTabs && isFloating) ? (
+          {activeTab === 'dialer' ? (
             <div className="space-y-2">
               <SoftphoneKeypad onDigitPress={handleDigitPress} disabled={callStatus === 'ended'} compact={isFloating} />
             </div>
