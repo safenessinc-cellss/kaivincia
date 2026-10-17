@@ -13,3 +13,4 @@ _backup_*/
 dump*.txt
 dump_blocks/
 scripts/
+serviceAccount.json
