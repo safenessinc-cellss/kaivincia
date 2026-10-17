@@ -993,7 +993,7 @@ export default function SoftphoneDialer({
             <SoftphoneTabs activeTab={activeTab} onTabChange={setActiveTab} selectedCarrierName={activeCarrierObj?.name} hasValidSip={hasValidSipCredentials} authorizedCallerId={selectedCallerId} isFloating={isFloating} />
           )}
 
-          <SoftphoneDisplay phoneNumber={phoneNumber} onPhoneNumberChange={setPhoneNumber} onBackspace={handleBackspace} onClear={handleClear} callStatus={callStatus} duration={duration} onForceConnect={handleForceConnectNow} compact={isFloating} onCopySuccess={showToast} onPasteSuccess={showToast} onDigitType={playDtmfTone} />
+          <SoftphoneDisplay phoneNumber={phoneNumber} callerId={selectedCallerId} onPhoneNumberChange={setPhoneNumber} onBackspace={handleBackspace} onClear={handleClear} callStatus={callStatus} duration={duration} onForceConnect={handleForceConnectNow} compact={isFloating} onCopySuccess={showToast} onPasteSuccess={showToast} onDigitType={playDtmfTone} />
 
           {activeTab === 'dialer' || dialerMode === 'compact' || (!showTabs && isFloating) ? (
             <div className="space-y-2">
