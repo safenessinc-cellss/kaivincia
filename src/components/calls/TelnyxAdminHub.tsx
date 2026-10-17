@@ -133,6 +133,8 @@ export default function TelnyxAdminHub() {
   // Inventario de Números
   const [phoneNumbers, setPhoneNumbers] = useState<TelnyxPhoneNumber[]>(INITIAL_DEMO_NUMBERS);
   const [isSyncingNumbers, setIsSyncingNumbers] = useState(false);
+  const [isImportingCredentials, setIsImportingCredentials] = useState(false);
+  const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
   const [numberSearch, setNumberSearch] = useState('');
   const [numberStatusFilter, setNumberStatusFilter] = useState<'all' | 'available' | 'assigned' | 'disabled'>('all');
   
