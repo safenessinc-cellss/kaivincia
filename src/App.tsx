@@ -12,6 +12,7 @@ import Apply from './pages/Apply';
 import Careers from './pages/Careers';
 import CRMLayout from './components/CRMLayout';
 import Dashboard from './pages/Dashboard';
+import DashboardCustomizer from './components/admin/DashboardCustomizer';
 import PendingApproval from './pages/PendingApproval';
 import Clients from './pages/Clients';
 import Pipeline from './pages/Pipeline';

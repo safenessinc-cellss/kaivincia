@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import IAAdvisor from '../components/IAAdvisor';
+import { useDashboardConfig } from '../hooks/useDashboardConfig';
 
 interface SystemEvent {
   id: string;
@@ -31,6 +32,7 @@ interface SystemEvent {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { userData } = useOutletContext<{ userData: any }>();
+  const { config } = useDashboardConfig();
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
