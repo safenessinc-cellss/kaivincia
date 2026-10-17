@@ -1,0 +1,4 @@
+{
+  "*.{ts,tsx}": ["eslint --fix"],
+  "**/__tests__/**/*.{ts,tsx}": ["vitest related --run"]
+}
