@@ -7,3 +7,9 @@ coverage/
 !.env.example
 dist/
 .vercel
+*.bak
+*.bak.*
+_backup_*/
+dump*.txt
+dump_blocks/
+scripts/
