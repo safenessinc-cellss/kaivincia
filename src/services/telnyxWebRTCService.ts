@@ -165,7 +165,9 @@ class TelnyxWebRTCService {
       this.client = new TelnyxRTC({
         login_token: token,
         debug: true,
-        debugOutput: 'socket'
+        debugOutput: 'socket',
+        ringbackFile: '/sounds/ringback.mp3',
+        ringtoneFile: '/sounds/ringtone.mp3'
       });
 
       this.client.on('telnyx.ready', () => {
