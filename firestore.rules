@@ -10,11 +10,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none");
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["admin", "superadmin", "ceo", "gestor"])
+         userRole() in ["admin", "superadmin", "ceo", "gestor"])
       );
     }
 
@@ -22,7 +26,7 @@ service cloud.firestore {
       return isAuthenticated() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none") in ["superadmin", "admin"])
+         userRole() in ["superadmin", "admin"])
       );
     }
 
@@ -38,9 +42,6 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // ===============================================================
-    // Validation Helpers
-    // ===============================================================
     function isValidProject(data) {
       return (data.get('clientId', '') is string || data.get('client', '') is string) &&
              data.name is string && data.name.size() > 0 &&
@@ -66,12 +67,16 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Users & Sesiones
+    // Users
     // ===============================================================
     match /users/{userId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && (isUser(userId) || isAdmin());
-      allow update: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow read:   if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isUser(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['role', 'status', 'permissions', 'uid'])
+      );
       allow delete: if isAdmin();
     }
 
@@ -82,16 +87,22 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Clients & Interactions (Operación comercial y pipeline)
+    // Clients
     // ===============================================================
     match /clients/{clientId} {
       allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow create: if isAuthenticated() &&
+                       request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if isAdmin() ||
+                       existing().get('createdBy', '') == request.auth.uid ||
+                       existing().get('assignedTo', '') == request.auth.uid;
       allow delete: if isAdmin();
 
       match /{subcollection}/{document=**} {
-        allow read, write: if isAuthenticated();
+        allow read:  if isAuthenticated();
+        allow write: if isAdmin() ||
+          get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid;
       }
     }
 
@@ -123,18 +134,19 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() &&
                        (isAdmin() ||
-                        resource.data.get('targetId', '') == request.auth.uid ||
-                        resource.data.get('senderId', '') == request.auth.uid);
+                        existing().get('targetId', '') == request.auth.uid ||
+                        existing().get('senderId', '') == request.auth.uid);
       allow delete: if isAdmin();
     }
 
     // ===============================================================
-    // Helpdesk / Support Tickets
+    // Helpdesk
     // ===============================================================
     match /support_tickets/{ticketId} {
-      allow read:   if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow get:  if isAdmin() || (isAuthenticated() && existing().userId == request.auth.uid);
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || (isAuthenticated() && existing().userId == request.auth.uid);
       allow delete: if isAdmin();
     }
 
@@ -162,17 +174,17 @@ service cloud.firestore {
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read: if isAuthenticated();
+      allow read:  if isAuthenticated();
       allow write: if isAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
-      allow read: if isAuthenticated();
+      allow read:  if isAdmin() || existing().get('agentUid', '') == request.auth.uid;
       allow write: if isAdmin();
     }
 
     match /telnyx_sip_credentials/{sipId} {
-      allow read: if isAuthenticated();
+      allow read:  if isAdmin() || existing().get('agentUid', '') == request.auth.uid;
       allow write: if isAdmin();
     }
 
@@ -187,7 +199,10 @@ service cloud.firestore {
     }
 
     match /company_profiles/{profileId} {
-      allow read, create: if true;
+      allow read:   if true;
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'industry', 'createdAt']) &&
+                       request.resource.data.name is string &&
+                       request.resource.data.name.size() < 200;
       allow update: if isAuthenticated();
       allow delete: if isAdmin();
     }
@@ -203,23 +218,23 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Reclutamiento & Empleo
+    // Reclutamiento
     // ===============================================================
     match /candidates/{candidateId} {
       allow read:   if isAuthenticated();
-      allow create: if true; // Postulación pública
+      allow create: if true;
       allow update: if isAuthenticated();
       allow delete: if isAdmin();
     }
 
     match /jobs/{jobId} {
-      allow get, list:      if true; // Portal público de vacantes
-      allow create, update: if (isAdmin() || isAuthenticated()) && isValidJob(incoming());
+      allow get, list:      if true;
+      allow create, update: if isAdmin() && isValidJob(incoming());
       allow delete:         if isAdmin();
     }
 
     // ===============================================================
-    // Entidades B2B, Suscripciones y Academia
+    // B2B, suscripciones, academia
     // ===============================================================
     match /b2b_entities/{entityId} {
       allow read:  if isAuthenticated();
@@ -248,7 +263,6 @@ service cloud.firestore {
 
     match /settings/integrations {
       allow read, write: if isSuperAdmin() || isAdmin();
-
       match /{subcollection}/{docId} {
         allow read, write: if isSuperAdmin() || isAdmin();
       }
@@ -258,13 +272,8 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin() || isAdmin();
     }
 
-    match /settings/{document=**} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
     // ===============================================================
-    // Integraciones Externas (Módulo 9)
+    // Integraciones
     // ===============================================================
     match /integrations/{integrationId} {
       allow read: if isAuthenticated();
@@ -273,7 +282,7 @@ service cloud.firestore {
     }
 
     match /integration_test_logs/{logId} {
-      allow read: if isAuthenticated();
+      allow read:   if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if false;
     }
@@ -283,8 +292,8 @@ service cloud.firestore {
     // ===============================================================
     match /audit_logs/{logId} {
       allow read:   if isAdmin();
-      allow create: if isAuthenticated();
-      allow update, delete: if false; // Inmutables
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', request.auth.uid) == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /security_alerts/{alertId} {
@@ -312,11 +321,14 @@ service cloud.firestore {
     }
 
     match /prospects/{prospectId} {
-      allow read, write: if isAuthenticated();
+      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
+      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // ===============================================================
-    // Proyectos, Facturación & Control Horario
+    // Proyectos, facturación & control horario
     // ===============================================================
     match /projects/{projectId} {
       allow read:   if isAuthenticated();
@@ -358,32 +370,38 @@ service cloud.firestore {
     }
 
     // ===============================================================
-    // Asistencia & Permisos
+    // Asistencia & permisos
     // ===============================================================
     match /attendance_logs/{logId} {
       allow read:   if isAdmin() ||
-                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
       allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
     match /absence_requests/{requestId} {
       allow read:   if isAdmin() ||
-                       (isAuthenticated() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
       allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
     match /notifications/{notificationId} {
-      allow read, write: if isAuthenticated();
+      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
+      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow delete: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
     }
 
     match /documents/{documentId} {
-      allow read, write: if isAuthenticated();
+      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
+      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+      allow delete: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
     }
 
     // ===============================================================
-    // Deny-all por defecto
+    // Deny-all
     // ===============================================================
     match /{document=**} {
       allow read, write: if false;

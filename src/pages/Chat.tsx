@@ -481,7 +481,7 @@ export default function Chat() {
 
   // Helpers to check current peer status
   const activePeer = activePrivateUserId ? globalUsers.find(u => u.id === activePrivateUserId) : null;
-  const isCurrentUserAdmin = currentUserDoc?.role === 'admin' || currentUserDoc?.role === 'superadmin' || auth.currentUser?.email === 'safeness.c.a@gmail.com' || auth.currentUser?.email === 'deuwyrobert@gmail.com';
+  const isCurrentUserAdmin = currentUserDoc?.role === 'admin' || currentUserDoc?.role === 'superadmin';
 
   // Statistics calculation
   const totalUsersCount = globalUsers.length;

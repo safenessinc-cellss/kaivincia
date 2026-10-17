@@ -105,7 +105,7 @@ export default function App() {
         try {
           const userRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userRef);
-          const isSuperAdmin = currentUser.email === 'safeness.c.a@gmail.com' || currentUser.email === 'deuwyrobert@gmail.com';
+          const isSuperAdmin = currentUserRole === 'superadmin' || currentUserRole === 'admin';
           
           let currentProfile: any = null;
           if (!userSnap.exists()) {

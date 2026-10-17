@@ -48,7 +48,6 @@ export default function LoginPage() {
 
       // Persist to localStorage
       localStorage.setItem('kaivincia_active_user', JSON.stringify({ uid: operator.uid, email: operator.email, displayName: operator.name }));
-      localStorage.setItem('kaivincia_user_data', JSON.stringify(operator));
       localStorage.setItem('kaivincia_operator_session', JSON.stringify(operator));
       localStorage.removeItem('kaivincia_guest');
 

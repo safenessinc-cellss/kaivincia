@@ -188,7 +188,7 @@ export const AppearanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!user) return false;
     const role = (user as any)?.role;
     const email = user.email || '';
-    return role === 'superadmin' || role === 'admin' || email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com';
+    return role === 'superadmin' || role === 'admin';
   }, [user]);
 
   // Si colorMode es 'auto', reaccionar a cambios del sistema
