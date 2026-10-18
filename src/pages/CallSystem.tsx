@@ -39,7 +39,7 @@ export default function CallSystem() {
 
   // Roles administrativos autorizados para configurar proveedores y supervisar
   const isAdmin = useMemo(() => {
-    return ['superadmin', 'admin', 'ceo', 'gestor'].includes(userData?.role);
+    return ['superadmin', 'admin', 'ceo', 'gestor', 'supervisor', 'owner'].includes(userData?.role);
   }, [userData?.role]);
 
   // Manejo de pestaña activa vía URL o estado
@@ -96,8 +96,8 @@ export default function CallSystem() {
   const TABS = [
     { id: 'monitor', label: t('calls.tabs.monitor', 'Monitor VoIP'), icon: Activity },
     { id: 'softphone', label: t('calls.tabs.softphone', 'Marcador WebRTC'), icon: Phone },
-    { id: 'telnyx', label: '⭐ Panel Telnyx', icon: Radio },
-    { id: 'meta', label: '⭐ Panel Meta', icon: Share2 },
+    { id: 'telnyx', label: '⭐ Panel Telnyx', icon: Radio, adminOnly: true },
+    { id: 'meta', label: '⭐ Panel Meta', icon: Share2, adminOnly: true },
     { id: 'logs', label: t('calls.tabs.logs', 'Historial & Grabaciones'), icon: Clock },
     { id: 'esim', label: t('calls.tabs.esim', 'Líneas eSIM'), icon: Smartphone },
     { id: 'directory', label: t('calls.tabs.directory', 'Troncales SIP'), icon: Server },
@@ -151,7 +151,7 @@ export default function CallSystem() {
 
       {/* Navegación por Pestañas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
-        {TABS.map((tab) => {
+        {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -190,11 +190,11 @@ export default function CallSystem() {
           </div>
         )}
 
-        {activeTab === 'telnyx' && (
+        {activeTab === 'telnyx' && isAdmin && (
           <TelnyxAdminHub />
         )}
 
-        {activeTab === 'meta' && (
+        {activeTab === 'meta' && isAdmin && (
           <MetaAdminHub />
         )}
 
