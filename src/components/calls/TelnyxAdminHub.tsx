@@ -29,7 +29,7 @@ import {
   AlertTriangle,
   HelpCircle
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, deleteDoc , runTransaction, getDoc} from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
@@ -511,36 +511,59 @@ export default function TelnyxAdminHub() {
     try {
       const agent = agentOptions.find(a => a.uid === agentUid);
 
-      // Liberar credencial anterior del agente (si tenía otra)
-      const prevCredId = (assignments as any)?.[agentUid]?.telnyxCredentialId;
-      if (prevCredId && prevCredId !== cred.id) {
-        await setDoc(doc(db, 'telnyx_sip_credentials', prevCredId), {
-          assignedTo: null,
-          assignedAt: null,
+      await runTransaction(db, async (transaction) => {
+        const credRef = doc(db, 'telnyx_sip_credentials', cred.id);
+        const credSnap = await transaction.get(credRef);
+
+        if (!credSnap.exists()) {
+          throw new Error('La credencial no existe en Firestore.');
+        }
+
+        const currentAssignedTo = (credSnap.data() as any)?.assignedTo;
+        if (currentAssignedTo && currentAssignedTo !== agentUid) {
+          throw new Error(
+            `⛔ SIP ya asignado: esta credencial (${cred.name}) está vinculada a otro usuario. ` +
+            `Desasígnala primero para poder reutilizarla.`
+          );
+        }
+
+        // Liberar la credencial anterior del agente (si tenía otra)
+        const agentAssignmentRef = doc(db, 'telnyx_agent_assignments', agentUid);
+        const agentSnap = await transaction.get(agentAssignmentRef);
+        if (agentSnap.exists()) {
+          const prevCredId = (agentSnap.data() as any)?.telnyxCredentialId;
+          if (prevCredId && prevCredId !== cred.id) {
+            const prevCredRef = doc(db, 'telnyx_sip_credentials', prevCredId);
+            transaction.update(prevCredRef, {
+              assignedTo: null,
+              assignedToEmail: null,
+              assignedAt: null,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        // Vincular agente → credencial
+        transaction.set(agentAssignmentRef, {
+          agentEmail: agent?.email || '',
+          agentName: agent?.name || '',
+          telnyxCredentialId: cred.id,
+          telnyxUsername: cred.sipUsername,
           updatedAt: new Date().toISOString(),
         }, { merge: true });
-      }
 
-      // 1) Vincular agente → credencial
-      await setDoc(doc(db, 'telnyx_agent_assignments', agentUid), {
-        agentEmail: agent?.email || '',
-        agentName: agent?.name || '',
-        telnyxCredentialId: cred.id,
-        telnyxUsername: cred.sipUsername,
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+        // Vincular credencial → agente (atómico)
+        transaction.update(credRef, {
+          assignedTo: agentUid,
+          assignedToEmail: agent?.email || '',
+          assignedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      });
 
-      // 2) Vincular credencial → agente (bidireccional)
-      await setDoc(doc(db, 'telnyx_sip_credentials', cred.id), {
-        assignedTo: agentUid,
-        assignedToEmail: agent?.email || '',
-        assignedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
-
-      alert(`Credencial ${cred.name} asignada a ${agent?.email || agentUid}`);
+      alert(`✅ Credencial ${cred.name} asignada a ${agent?.email || agentUid}`);
     } catch (err: any) {
-      alert(`Error asignando credencial: ${err.message}`);
+      alert(err.message || `Error asignando credencial`);
     }
   };
 

@@ -167,3 +167,18 @@
     color: #111827 !important;
   }
 }
+
+/* ── Extra: clases arbitrarias oscuras no cubiertas ─────────────── */
+@layer utilities {
+  .bg-\[\#07090E\], .bg-\[\#05070a\], .bg-\[\#0B0E14\],
+  .bg-\[\#0f172a\], .bg-\[\#111827\], .bg-\[\#161B22\],
+  .bg-black {
+    background-color: #ffffff !important;
+  }
+  .bg-slate-900\/90, .bg-slate-950\/60, .bg-slate-800, .bg-slate-700,
+  .bg-gray-900\/90, .bg-gray-950\/60 {
+    background-color: #f9fafb !important;
+  }
+  .text-cyan-300, .text-cyan-400, .text-\[\#00F0FF\] { color: #111827 !important; }
+  .border-\[\#00F0FF\], .border-cyan-500\/30 { border-color: #e5e7eb !important; }
+}

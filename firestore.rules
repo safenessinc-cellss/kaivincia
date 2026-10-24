@@ -30,6 +30,12 @@ service cloud.firestore {
       );
     }
 
+    function isApproved() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "approved") == "approved";
+    }
+
     function isUser(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -184,8 +190,14 @@ service cloud.firestore {
     }
 
     match /telnyx_sip_credentials/{sipId} {
-      allow read:  if isAdmin() || existing().get('agentUid', '') == request.auth.uid;
-      allow write: if isAdmin();
+      allow read: if isAdmin() || (isApproved() && existing().get('assignedTo', '') == request.auth.uid);
+      allow create: if isAdmin() && incoming().get('assignedTo', null) == null;
+      allow update: if isAdmin() && (
+        existing().get('assignedTo', null) == null ||
+        incoming().get('assignedTo', null) == null ||
+        isSuperAdmin()
+      );
+      allow delete: if isAdmin();
     }
 
     match /esim_profiles/{profileId} {
