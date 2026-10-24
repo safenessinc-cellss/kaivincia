@@ -20,3 +20,4 @@ serviceAccount.json
 # Firebase applet config (aunque las apiKeys sean públicas, no se versiona)
 src_backup_*
 src_backup_*
+firebase-applet-config.json
