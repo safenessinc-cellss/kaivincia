@@ -136,6 +136,7 @@ export default function TelnyxAdminHub() {
   const [isImportingCredentials, setIsImportingCredentials] = useState(false);
   const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
   const [agentOptions, setAgentOptions] = useState<Array<{uid:string;email:string;name:string}>>([]);
+  const [agentAssignments, setAgentAssignments] = useState<Record<string, any>>({});
   const [numberSearch, setNumberSearch] = useState('');
   const [numberStatusFilter, setNumberStatusFilter] = useState<'all' | 'available' | 'assigned' | 'disabled'>('all');
   
@@ -506,6 +507,18 @@ export default function TelnyxAdminHub() {
     if (!agentUid) return;
     try {
       const agent = agentOptions.find(a => a.uid === agentUid);
+
+      // Liberar credencial anterior del agente (si tenía otra)
+      const prevCredId = agentAssignments[agentUid]?.telnyxCredentialId;
+      if (prevCredId && prevCredId !== cred.id) {
+        await setDoc(doc(db, 'telnyx_sip_credentials', prevCredId), {
+          assignedTo: null,
+          assignedAt: null,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      }
+
+      // 1) Vincular agente → credencial
       await setDoc(doc(db, 'telnyx_agent_assignments', agentUid), {
         agentEmail: agent?.email || '',
         agentName: agent?.name || '',
@@ -513,6 +526,15 @@ export default function TelnyxAdminHub() {
         telnyxUsername: cred.sipUsername,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
+
+      // 2) Vincular credencial → agente (bidireccional)
+      await setDoc(doc(db, 'telnyx_sip_credentials', cred.id), {
+        assignedTo: agentUid,
+        assignedToEmail: agent?.email || '',
+        assignedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+
       alert(`Credencial ${cred.name} asignada a ${agent?.email || agentUid}`);
     } catch (err: any) {
       alert(`Error asignando credencial: ${err.message}`);

@@ -437,6 +437,22 @@ export default function SoftphoneDialer({
     };
   }, [user, authLoading]);
 
+  // ── Auto-selección de Caller ID por código de área del destino ──────────
+  useEffect(() => {
+    const digits = String(phoneNumber || '').replace(/\D/g, '');
+    // Solo cuando el destino es un número US completo (11 dígitos: 1 + 10)
+    if (digits.length !== 11 || !digits.startsWith('1')) return;
+    const destArea = digits.slice(1, 4);
+    if (!destArea) return;
+    const match = authorizedCallerIds.find((cid) => {
+      const cd = String(cid).replace(/\D/g, '');
+      return cd.startsWith('1') && cd.slice(1, 4) === destArea;
+    });
+    if (match && match !== selectedCallerId) {
+      setSelectedCallerId(match);
+    }
+  }, [phoneNumber, authorizedCallerIds]);
+
   const clearAllTimeouts = useCallback(() => {
     timeoutsRef.current.forEach(id => clearTimeout(id));
     timeoutsRef.current = [];
