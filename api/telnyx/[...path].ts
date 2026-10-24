@@ -1,4 +1,4 @@
-import { adminAuth } from '../server/_lib/firebaseAdmin.js';
+import { adminAuth } from '../../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
   const path = req.query.path || [];
