@@ -18,6 +18,7 @@ import SoftphoneKeypad from './SoftphoneKeypad';
 import SoftphoneConfig from './SoftphoneConfig';
 import SoftphoneSipConsole from './SoftphoneSipConsole';
 import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
+import { isPrivilegedRole } from '../../constants/roles';
 
 interface SoftphoneDialerProps {
   mode?: 'embedded' | 'floating';
@@ -361,12 +362,8 @@ export default function SoftphoneDialer({
     // ── Caller IDs: privilegiados ven todos; agentes solo los asignados ──────
     let assignmentData: any | null = null;
     let allTelnyxNumbers: string[] = [];
-
-    const PRIVILEGED_ROLES = ['admin', 'superadmin', 'owner', 'supervisor'];
-
     const recomputeAuthorizedCallerIds = () => {
-      const role = String(userData?.role || '').toLowerCase().trim();
-      const isPrivileged = PRIVILEGED_ROLES.includes(role);
+      const isPrivileged = isPrivilegedRole(userData?.role);
 
       if (isPrivileged) {
         setAuthorizedCallerIds(allTelnyxNumbers);
@@ -387,9 +384,7 @@ export default function SoftphoneDialer({
       }
     };
 
-    const isPrivilegedUser = PRIVILEGED_ROLES.includes(
-      String(userData?.role || '').toLowerCase().trim()
-    );
+    const isPrivilegedUser = isPrivilegedRole(userData?.role);
 
     let unsubNumbers: (() => void) | null = null;
     if (isPrivilegedUser) {

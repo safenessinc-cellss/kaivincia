@@ -16,3 +16,6 @@ scripts/
 serviceAccount.json
 *.bak
 *.bak.*
+
+# Firebase applet config (aunque las apiKeys sean públicas, no se versiona)
+firebase-applet-config.json

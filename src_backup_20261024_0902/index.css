@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+:root {
+  --font-family: 'Inter', sans-serif;
+  --font-size-base: 14px;
+  --font-weight-base: 400;
+  --heading-scale: 1;
+  --color-primary: #00F0FF;
+  --color-secondary: #1e293b;
+  --color-background: #05070a;
+  --color-surface: #0b1118;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #94a3b8;
+  --color-sidebar-bg: #070b10;
+  --color-sidebar-text: #cbd5e1;
+  --color-sidebar-active: #00F0FF;
+  --color-header-bg: #070b10;
+  --sidebar-width: 256px;
+  --border-radius: 12px;
+  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --density-padding: 1rem;
+}
+
+@theme {
+  --font-sans: var(--font-family), "Rajdhani", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Orbitron", ui-serif, Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
+  --color-background: var(--color-background);
+  --color-surface: var(--color-surface);
+  --color-text-primary: var(--color-text-primary);
+  --color-text-secondary: var(--color-text-secondary);
+  --color-sidebar-bg: var(--color-sidebar-bg);
+  --color-sidebar-text: var(--color-sidebar-text);
+  --color-sidebar-active: var(--color-sidebar-active);
+  --color-header-bg: var(--color-header-bg);
+  --color-cyber-dark: var(--color-background);
+  --color-cyber-glass: rgba(5, 7, 10, 0.85);
+  --color-cyber-border: rgba(0, 240, 255, 0.2);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-base);
+    background-color: var(--color-background);
+    color: var(--color-text-secondary);
+    background-image: radial-gradient(rgba(31, 41, 55, 0.2) 1px, transparent 0);
+    background-size: 24px 24px;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--color-text-primary);
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background-color: var(--color-surface);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: var(--card-shadow);
+    border-radius: var(--border-radius);
+  }
+  
+  .glow-emerald {
+    filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.4));
+  }
+
+  .glow-amber {
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.4));
+  }
+
+  .glow-crimson {
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+  }
+
+  .glow-primary {
+    filter: drop-shadow(0 0 8px var(--color-primary));
+  }
+}
+
+/* Modos de Accesibilidad */
+.high-contrast {
+  --color-background: #000000 !important;
+  --color-surface: #0a0a0a !important;
+  --color-text-primary: #ffffff !important;
+  --color-text-secondary: #e2e8f0 !important;
+  --color-sidebar-bg: #000000 !important;
+  --color-sidebar-text: #ffffff !important;
+  --color-header-bg: #000000 !important;
+}
+
+.high-contrast .glass-panel,
+.high-contrast button,
+.high-contrast input,
+.high-contrast select {
+  border-color: #ffffff !important;
+  border-width: 1.5px !important;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+.colorblind-deuteranopia {
+  filter: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><filter id="deuteranopia"><feColorMatrix type="matrix" values="0.625 0.375 0 0 0  0.7 0.3 0 0 0  0 0.3 0.7 0 0  0 0 0 1 0"/></filter></svg>#deuteranopia');
+}
+
+.colorblind-protanopia {
+  filter: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><filter id="protanopia"><feColorMatrix type="matrix" values="0.567 0.433 0 0 0  0.558 0.442 0 0 0  0 0.242 0.758 0 0  0 0 0 1 0"/></filter></svg>#protanopia');
+}
+
+.colorblind-tritanopia {
+  filter: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"><filter id="tritanopia"><feColorMatrix type="matrix" values="0.95 0.05 0 0 0  0 0.433 0.567 0 0  0 0.475 0.525 0 0  0 0 0 1 0"/></filter></svg>#tritanopia');
+}
+
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 15s ease infinite;
+}

@@ -31,6 +31,7 @@ import OmnichannelInbox from '../components/calls/OmnichannelInbox';
 import VoipCoverageZones from '../components/calls/VoipCoverageZones';
 import TelnyxAdminHub from '../components/calls/TelnyxAdminHub';
 import MetaAdminHub from '../components/integrations/MetaAdminHub';
+import { isPrivilegedRole } from '../constants/roles';
 
 export default function CallSystem() {
   const { userData } = useOutletContext<{ userData: any }>() || {};
@@ -38,9 +39,10 @@ export default function CallSystem() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Roles administrativos autorizados para configurar proveedores y supervisar
-  const isAdmin = useMemo(() => {
-    return ['superadmin', 'admin', 'ceo', 'gestor', 'supervisor', 'owner'].includes(userData?.role);
-  }, [userData?.role]);
+  const isAdmin = useMemo(
+    () => isPrivilegedRole(userData?.role),
+    [userData?.role]
+  );
 
   // Manejo de pestaña activa vía URL o estado
   const currentTabParam = searchParams.get('tab') || 'monitor';
