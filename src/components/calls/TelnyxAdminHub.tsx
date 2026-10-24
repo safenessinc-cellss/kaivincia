@@ -479,7 +479,19 @@ export default function TelnyxAdminHub() {
       const data = await res.json();
       if (data.success && Array.isArray(data.credentials)) {
         setImportedCredentials(data.credentials);
-        alert(`Importados ${data.credentials.length} usuarios de Telnyx.`);
+        for (const cred of data.credentials) {
+          await setDoc(doc(db, 'telnyx_sip_credentials', cred.id), {
+            id: cred.id,
+            name: cred.name || '',
+            telnyxUsername: cred.sipUsername || '',
+            connectionId: cred.connectionId || '',
+            activo: true,
+            assignedTo: null,
+            areaCode: null,
+            updatedAt: new Date().toISOString(),
+          }, { merge: true });
+        }
+        alert(`Importados ${data.credentials.length} usuarios de Telnyx y guardados en Firestore.`);
       } else {
         alert(data.error || 'Telnyx respondio sin credenciales.');
       }
