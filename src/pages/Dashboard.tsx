@@ -412,8 +412,8 @@ export default function Dashboard() {
                     </linearGradient>
                   </defs>
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#0B0E14', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '10px', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
+                    contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '12px', fontSize: '10px', color: '#111827' }}
+                    itemStyle={{ color: '#111827' }}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="#10B981" fillOpacity={1} fill="url(#colorRev)" strokeWidth={3} />
                 </AreaChart>

@@ -133,3 +133,37 @@
   background-size: 200% 200%;
   animation: gradient 15s ease infinite;
 }
+
+/* ── Forzar tema blanco en toda la app ──────────────────────────── */
+/* Sobrescribe fondos oscuros hardcodeados. Para revertir: borrar este bloque. */
+@layer utilities {
+  .bg-gray-950, .bg-gray-900,
+  .bg-slate-950, .bg-slate-900,
+  .bg-zinc-950, .bg-zinc-900,
+  .bg-neutral-950, .bg-neutral-900,
+  .bg-stone-950, .bg-stone-900 {
+    background-color: #ffffff !important;
+  }
+  .bg-gray-800, .bg-slate-800, .bg-zinc-800,
+  .bg-neutral-800, .bg-stone-800 {
+    background-color: #f9fafb !important;
+  }
+
+  /* Texto claro sobre los fondos que acabamos de volver blancos */
+  .text-gray-100, .text-slate-100 { color: #111827 !important; }
+  .text-gray-200, .text-slate-200 { color: #1f2937 !important; }
+  .text-gray-300, .text-slate-300 { color: #374151 !important; }
+
+  /* Bordes oscuros → bordes claros */
+  .border-gray-700, .border-gray-800,
+  .border-slate-700, .border-slate-800 {
+    border-color: #e5e7eb !important;
+  }
+
+  /* text-white dentro de contenedores blancos (pero NO en botones de color) */
+  .bg-white.text-white,
+  .bg-gray-50.text-white,
+  .bg-gray-100.text-white {
+    color: #111827 !important;
+  }
+}

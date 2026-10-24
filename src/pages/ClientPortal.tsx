@@ -260,8 +260,8 @@ export default function ClientPortal() {
                           <Cell fill="#374151" />
                         </Pie>
                         <RechartsTooltip 
-                          contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: '12px', color: '#fff' }}
-                          itemStyle={{ color: '#fff' }}
+                          contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #374151', borderRadius: '12px', color: '#111827' }}
+                          itemStyle={{ color: '#111827' }}
                         />
                       </PieChart>
                     </ResponsiveContainer>

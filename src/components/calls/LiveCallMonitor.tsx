@@ -202,7 +202,7 @@ export default function LiveCallMonitor({
                 </defs>
                 <XAxis dataKey="time" stroke="#94a3b8" fontSize={10} tickLine={false} />
                 <YAxis domain={[50, 100]} stroke="#94a3b8" fontSize={10} tickLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderRadius: '12px', border: '1px solid #1e293b', fontSize: '11px' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: '11px' }} />
                 <Area type="monotone" dataKey="score" stroke="#00F0FF" strokeWidth={2} fillOpacity={1} fill="url(#sentimentGradient)" />
               </AreaChart>
             </ResponsiveContainer>

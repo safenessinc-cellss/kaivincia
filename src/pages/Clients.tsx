@@ -1067,7 +1067,7 @@ Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluy
                           <BarChart data={clientIntel.paymentHistory}>
                              <XAxis dataKey="month" hide />
                              <Tooltip 
-                               contentStyle={{ backgroundColor: '#161B22', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '1rem' }}
+                               contentStyle={{ backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '1rem' }}
                                itemStyle={{ color: '#fff', fontSize: '10px', fontWeight: 'bold' }}
                                labelStyle={{ color: '#00F0FF', fontSize: '9px', fontWeight: 'black', textTransform: 'uppercase' }}
                              />
