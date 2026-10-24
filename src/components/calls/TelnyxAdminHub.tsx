@@ -136,7 +136,6 @@ export default function TelnyxAdminHub() {
   const [isImportingCredentials, setIsImportingCredentials] = useState(false);
   const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
   const [agentOptions, setAgentOptions] = useState<Array<{uid:string;email:string;name:string}>>([]);
-  const [agentAssignments, setAgentAssignments] = useState<Record<string, any>>({});
   const [numberSearch, setNumberSearch] = useState('');
   const [numberStatusFilter, setNumberStatusFilter] = useState<'all' | 'available' | 'assigned' | 'disabled'>('all');
   
@@ -439,6 +438,8 @@ export default function TelnyxAdminHub() {
         for (const item of data.numbers) {
           const docId = `num_${item.id || item.phone_number.replace(/\D/g, '')}`;
           const existing = phoneNumbers.find(p => p.phoneNumber === item.phone_number);
+          const digits = String(item.phone_number || '').replace(/\D/g, '');
+          const areaCode = digits.length >= 11 && digits.startsWith('1') ? digits.slice(1, 4) : null;
           await setDoc(doc(db, 'telnyx_phone_numbers', docId), {
             id: docId,
             phoneNumber: item.phone_number,
@@ -448,6 +449,8 @@ export default function TelnyxAdminHub() {
             assignedAgentNames: existing?.assignedAgentNames || [],
             isSharedPool: existing?.isSharedPool ?? true,
             connectionId: item.connection_id || connectionIdInput,
+            areaCode: areaCode ?? (existing as any)?.areaCode ?? null,
+            region: item.region || (existing as any)?.region || null,
             updatedAt: new Date().toISOString()
           }, { merge: true });
         }
@@ -509,7 +512,7 @@ export default function TelnyxAdminHub() {
       const agent = agentOptions.find(a => a.uid === agentUid);
 
       // Liberar credencial anterior del agente (si tenía otra)
-      const prevCredId = agentAssignments[agentUid]?.telnyxCredentialId;
+      const prevCredId = (assignments as any)?.[agentUid]?.telnyxCredentialId;
       if (prevCredId && prevCredId !== cred.id) {
         await setDoc(doc(db, 'telnyx_sip_credentials', prevCredId), {
           assignedTo: null,
