@@ -639,7 +639,7 @@ export default function SoftphoneDialer({
       let unsubscribeCallUpdates = () => {};
       unsubscribeCallUpdates = telnyxWebRTCService.subscribeCallUpdates((updatedCall: any) => {
         const updatedCallId = updatedCall?.id || updatedCall?.callID || updatedCall?.callId;
-        if (activeCallId && updatedCallId && activeCallId !== updatedCallId) return;
+        if (!activeCallId || !updatedCallId || activeCallId !== updatedCallId) return;
 
         const state = String(updatedCall?.state || '').toLowerCase();
         if (state === 'ringing') {
