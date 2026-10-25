@@ -33,8 +33,7 @@ if (!admin.apps.length) {
       firebaseInitError = 'FIREBASE_SERVICE_ACCOUNT_KEY no está configurada en Vercel';
       console.error('[Firebase Admin] ❌', firebaseInitError);
     } else {
-      console.log('[Firebase Admin] Variable encontrada, longitud:', raw.length);
-      console.log('[Firebase Admin] Primeros 50 caracteres:', raw.substring(0, 50));
+      console.log('[Firebase Admin] Variable de servicio encontrada.');
 
       let parsed: any;
       try {
@@ -107,10 +106,7 @@ export class TelnyxBackendService {
       return null;
     }
 
-    console.log(
-      '[verifyAuthToken] Header recibido:',
-      authHeader.substring(0, 30) + '...'
-    );
+    // Never log authorization headers or token fragments.
 
     if (!authHeader.startsWith('Bearer ')) {
       console.warn('[verifyAuthToken] ❌ Formato incorrecto (no empieza con Bearer)');
@@ -135,16 +131,13 @@ export class TelnyxBackendService {
     // Diagnóstico 3: Intentar verificar el token
     try {
       const decoded = await admin.auth().verifyIdToken(token);
-      console.log('[verifyAuthToken] ✅ Token válido. UID:', decoded.uid);
+      console.log('[verifyAuthToken] Token Firebase válido.');
       return {
         uid: decoded.uid,
         email: decoded.email,
       };
     } catch (err: any) {
-      console.error('[verifyAuthToken] ❌ verifyIdToken falló:', {
-        code: err.code,
-        message: err.message,
-      });
+      console.error('[verifyAuthToken] Firebase token verification failed:', err?.code || 'unknown');
       return null;
     }
   }

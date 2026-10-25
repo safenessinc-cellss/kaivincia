@@ -56,25 +56,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUserData(data);
         localStorage.setItem('kaivincia_user_data', JSON.stringify(data));
       } else {
-        // Fallback default profile
-        let defaultRole = 'tlmk';
+        // New identities start pending; role assignment requires an administrator.
         const email = currentUser.email || '';
-        if (email === 'safeness.c.a@gmail.com' || email === 'deuwyrobert@gmail.com') {
-          defaultRole = 'superadmin';
-        }
-
         const newProfile: UserProfile = {
           uid: currentUser.uid,
-          name: currentUser.displayName || email.split('@')[0] || 'Operador Kaivincia',
+          name: currentUser.displayName || email.split('@')[0] || 'Usuario Kaivincia',
           email: currentUser.email || null,
-          role: defaultRole,
-          status: 'active',
+          role: 'none',
+          status: 'pending',
           avatarUrl: currentUser.photoURL || '',
           createdAt: new Date().toISOString(),
           lastLogin: new Date().toISOString()
         };
-
-        await setDoc(userRef, newProfile, { merge: true }).catch(console.warn);
+        await setDoc(userRef, newProfile);
         setUserData(newProfile);
         localStorage.setItem('kaivincia_user_data', JSON.stringify(newProfile));
       }
