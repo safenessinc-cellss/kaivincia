@@ -602,6 +602,7 @@ export default function SoftphoneDialer({
         callDurationIntervalRef.current = setInterval(() => setDuration(v => v + 1), 1000);
       };
       const onRinging = () => {
+        startRingback();
         setCallStatus('calling');
         setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx informó tono de llamada remoto (ringing).`, ...prev.slice(0, 30)]);
       };
@@ -630,7 +631,6 @@ export default function SoftphoneDialer({
       call.on('telnyx.call.destroy', onEnded);
       call.on('telnyx.call.error', onFailed);
       call.on('error', onFailed);
-      startRingback();
     } catch (err: any) {
       stopRingback();
       setCallStatus('idle');
@@ -651,6 +651,7 @@ export default function SoftphoneDialer({
 
   // Colgar llamada
   const handleHangup = () => {
+    telnyxWebRTCService.hangup();
     stopRingback();
     clearAllTimeouts();
     playHangupBeep();
