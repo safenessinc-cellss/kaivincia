@@ -282,12 +282,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const breadcrumbs = generateBreadcrumbs();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex relative">
+    <div className="min-h-screen flex relative" style={{ backgroundColor: 'var(--app-bg)', color: 'var(--app-text)' }}>
       <div className="fixed inset-0 z-0 pointer-events-none">
         <img src="/images/portada.jpg" alt="Portada" className="w-full h-full object-cover opacity-[0.03] grayscale mix-blend-multiply" />
       </div>
       {/* Sidebar */}
-      <div className={`bg-[#0a0a0a] text-gray-300 border-r border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+      <div className={`text-gray-300 border-r flex flex-col h-screen transition-all duration-300 relative z-10 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} style={{ backgroundColor: appearance === 'dark' ? '#111113' : '#F0F0F5', borderColor: 'var(--app-border)', color: appearance === 'dark' ? '#E5E5EA' : '#38383A' }}>
         <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
@@ -467,7 +467,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shrink-0 z-10 shadow-sm">
+        <header className="h-16 border-b flex items-center justify-between px-6 shrink-0 z-10 shadow-sm" style={{ backgroundColor: 'var(--app-surface-solid)', borderColor: 'var(--app-border)', color: 'var(--app-text)' }}>
           <div className="flex flex-1 items-center gap-4">
             <button 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
@@ -591,7 +591,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
             </button>
 
             {/* Language Selector in Header */}
-            <LanguageSelector theme="light" />
+            <LanguageSelector theme={appearance} />
 
             <NotificationCenter />
             
@@ -615,7 +615,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
           </div>
         </header>
         
-        <main className="flex-1 overflow-auto p-4 sm:p-8 bg-transparent relative z-10">
+        <main className="flex-1 overflow-auto p-4 sm:p-8 bg-transparent relative z-10" style={{ color: 'var(--app-text)' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
