@@ -236,3 +236,18 @@ button, input, select, textarea { font: inherit; }
 .kaivincia-ios-softphone button:focus-visible { outline: 3px solid rgba(0,122,255,.35); outline-offset: 2px; }
 @media (max-width: 640px) { .kaivincia-ios-softphone { border-radius: 24px 24px 0 0 !important; } }
 @media (prefers-reduced-motion: reduce) { .kaivincia-ios-softphone button { transition: none; } }
+
+
+/* Accessible iOS semantic colors */
+.kaivincia-ios-sidebar [class~="text-cyan-400"],
+.kaivincia-ios-sidebar [class~="text-cyan-500"],
+.kaivincia-ios-sidebar [class~="text-cyan-600"] { color: #007AFF !important; }
+.kaivincia-ios-sidebar [class~="text-emerald-400"],
+.kaivincia-ios-sidebar [class~="text-emerald-500"],
+.kaivincia-ios-sidebar [class~="text-green-500"] { color: #248A3D !important; }
+.kaivincia-ios-sidebar [class~="text-violet-400"],
+.kaivincia-ios-sidebar [class~="text-purple-500"] { color: #5856D6 !important; }
+.kaivincia-ios-sidebar [class~="text-amber-300"],
+.kaivincia-ios-sidebar [class~="text-amber-400"],
+.kaivincia-ios-sidebar [class~="text-amber-500"] { color: #9A6700 !important; }
+.kaivincia-ios-softphone button[class~="bg-rose-500"] { color: #FFFFFF !important; }
