@@ -590,11 +590,11 @@ export default function SoftphoneDialer({
     onCallStart?.(dialNum);
 
     try {
-      const normalizedCallerId = String(selectedCallerId || '').replace(/[\\s().-]/g, '');
+      const normalizedCallerId = String(selectedCallerId || '').replace(/[\s().-]/g, '');
       if (!normalizedCallerId || !authorizedCallerIds.includes(selectedCallerId)) {
         throw new Error('No hay un Caller ID autorizado asignado a tu usuario. Configura un número Telnyx activo y autorizado antes de llamar.');
       }
-      if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedCallerId)) {
+      if (!/^\+[1-9]\d{7,14}$/.test(normalizedCallerId)) {
         throw new Error('El Caller ID asignado no está en formato internacional E.164.');
       }
       const call = await telnyxWebRTCService.makeCall(dialNum, normalizedCallerId);
