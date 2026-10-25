@@ -38,7 +38,7 @@ import SoftphoneDisplay, { sanitizeDialNumber } from './SoftphoneDisplay';
 import SoftphoneKeypad from './SoftphoneKeypad';
 import SoftphoneConfig from './SoftphoneConfig';
 import SoftphoneSipConsole from './SoftphoneSipConsole';
-import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
+import { telnyxWebRTCService, validateTelnyxCallerId } from '../../services/telnyxWebRTCService';
 
 interface SoftphoneDialerProps {
   mode?: 'embedded' | 'floating';
@@ -49,6 +49,20 @@ interface SoftphoneDialerProps {
   onClose?: () => void;
   className?: string;
 }
+
+
+const getTelnyxCallErrorMessage = (event: any): string => {
+  const code = String(event?.sipCode ?? event?.statusCode ?? event?.code ?? '');
+  const reason = String(event?.sipReason ?? event?.message ?? event?.cause ?? '');
+  const detail = `${reason} ${String(event?.cause ?? '')}`;
+  if (code === '403' && /D49|D35|originator number is invalid|caller.?id|originator/i.test(detail)) {
+    return 'Error de Caller ID: el número de origen no está autorizado en Telnyx. Revisa la asignación de tu DID y la conexión SIP.';
+  }
+  if (/D49|D35|originator number is invalid/i.test(detail)) {
+    return 'Telnyx rechazó el Caller ID. Contacta con el administrador para verificar el DID y su autorización en la conexión SIP.';
+  }
+  return reason ? `No se pudo completar la llamada: ${reason.slice(0, 120)}` : 'Telnyx no pudo completar la llamada. Revisa el estado de la conexión y la configuración del número.';
+};
 
 // Frecuencias DTMF estándar (ITU-T)
 const DTMF_FREQUENCIES: Record<string, [number, number]> = {
@@ -590,12 +604,10 @@ export default function SoftphoneDialer({
     onCallStart?.(dialNum);
 
     try {
-      const normalizedCallerId = String(selectedCallerId || '').replace(/[\s().-]/g, '');
-      if (!normalizedCallerId || !authorizedCallerIds.includes(selectedCallerId)) {
-        throw new Error('No hay un Caller ID autorizado asignado a tu usuario. Configura un número Telnyx activo y autorizado antes de llamar.');
-      }
-      if (!/^\+[1-9]\d{7,14}$/.test(normalizedCallerId)) {
-        throw new Error('El Caller ID asignado no está en formato internacional E.164.');
+      const normalizedCallerId = validateTelnyxCallerId(selectedCallerId);
+      const normalizedAuthorizedIds = authorizedCallerIds.map(id => String(id || '').trim().replace(/[\\s().-]/g, ''));
+      if (!normalizedAuthorizedIds.includes(normalizedCallerId)) {
+        throw new Error('Tu Caller ID no está configurado correctamente, contacta con el administrador. El número seleccionado no figura entre los Caller ID asignados a tu usuario.');
       }
       const call = await telnyxWebRTCService.makeCall(dialNum, normalizedCallerId);
       if (!call || typeof call.on !== 'function') {
@@ -628,9 +640,10 @@ export default function SoftphoneDialer({
         if (callDurationIntervalRef.current) clearInterval(callDurationIntervalRef.current);
         callDurationIntervalRef.current = null;
         setCallStatus('idle');
-        const reason = event?.message || event?.cause || event?.code || 'Error de llamada Telnyx';
+        const message = getTelnyxCallErrorMessage(event);
+        const reason = event?.sipReason || event?.message || event?.cause || event?.sipCode || event?.code || message;
         setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx llamada fallida: ${String(reason).slice(0, 180)}`, ...prev.slice(0, 30)]);
-        showToast(`No se pudo completar la llamada: ${String(reason).slice(0, 120)}`);
+        showToast(message);
       };
 
       // El SDK publica los cambios de llamada como telnyx.notification / callUpdate.
