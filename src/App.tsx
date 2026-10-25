@@ -108,37 +108,23 @@ export default function App() {
         try {
           const userRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userRef);
-          const isSuperAdmin = currentUser.email === 'safeness.c.a@gmail.com' || currentUser.email === 'deuwyrobert@gmail.com';
-          
-          let currentProfile: any = null;
+          let currentProfile: any;
           if (!userSnap.exists()) {
-            const newUser = {
+            currentProfile = {
               uid: currentUser.uid,
-              name: currentUser.displayName || 'Agente TLMK',
+              name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Usuario',
               email: currentUser.email,
-              role: isSuperAdmin ? 'superadmin' : 'tlmk',
-              status: 'active', // Default to active so agents can work immediately
+              role: 'none',
+              status: 'pending',
               avatarUrl: currentUser.photoURL || '',
               createdAt: new Date().toISOString(),
               lastLogin: new Date().toISOString()
             };
-            await setDoc(userRef, newUser);
-            currentProfile = newUser;
+            await setDoc(userRef, currentProfile);
           } else {
-            const data = userSnap.data();
-            // Ensure operational agents have active status and valid role
-            const updatedRole = data.role && data.role !== 'none' ? data.role : (isSuperAdmin ? 'superadmin' : 'tlmk');
-            const updatedStatus = 'active'; // keep always active for logged in operators
-            
-            await setDoc(userRef, { 
-              lastLogin: new Date().toISOString(),
-              status: updatedStatus,
-              role: updatedRole
-            }, { merge: true });
-            
-            currentProfile = { ...data, status: updatedStatus, role: updatedRole };
+            currentProfile = userSnap.data();
+            await setDoc(userRef, { lastLogin: new Date().toISOString() }, { merge: true });
           }
-
           setUserData(currentProfile);
           setUser(currentUser);
           localStorage.setItem('kaivincia_active_user', JSON.stringify({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }));
@@ -149,7 +135,7 @@ export default function App() {
             if (docSnap.exists()) {
               const liveData = docSnap.data();
               // Guarantee active status to prevent sudden kicks
-              const stabilizedData = { ...liveData, status: liveData.status || 'active' };
+              const stabilizedData = { ...liveData };
               setUserData(stabilizedData);
               localStorage.setItem('kaivincia_user_data', JSON.stringify(stabilizedData));
             }
@@ -158,16 +144,9 @@ export default function App() {
           });
         } catch (authErr) {
           console.error("Error setting up user profile:", authErr);
-          // Fallback user data so the agent is never kicked out
-          const fallback = {
-            uid: currentUser.uid,
-            name: currentUser.displayName || 'Agente TLMK',
-            email: currentUser.email,
-            role: 'tlmk',
-            status: 'active'
-          };
+          // Fail closed if Firestore cannot be read; never synthesize an approved profile.
           setUser(currentUser);
-          setUserData(fallback);
+          setUserData(null);
         }
       } else {
         setUser(null);
@@ -258,79 +237,24 @@ export default function App() {
     );
   }
 
-  // If user is logged in but pending authorization, allow self-activating operational TLMK profile
-  if (user && userData && (userData.status === 'pending' || !userData.role || userData.role === 'none')) {
-    const activateTLMK = async () => {
-      const updated = {
-        ...userData,
-        role: 'tlmk',
-        status: 'active'
-      };
-      setUserData(updated);
-      localStorage.setItem('kaivincia_user_data', JSON.stringify(updated));
-      try {
-        if (user.uid) {
-          await setDoc(doc(db, 'users', user.uid), { role: 'tlmk', status: 'active' }, { merge: true });
-        }
-      } catch (e) {
-        console.warn("Could not sync online, local operational mode enabled:", e);
-      }
-    };
-
+  // Access is granted only by the persisted Firestore approval state.
+  const accessStatus = String(userData?.status || '').trim().toLowerCase();
+  const accessRole = String(userData?.role || '').trim().toLowerCase();
+  const legacyPrivileged = ['superadmin', 'admin', 'owner'].includes(accessRole) && accessStatus === 'active';
+  if (user && (!userData || (accessStatus !== 'approved' && !legacyPrivileged) || !accessRole || accessRole === 'none')) {
+    const blocked = ['blocked', 'suspended', 'rejected'].includes(accessStatus);
     return (
-      <div className="min-h-screen bg-[#05070a] flex flex-col items-center justify-center p-6 text-center">
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
-          <div className="w-full h-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#00F0FF]/20 via-transparent to-transparent"></div>
+      <div className="min-h-screen bg-white text-gray-900 flex items-center justify-center p-6">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-bold">{blocked ? 'Acceso denegado' : 'Cuenta pendiente de aprobación'}</h1>
+          <p className="mt-2">{blocked ? 'Tu cuenta está bloqueada o fue rechazada. Contacta a un administrador.' : 'Tu cuenta está autenticada, pero un administrador debe aprobar tu acceso al CRM.'}</p>
+          <button onClick={() => { localStorage.removeItem('kaivincia_active_user'); localStorage.removeItem('kaivincia_user_data'); auth.signOut(); }} className="mt-6 rounded-lg border px-4 py-2">Cerrar sesión</button>
         </div>
-        <motion.div 
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="relative z-10 max-w-lg"
-        >
-          <div className="w-24 h-24 bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-[0_0_50px_rgba(0,240,255,0.1)] p-4 backdrop-blur-md">
-            <img 
-              src="/images/logo.png" 
-              alt="Kaivincia Corp" 
-              className="w-full h-full object-contain" 
-            />
-          </div>
-          <h1 className="text-4xl font-black text-white italic tracking-tighter uppercase mb-4">Acceso Operativo</h1>
-          <p className="text-gray-400 font-bold uppercase text-xs tracking-[0.2em] mb-8 leading-relaxed">
-            Hola <span className="text-[#00F0FF]">{userData.name || 'Agente'}</span>, activa tu perfil operativo para ingresar al CRM de <span className="text-white">Kaivincia Corp</span>.
-          </p>
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 space-y-4">
-            <p className="text-gray-300 text-sm font-medium">
-              Puedes comenzar de inmediato con tu perfil de Telemarketing (TLMK), Oportunidades y Discador Telefónico.
-            </p>
-            <button 
-              onClick={activateTLMK}
-              className="w-full py-4 bg-[#00F0FF] hover:bg-[#22D3EE] text-black font-black uppercase text-xs tracking-widest rounded-xl transition-all shadow-[0_0_25px_rgba(0,240,255,0.3)] cursor-pointer"
-            >
-              Ingresar como TLMK / Agente Comercial
-            </button>
-          </div>
-          <button 
-            onClick={() => {
-              localStorage.removeItem('kaivincia_active_user');
-              localStorage.removeItem('kaivincia_user_data');
-              localStorage.removeItem('kaivincia_operator_session');
-              auth.signOut();
-            }}
-            className="px-8 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all"
-          >
-            Cerrar Sesión
-          </button>
-        </motion.div>
       </div>
     );
   }
 
-  const effectiveUserData = userData || {
-    name: user?.displayName || 'Agente TLMK',
-    email: user?.email || 'operador@kaivincia.com',
-    role: 'tlmk',
-    status: 'active'
-  };
+  const effectiveUserData = userData;
 
   const hasAccess = Boolean(user || isGuest);
 
