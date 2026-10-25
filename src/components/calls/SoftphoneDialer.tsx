@@ -219,7 +219,7 @@ export default function SoftphoneDialer({
       const testRes = await telnyxWebRTCService.initClient(token);
       showToast(testRes.message || 'login_token de Telnyx actualizado');
       setSipLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> login_token actualizado (${token.slice(0, 10)}...${token.slice(-6)})`,
+        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> token actualizado (valor oculto)`,
         ...prev.slice(0, 30)
       ]);
       setIsTelnyxTokenModalOpen(false);
@@ -238,7 +238,7 @@ export default function SoftphoneDialer({
       if (res.success && res.token) {
         showToast('Nuevo login_token generado vía API de Telnyx');
         setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> Nuevo login_token generado vía API (${res.token.slice(0, 10)}...${res.token.slice(-6)})`,
+          `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> token renovado vía API (valor oculto)`,
           ...prev.slice(0, 30)
         ]);
         setIsTelnyxTokenModalOpen(false);
@@ -640,23 +640,6 @@ export default function SoftphoneDialer({
     }
   };
 
-  // Forzar conexión inmediata
-  const handleForceConnectNow = () => {
-    if (callStatus !== 'calling') return;
-    clearAllTimeouts();
-    stopRingback();
-    playConnectBeep();
-    setCallStatus('connected');
-    setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] FORCED 200 OK -> Sesión de llamada conectada manualmente`,
-      ...prev.slice(0, 30)
-    ]);
-    if (!callDurationIntervalRef.current) {
-      callDurationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-      }, 1000);
-    }
-  };
 
   // Llamada demo
   const handleDemoTestCall = () => {
