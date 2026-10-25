@@ -134,20 +134,20 @@ export const APPEARANCE_PRESETS: Record<string, PresetTheme> = {
   // --- CLAROS (Light - 10 Presets Luminosos) ---
   'pure-white': {
     id: 'pure-white',
-    name: 'Pure White',
+    name: 'iOS Light',
     category: 'light',
-    description: 'Fondo blanco puro inmaculado con superficies grises ultra claras y azul real',
+    description: 'Diseño claro inspirado en iOS: blanco, gris nube y azul Apple',
     colors: {
-      primary: '#0284c7',
-      secondary: '#e2e8f0',
-      background: '#ffffff',
-      surface: '#f8fafc',
-      textPrimary: '#0f172a',
-      textSecondary: '#475569',
-      sidebarBg: '#f1f5f9',
-      sidebarText: '#334155',
-      sidebarActive: '#0284c7',
-      headerBg: '#ffffff'
+      primary: '#007AFF',
+      secondary: '#E5E5EA',
+      background: '#F5F5F7',
+      surface: '#FFFFFF',
+      textPrimary: '#1D1D1F',
+      textSecondary: '#6E6E73',
+      sidebarBg: '#FFFFFF',
+      sidebarText: '#1D1D1F',
+      sidebarActive: '#007AFF',
+      headerBg: '#FFFFFF'
     }
   },
   'soft-cream': {
@@ -402,8 +402,8 @@ export const DEFAULT_APPEARANCE: AppearanceConfig = {
     sidebarSize: 'normal',
     sidebarPosition: 'left',
     sidebarCollapsible: 'auto',
-    borderRadius: 12,
-    cardShadow: 'medium',
+    borderRadius: 16,
+    cardShadow: 'subtle',
     density: 'normal'
   },
   accessibility: {
