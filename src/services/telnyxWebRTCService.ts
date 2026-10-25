@@ -9,6 +9,23 @@ import { auth } from '../firebase';
 // Token JWT por defecto para inicialización del SDK de Telnyx WebRTC
 export let TELNYX_WEBRTC_LOGIN_TOKEN = '';
 
+
+/**
+ * E.164 valida el formato, no la autorización del número en Telnyx.
+ * Rechaza números de ejemplo reservados por NANP (555-0100..0199).
+ */
+export function validateTelnyxCallerId(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  const normalized = raw.replace(/[\\s().-]/g, '');
+  if (!normalized || !/^\\+[1-9]\\d{7,14}$/.test(normalized)) {
+    throw new Error('Tu Caller ID no está configurado correctamente, contacta con el administrador. Debe ser un número E.164 autorizado.');
+  }
+  if (normalized === '+13055550199' || /^\\+1\\d{3}55501\\d{2}$/.test(normalized)) {
+    throw new Error('El Caller ID configurado es un número de prueba y no puede utilizarse para llamadas reales. Contacta con el administrador.');
+  }
+  return normalized;
+}
+
 export interface TelnyxWebRTCState {
   isInitialized: boolean;
   isConnected: boolean;
@@ -193,11 +210,15 @@ class TelnyxWebRTCService {
   /**
    * Realiza una llamada saliente mediante Telnyx WebRTC
    */
-  public async makeCall(destinationNumber: string, callerIdNumber?: string): Promise<any> {
-    const normalizedDestination = String(destinationNumber || '').trim();
-    if (!/^\+?[1-9]\d{7,14}$/.test(normalizedDestination.replace(/[\s().-]/g, ''))) {
-      throw new Error('Introduce un número de destino válido en formato internacional.');
+  public async makeCall(destinationNumber: string, callerIdNumber: string): Promise<any> {
+    const normalizedDestination = String(destinationNumber || '').trim().replace(/[\\s().-]/g, '');
+    if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedDestination)) {
+      throw new Error('Introduce un número de destino válido en formato internacional E.164 (con +).');
     }
+
+    // Caller ID explícito y validado; nunca usar un fallback genérico.
+    const normalizedCallerId = validateTelnyxCallerId(callerIdNumber);
+
     if (!this.client || !this.state.isConnected) {
       throw new Error('Telnyx WebRTC no está conectado. No se puede iniciar la llamada.');
     }
@@ -206,9 +227,9 @@ class TelnyxWebRTCService {
     }
 
     const options: Record<string, string> = {
-      destinationNumber: normalizedDestination.replace(/[\s().-]/g, '')
+      destinationNumber: normalizedDestination,
+      callerNumber: normalizedCallerId
     };
-    if (callerIdNumber) options.callerNumber = callerIdNumber;
     const call = this.client.newCall(options);
     if (!call) throw new Error('Telnyx no creó el objeto de llamada.');
     this.currentCall = call;
