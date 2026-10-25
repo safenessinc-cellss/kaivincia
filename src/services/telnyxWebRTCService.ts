@@ -16,11 +16,11 @@ export let TELNYX_WEBRTC_LOGIN_TOKEN = '';
  */
 export function validateTelnyxCallerId(value: unknown): string {
   const raw = String(value ?? '').trim();
-  const normalized = raw.replace(/[\\s().-]/g, '');
-  if (!normalized || !/^\\+[1-9]\\d{7,14}$/.test(normalized)) {
+  const normalized = raw.replace(/[\s().-]/g, '');
+  if (!normalized || !/^\+[1-9]\d{7,14}$/.test(normalized)) {
     throw new Error('Tu Caller ID no está configurado correctamente, contacta con el administrador. Debe ser un número E.164 autorizado.');
   }
-  if (normalized === '+13055550199' || /^\\+1\\d{3}55501\\d{2}$/.test(normalized)) {
+  if (normalized === '+13055550199' || /^\+1\d{3}55501\d{2}$/.test(normalized)) {
     throw new Error('El Caller ID configurado es un número de prueba y no puede utilizarse para llamadas reales. Contacta con el administrador.');
   }
   return normalized;
@@ -211,8 +211,8 @@ class TelnyxWebRTCService {
    * Realiza una llamada saliente mediante Telnyx WebRTC
    */
   public async makeCall(destinationNumber: string, callerIdNumber: string): Promise<any> {
-    const normalizedDestination = String(destinationNumber || '').trim().replace(/[\\s().-]/g, '');
-    if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedDestination)) {
+    const normalizedDestination = String(destinationNumber || '').trim().replace(/[\s().-]/g, '');
+    if (!/^\+[1-9]\d{7,14}$/.test(normalizedDestination)) {
       throw new Error('Introduce un número de destino válido en formato internacional E.164 (con +).');
     }
 
