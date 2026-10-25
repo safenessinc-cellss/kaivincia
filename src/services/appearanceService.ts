@@ -397,7 +397,7 @@ export const DEFAULT_APPEARANCE: AppearanceConfig = {
     headingScale: 'normal',
     weight: 'normal'
   },
-  colors: APPEARANCE_PRESETS['kaivincia-cyan'].colors,
+  colors: APPEARANCE_PRESETS['pure-white'].colors,
   layout: {
     sidebarSize: 'normal',
     sidebarPosition: 'left',
@@ -415,9 +415,9 @@ export const DEFAULT_APPEARANCE: AppearanceConfig = {
     surfaceOpacity: 100,
     borderIntensity: 100,
     textContrast: 100,
-    colorMode: 'dark'
+    colorMode: 'light'
   },
-  preset: 'kaivincia-cyan',
+  preset: 'pure-white',
   customPresets: []
 };
 
