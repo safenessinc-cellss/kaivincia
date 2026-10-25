@@ -661,7 +661,12 @@ export default function SoftphoneDialer({
           onAnswered();
         } else if (state === 'hangup' || state === 'destroy' || state === 'purge') {
           unsubscribeCallUpdates();
-          onEnded(updatedCall);
+          const rejectedByTelnyx = String(updatedCall?.sipCode ?? updatedCall?.statusCode ?? '') === '403'
+            || /CALL_REJECTED|D49|D35|originator number is invalid/i.test(
+              `${String(updatedCall?.cause ?? '')} ${String(updatedCall?.sipReason ?? '')} ${String(updatedCall?.message ?? '')}`
+            );
+          if (rejectedByTelnyx) onFailed(updatedCall);
+          else onEnded(updatedCall);
         } else if (state === 'failed' || state === 'error') {
           unsubscribeCallUpdates();
           onFailed(updatedCall);
