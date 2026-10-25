@@ -340,7 +340,7 @@ export default function SoftphoneDialer({
           }
         } else {
           setAuthorizedCallerIds(sharedPoolNumbers);
-          if (sharedPoolNumbers.length > 0) setSelectedCallerId(sharedPoolNumbers[0]);
+          setSelectedCallerId(sharedPoolNumbers[0] || '');
         }
       } else {
         setAuthorizedCallerIds([]);
