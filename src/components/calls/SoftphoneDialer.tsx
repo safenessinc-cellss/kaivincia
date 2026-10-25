@@ -344,7 +344,7 @@ export default function SoftphoneDialer({
         }
       } else {
         setAuthorizedCallerIds([]);
-          setSelectedCallerId('');
+        setSelectedCallerId('');
       }
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
