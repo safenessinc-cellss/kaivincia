@@ -633,13 +633,27 @@ export default function SoftphoneDialer({
         showToast(`No se pudo completar la llamada: ${String(reason).slice(0, 120)}`);
       };
 
-      // Los eventos del objeto de llamada son la fuente de verdad; no generar 200 OK local.
-      call.on('telnyx.call.ringing', onRinging);
-      call.on('telnyx.call.answered', onAnswered);
-      call.on('telnyx.call.hangup', onEnded);
-      call.on('telnyx.call.destroy', onEnded);
-      call.on('telnyx.call.error', onFailed);
-      call.on('error', onFailed);
+      // El SDK publica los cambios de llamada como telnyx.notification / callUpdate.
+      // Escuchar el flujo documentado del cliente evita depender de eventos no garantizados en Call.
+      const activeCallId = call.id || call.callID || call.callId;
+      let unsubscribeCallUpdates = () => {};
+      unsubscribeCallUpdates = telnyxWebRTCService.subscribeCallUpdates((updatedCall: any) => {
+        const updatedCallId = updatedCall?.id || updatedCall?.callID || updatedCall?.callId;
+        if (activeCallId && updatedCallId && activeCallId !== updatedCallId) return;
+
+        const state = String(updatedCall?.state || '').toLowerCase();
+        if (state === 'ringing') {
+          onRinging();
+        } else if (state === 'active' || state === 'answered') {
+          onAnswered();
+        } else if (state === 'hangup' || state === 'destroy' || state === 'purge') {
+          unsubscribeCallUpdates();
+          onEnded(updatedCall);
+        } else if (state === 'failed' || state === 'error') {
+          unsubscribeCallUpdates();
+          onFailed(updatedCall);
+        }
+      });
     } catch (err: any) {
       stopRingback();
       setCallStatus('idle');
