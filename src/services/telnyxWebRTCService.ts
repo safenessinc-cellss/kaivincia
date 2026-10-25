@@ -189,7 +189,7 @@ class TelnyxWebRTCService {
    */
   public async makeCall(destinationNumber: string, callerIdNumber?: string): Promise<any> {
     const normalizedDestination = String(destinationNumber || '').trim();
-    if (!/^\\+?[1-9]\\d{7,14}$/.test(normalizedDestination.replace(/[\\s().-]/g, ''))) {
+    if (!/^\+?[1-9]\d{7,14}$/.test(normalizedDestination.replace(/[\s().-]/g, ''))) {
       throw new Error('Introduce un número de destino válido en formato internacional.');
     }
     if (!this.client || !this.state.isConnected) {
@@ -200,7 +200,7 @@ class TelnyxWebRTCService {
     }
 
     const options: Record<string, string> = {
-      destinationNumber: normalizedDestination.replace(/[\\s().-]/g, '')
+      destinationNumber: normalizedDestination.replace(/[\s().-]/g, '')
     };
     if (callerIdNumber) options.callerNumber = callerIdNumber;
     const call = this.client.newCall(options);
