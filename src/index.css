@@ -147,3 +147,106 @@
   background-size: 200% 200%;
   animation: gradient 15s ease infinite;
 }
+
+
+/* Kaivincia iOS-inspired design system */
+:root {
+  color-scheme: light;
+  --app-bg: #F5F5F7;
+  --app-surface: rgba(255,255,255,.88);
+  --app-surface-solid: #FFFFFF;
+  --app-text: #1D1D1F;
+  --app-muted: #6E6E73;
+  --app-border: rgba(60,60,67,.14);
+  --app-accent: #007AFF;
+  --app-accent-soft: rgba(0,122,255,.10);
+  --app-shadow: 0 12px 32px rgba(20,35,60,.07);
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+html, body { background: var(--app-bg); color: var(--app-text); }
+body {
+  background-image: radial-gradient(ellipse at top left, rgba(0,122,255,.045), transparent 42%);
+  background-size: auto;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea { font: inherit; }
+::selection { background: rgba(0,122,255,.18); }
+.kaivincia-ios-app { background: #F5F5F7 !important; color: #1D1D1F; }
+.kaivincia-ios-sidebar {
+  background: rgba(255,255,255,.92) !important;
+  color: #1D1D1F !important;
+  border-color: rgba(60,60,67,.14) !important;
+  box-shadow: 8px 0 28px rgba(30,50,80,.035);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
+  backdrop-filter: saturate(180%) blur(24px);
+}
+.kaivincia-ios-sidebar [class~="bg-[#111]"],
+.kaivincia-ios-sidebar [class~="bg-[#0a0a0a]"],
+.kaivincia-ios-sidebar [class~="bg-gray-900"] { background: transparent !important; }
+.kaivincia-ios-sidebar [class~="border-gray-800"],
+.kaivincia-ios-sidebar [class~="border-gray-700"] { border-color: rgba(60,60,67,.12) !important; }
+.kaivincia-ios-sidebar [class~="text-white"],
+.kaivincia-ios-sidebar [class~="text-gray-300"],
+.kaivincia-ios-sidebar [class~="text-gray-200"] { color: #1D1D1F !important; }
+.kaivincia-ios-sidebar [class~="text-gray-500"],
+.kaivincia-ios-sidebar [class~="text-gray-400"] { color: #6E6E73 !important; }
+.kaivincia-ios-sidebar [class~="bg-white/10"] {
+  background: rgba(0,122,255,.09) !important;
+  color: #0066CC !important;
+  border-color: rgba(0,122,255,.14) !important;
+  box-shadow: none !important;
+}
+.kaivincia-ios-sidebar [class~="hover:bg-gray-800"]:hover,
+.kaivincia-ios-sidebar [class~="hover:bg-white/5"]:hover { background: rgba(0,122,255,.06) !important; }
+.kaivincia-ios-sidebar input { background: #F2F2F7 !important; color: #1D1D1F !important; border-color: rgba(60,60,67,.14) !important; }
+.kaivincia-ios-sidebar [class~="text-[#00F0FF]"] { color: #007AFF !important; }
+.kaivincia-ios-sidebar [class~="bg-[#00F0FF]"] { background: #007AFF !important; }
+.kaivincia-ios-header {
+  background: rgba(255,255,255,.86) !important;
+  border-color: rgba(60,60,67,.12) !important;
+  color: #1D1D1F;
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+}
+.kaivincia-ios-header [class~="text-gray-900"] { color: #1D1D1F !important; }
+.kaivincia-ios-header [class~="text-gray-400"],
+.kaivincia-ios-header [class~="text-gray-500"] { color: #6E6E73 !important; }
+.kaivincia-ios-header [class~="bg-[#00F0FF]/10"] { background: rgba(0,122,255,.09) !important; }
+.kaivincia-ios-header [class~="border-[#00F0FF]/30"] { border-color: rgba(0,122,255,.22) !important; }
+.kaivincia-ios-softphone {
+  color: #1D1D1F !important;
+  background: rgba(255,255,255,.96) !important;
+  border: 1px solid rgba(60,60,67,.15) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 24px 64px rgba(20,35,60,.16) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  backdrop-filter: saturate(180%) blur(28px);
+}
+.kaivincia-ios-softphone [class~="bg-slate-950/95"],
+.kaivincia-ios-softphone [class~="bg-slate-900"],
+.kaivincia-ios-softphone [class~="bg-slate-800"],
+.kaivincia-ios-softphone [class~="bg-slate-900/80"] { background: #F2F2F7 !important; }
+.kaivincia-ios-softphone [class~="border-slate-800"],
+.kaivincia-ios-softphone [class~="border-slate-700"],
+.kaivincia-ios-softphone [class~="border-slate-900"] { border-color: rgba(60,60,67,.14) !important; }
+.kaivincia-ios-softphone [class~="text-white"],
+.kaivincia-ios-softphone [class~="text-slate-200"],
+.kaivincia-ios-softphone [class~="text-slate-300"] { color: #1D1D1F !important; }
+.kaivincia-ios-softphone [class~="text-slate-400"],
+.kaivincia-ios-softphone [class~="text-slate-500"] { color: #6E6E73 !important; }
+.kaivincia-ios-softphone [class~="bg-cyan-500/10"],
+.kaivincia-ios-softphone [class~="bg-cyan-500/20"] { background: rgba(0,122,255,.09) !important; }
+.kaivincia-ios-softphone [class~="border-cyan-500/30"],
+.kaivincia-ios-softphone [class~="border-cyan-500/40"] { border-color: rgba(0,122,255,.2) !important; }
+.kaivincia-ios-softphone [class~="text-cyan-400"],
+.kaivincia-ios-softphone [class~="text-cyan-300"] { color: #007AFF !important; }
+.kaivincia-ios-softphone input,
+.kaivincia-ios-softphone select,
+.kaivincia-ios-softphone textarea {
+  color: #1D1D1F; background: #F2F2F7; border-color: rgba(60,60,67,.16); border-radius: 12px;
+}
+.kaivincia-ios-softphone button { transition: transform .16s ease, background-color .16s ease, box-shadow .16s ease; }
+.kaivincia-ios-softphone button:focus-visible { outline: 3px solid rgba(0,122,255,.35); outline-offset: 2px; }
+@media (max-width: 640px) { .kaivincia-ios-softphone { border-radius: 24px 24px 0 0 !important; } }
+@media (prefers-reduced-motion: reduce) { .kaivincia-ios-softphone button { transition: none; } }
