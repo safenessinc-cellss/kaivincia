@@ -4,8 +4,7 @@
  * Documentación oficial: https://developers.telnyx.com/docs/webrtc
  */
 
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
-import { db, auth } from '../firebase';
+import { auth } from '../firebase';
 
 // Token JWT por defecto para inicialización del SDK de Telnyx WebRTC
 export let TELNYX_WEBRTC_LOGIN_TOKEN = '';
@@ -21,6 +20,8 @@ export interface TelnyxWebRTCState {
 class TelnyxWebRTCService {
   private client: any = null;
   private currentCall: any = null;
+  private initializingToken: string | null = null;
+  private initializedToken: string | null = null;
   private state: TelnyxWebRTCState = {
     isInitialized: false,
     isConnected: false,
@@ -30,52 +31,21 @@ class TelnyxWebRTCService {
   };
 
   private listeners: Array<(state: TelnyxWebRTCState) => void> = [];
+  private callUpdateListeners: Array<(call: any) => void> = [];
 
-  constructor() {
-    this.initTokenSync();
-  }
-
-  /**
-   * Sincroniza el login_token (JWT) desde Firestore (settings/telnyx_config)
-   */
-  private initTokenSync() {
-    try {
-      onSnapshot(doc(db, 'settings', 'telnyx_config'), (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const token = (data.login_token || data.webrtcJwt || '').trim();
-          if (token && token !== this.state.loginToken) {
-            this.setLoginToken(token, false);
-          }
-        }
-      }, (err) => {
-        console.warn('[TelnyxWebRTC] No se pudo sincronizar login_token desde Firestore:', err);
-      });
-    } catch (err) {
-      console.warn('[TelnyxWebRTC] Error al inicializar listener de Firestore:', err);
-    }
-  }
+  constructor() {}
 
   /**
-   * Actualiza el login_token (JWT) en memoria y opcionalmente en Firestore
+   * Mantiene el JWT solo en memoria del cliente. Los tokens WebRTC son credenciales
+   * de sesión y no deben escribirse en documentos Firestore compartidos.
    */
-  public async setLoginToken(newJwt: string, persistToFirestore = false): Promise<void> {
+  public async setLoginToken(newJwt: string, _persistToFirestore = false): Promise<void> {
     const cleanToken = (newJwt || '').trim();
-    TELNYX_WEBRTC_LOGIN_TOKEN = cleanToken;
-    this.state.loginToken = cleanToken;
-    this.notify();
-
-    if (persistToFirestore && cleanToken) {
-      try {
-        await setDoc(doc(db, 'settings', 'telnyx_config'), {
-          login_token: cleanToken,
-          webrtcJwt: cleanToken,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-        console.log('[TelnyxWebRTC] login_token actualizado y persistido en Firestore (settings/telnyx_config).');
-      } catch (err) {
-        console.error('[TelnyxWebRTC] Error guardando login_token en Firestore:', err);
-      }
+    if (!cleanToken) throw new Error('El token WebRTC está vacío.');
+    if (cleanToken !== this.state.loginToken) {
+      this.state.loginToken = cleanToken;
+      TELNYX_WEBRTC_LOGIN_TOKEN = cleanToken;
+      this.notify();
     }
   }
 
@@ -103,7 +73,7 @@ class TelnyxWebRTCService {
       }
 
       if (data.token) {
-        await this.setLoginToken(data.token, true);
+        await this.setLoginToken(data.token, false);
         await this.initClient(data.token);
         return {
           success: true,
@@ -143,8 +113,7 @@ class TelnyxWebRTCService {
    * Inicializa el cliente TelnyxRTC con el login_token especificado
    */
   public async initClient(tokenOverride?: string): Promise<{ success: boolean; message: string }> {
-    const token = tokenOverride || this.getLoginToken();
-
+    const token = (tokenOverride || this.getLoginToken()).trim();
     if (!token) {
       const errMsg = 'No se ha configurado login_token (JWT) para el SDK de Telnyx WebRTC.';
       this.state.lastError = errMsg;
@@ -152,53 +121,72 @@ class TelnyxWebRTCService {
       return { success: false, message: errMsg };
     }
 
+    if (this.initializingToken === token) {
+      return { success: true, message: 'La conexión Telnyx ya se está inicializando.' };
+    }
+    if (this.initializedToken === token && this.client && this.state.isConnected) {
+      return { success: true, message: 'El cliente Telnyx ya está conectado.' };
+    }
+
+    const TelnyxRTCClass = (window as any).TelnyxRTC;
+    if (!TelnyxRTCClass) {
+      this.state.isConnected = false;
+      this.state.isInitialized = false;
+      this.state.lastError = 'No se encontró el SDK TelnyxRTC en el navegador.';
+      this.notify();
+      return { success: false, message: this.state.lastError };
+    }
+
+    this.initializingToken = token;
+    const previousClient = this.client;
+    this.client = null;
+    this.state.isConnected = false;
+    this.state.isInitialized = false;
+    this.initializedToken = null;
     try {
-      console.log('[TelnyxWebRTC] Inicializando TelnyxRTC con login_token:', `${token.slice(0, 15)}...${token.slice(-10)}`);
-
-      // Si existe el objeto global TelnyxRTC (vía script o paquete)
-      const TelnyxRTCClass = (window as any).TelnyxRTC;
-
-      if (TelnyxRTCClass) {
-        if (this.client) {
-          try { this.client.disconnect(); } catch {}
-        }
-
-        this.client = new TelnyxRTCClass({
-          login_token: token
-        });
-
-        this.client.on('telnyx.ready', () => {
-          console.log('[TelnyxWebRTC] Cliente conectado y listo.');
-          this.state.isConnected = true;
-          this.state.isInitialized = true;
-          this.state.lastError = null;
-          this.notify();
-        });
-
-        this.client.on('telnyx.error', (error: any) => {
-          console.error('[TelnyxWebRTC] Error en cliente:', error);
-          this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
-          this.notify();
-        });
-
-        this.client.connect();
-      } else {
-        // Modo fallback: el SDK está configurado y el token es válido
-        this.state.isInitialized = true;
-        this.state.isConnected = true;
-        this.state.lastError = null;
-        this.notify();
+      if (previousClient) {
+        try { previousClient.disconnect(); } catch {}
       }
 
-      return {
-        success: true,
-        message: 'SDK de Telnyx WebRTC inicializado correctamente con el nuevo login_token.'
-      };
+      const client = new TelnyxRTCClass({ login_token: token });
+      this.client = client;
+      const isCurrent = () => this.client === client;
+      client.on('telnyx.ready', () => {
+        if (!isCurrent()) return;
+        this.initializedToken = token;
+        this.state.isConnected = true;
+        this.state.isInitialized = true;
+        this.state.lastError = null;
+        this.notify();
+      });
+      client.on('telnyx.error', (error: any) => {
+        if (!isCurrent()) return;
+        this.state.isConnected = false;
+        this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
+        this.notify();
+      });
+      client.on('telnyx.notification', (notification: any) => {
+        if (!isCurrent()) return;
+        if (notification?.type === 'callUpdate' && notification?.call) {
+          this.callUpdateListeners.forEach(listener => {
+            try { listener(notification.call); } catch {}
+          });
+        }
+        if (notification?.type === 'error') {
+          this.state.lastError = notification?.message || 'Notificación de error Telnyx';
+          this.notify();
+        }
+      });
+      client.connect();
+      return { success: true, message: 'Inicialización de Telnyx WebRTC solicitada.' };
     } catch (err: any) {
-      console.error('[TelnyxWebRTC] Error inicializando SDK:', err);
       this.state.lastError = err?.message || 'Error desconocido al inicializar Telnyx';
+      this.state.isConnected = false;
+      this.state.isInitialized = false;
       this.notify();
-      return { success: false, message: err?.message || 'Error al inicializar cliente' };
+      return { success: false, message: this.state.lastError };
+    } finally {
+      if (this.initializingToken === token) this.initializingToken = null;
     }
   }
 
@@ -206,21 +194,27 @@ class TelnyxWebRTCService {
    * Realiza una llamada saliente mediante Telnyx WebRTC
    */
   public async makeCall(destinationNumber: string, callerIdNumber?: string): Promise<any> {
-    if (!this.state.loginToken) {
-      throw new Error('Falta el login_token de Telnyx WebRTC.');
+    const normalizedDestination = String(destinationNumber || '').trim();
+    if (!/^\+?[1-9]\d{7,14}$/.test(normalizedDestination.replace(/[\s().-]/g, ''))) {
+      throw new Error('Introduce un número de destino válido en formato internacional.');
+    }
+    if (!this.client || !this.state.isConnected) {
+      throw new Error('Telnyx WebRTC no está conectado. No se puede iniciar la llamada.');
+    }
+    if (typeof this.client.newCall !== 'function') {
+      throw new Error('El SDK Telnyx cargado no admite llamadas salientes mediante newCall().');
     }
 
-    console.log(`[TelnyxWebRTC] Iniciando llamada a ${destinationNumber} con Caller ID ${callerIdNumber || 'default'}`);
-
-    if (this.client?.newCall) {
-      this.currentCall = this.client.newCall({
-        destination_number: destinationNumber,
-        caller_id_number: callerIdNumber
-      });
-      return this.currentCall;
-    }
-
-    return { destinationNumber, callerIdNumber, status: 'simulated_connected' };
+    const options: Record<string, string> = {
+      destinationNumber: normalizedDestination.replace(/[\s().-]/g, '')
+    };
+    if (callerIdNumber) options.callerNumber = callerIdNumber;
+    const call = this.client.newCall(options);
+    if (!call) throw new Error('Telnyx no creó el objeto de llamada.');
+    this.currentCall = call;
+    this.state.activeCallId = call.id || call.callID || null;
+    this.notify();
+    return call;
   }
 
   /**
@@ -233,6 +227,13 @@ class TelnyxWebRTCService {
     this.currentCall = null;
     this.state.activeCallId = null;
     this.notify();
+  }
+
+  public subscribeCallUpdates(listener: (call: any) => void): () => void {
+    this.callUpdateListeners.push(listener);
+    return () => {
+      this.callUpdateListeners = this.callUpdateListeners.filter(item => item !== listener);
+    };
   }
 
   public subscribe(listener: (state: TelnyxWebRTCState) => void): () => void {

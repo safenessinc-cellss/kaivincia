@@ -187,7 +187,7 @@ export default function SoftphoneDialer({
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
   const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
-  const [selectedCallerId, setSelectedCallerId] = useState<string>('+13055550199');
+  const [selectedCallerId, setSelectedCallerId] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -219,7 +219,7 @@ export default function SoftphoneDialer({
       const testRes = await telnyxWebRTCService.initClient(token);
       showToast(testRes.message || 'login_token de Telnyx actualizado');
       setSipLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> login_token actualizado (${token.slice(0, 10)}...${token.slice(-6)})`,
+        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> token actualizado (valor oculto)`,
         ...prev.slice(0, 30)
       ]);
       setIsTelnyxTokenModalOpen(false);
@@ -238,7 +238,7 @@ export default function SoftphoneDialer({
       if (res.success && res.token) {
         showToast('Nuevo login_token generado vía API de Telnyx');
         setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> Nuevo login_token generado vía API (${res.token.slice(0, 10)}...${res.token.slice(-6)})`,
+          `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> token renovado vía API (valor oculto)`,
           ...prev.slice(0, 30)
         ]);
         setIsTelnyxTokenModalOpen(false);
@@ -314,7 +314,7 @@ export default function SoftphoneDialer({
     });
 
     // Suscripción a asignaciones de números de Telnyx para la colaboradora actual
-    let sharedPoolNumbers: string[] = ['+13055550199'];
+    let sharedPoolNumbers: string[] = [];
     const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
       if (!snapshot.empty) {
         sharedPoolNumbers = snapshot.docs
@@ -340,14 +340,16 @@ export default function SoftphoneDialer({
           }
         } else {
           setAuthorizedCallerIds(sharedPoolNumbers);
-          if (sharedPoolNumbers.length > 0) setSelectedCallerId(sharedPoolNumbers[0]);
+          setSelectedCallerId(sharedPoolNumbers[0] || '');
         }
       } else {
-        setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+        setAuthorizedCallerIds([]);
+        setSelectedCallerId('');
       }
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
-      setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+      setAuthorizedCallerIds([]);
+      setSelectedCallerId('');
     });
 
     return () => {
@@ -552,15 +554,26 @@ export default function SoftphoneDialer({
     return true;
   }, [activeCarrierObj]);
 
-  // Iniciar llamada con validación estricta de al menos 8 dígitos
-  const handleStartCall = (targetPhone?: string) => {
-    const dialNum = targetPhone || phoneNumber;
-    if (!dialNum || dialNum.trim().length === 0) return;
+  // Inicia una llamada REAL mediante Telnyx. Nunca simular 200 OK ni marcar como conectada
+  // por un temporizador: el estado debe provenir de los eventos del SDK.
+  const handleStartCall = async (targetPhone?: string) => {
+    const dialNum = (targetPhone || phoneNumber).trim();
+    if (!dialNum || callStatus !== 'idle') return;
 
-    // Validación de al menos 8 dígitos numéricos
-    const cleanDigits = dialNum.replace(/\D/g, '');
+    const cleanDigits = dialNum.replace(/\\D/g, '');
     if (cleanDigits.length < 8) {
       showToast(t('voip.min_digits', 'El número debe tener al menos 8 dígitos'));
+      return;
+    }
+
+    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
+    if (!isTelnyxCarrier) {
+      showToast('El proveedor seleccionado no tiene una llamada real implementada en este flujo.');
+      return;
+    }
+
+    if (!telnyxWebRTCService.getState().isConnected) {
+      showToast('Telnyx no está conectado. Reconecta el softphone antes de llamar.');
       return;
     }
 
@@ -570,69 +583,95 @@ export default function SoftphoneDialer({
     setIsMuted(false);
     setIsOnHold(false);
     setIsRecording(false);
-    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
-    const telnyxJwt = telnyxWebRTCService.getLoginToken();
-
     setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] SIP INVITE -> ${dialNum} (Carrier: ${activeCarrierObj.name})`,
-      ...(isTelnyxCarrier ? [
-        `[${new Date().toLocaleTimeString()}] Telnyx WebRTC SDK -> ${telnyxJwt ? `Autenticando con login_token (${telnyxJwt.slice(0, 10)}...${telnyxJwt.slice(-6)})` : 'Aviso: login_token (JWT) no configurado aún en /crm/calls'}`
-      ] : []),
+      `[${new Date().toLocaleTimeString()}] Telnyx WebRTC -> solicitando llamada real a ${dialNum}`,
       ...prev.slice(0, 30)
     ]);
-
-    startRingback();
     onCallStart?.(dialNum);
 
-    const ringTimeout = setTimeout(() => {
+    try {
+      const normalizedCallerId = String(selectedCallerId || '').replace(/[\s().-]/g, '');
+      if (!normalizedCallerId || !authorizedCallerIds.includes(selectedCallerId)) {
+        throw new Error('No hay un Caller ID autorizado asignado a tu usuario. Configura un número Telnyx activo y autorizado antes de llamar.');
+      }
+      if (!/^\+[1-9]\d{7,14}$/.test(normalizedCallerId)) {
+        throw new Error('El Caller ID asignado no está en formato internacional E.164.');
+      }
+      const call = await telnyxWebRTCService.makeCall(dialNum, normalizedCallerId);
+      if (!call || typeof call.on !== 'function') {
+        throw new Error('El SDK no devolvió un objeto de llamada válido.');
+      }
       stopRingback();
-      playConnectBeep();
-      setCallStatus('connected');
-      setSipLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] SIP 200 OK -> SDP Answer Audio G.711u / Opus 48kHz`,
-        `[${new Date().toLocaleTimeString()}] WebRTC PeerConnection ESTABLISHED (SRTP Secure)`,
-        ...prev.slice(0, 30)
-      ]);
 
-      callDurationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-        setLiveLatency(20 + Math.floor(Math.random() * 8));
-        setLiveJitter(parseFloat((1.0 + Math.random() * 0.4).toFixed(1)));
-      }, 1000);
+      const onAnswered = () => {
+        stopRingback();
+        setCallStatus('connected');
+        setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx confirmó llamada contestada.`, ...prev.slice(0, 30)]);
+        if (callDurationIntervalRef.current) clearInterval(callDurationIntervalRef.current);
+        callDurationIntervalRef.current = setInterval(() => setDuration(v => v + 1), 1000);
+      };
+      const onRinging = () => {
+        startRingback();
+        setCallStatus('calling');
+        setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx informó tono de llamada remoto (ringing).`, ...prev.slice(0, 30)]);
+      };
+      const onEnded = (event?: any) => {
+        stopRingback();
+        if (callDurationIntervalRef.current) clearInterval(callDurationIntervalRef.current);
+        callDurationIntervalRef.current = null;
+        setCallStatus('idle');
+        setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx finalizó la llamada.`, ...prev.slice(0, 30)]);
+        onCallEnd?.({ phoneNumber: dialNum, duration, status: 'ended', notes: event?.cause || event?.message || '' } as any);
+      };
+      const onFailed = (event?: any) => {
+        stopRingback();
+        if (callDurationIntervalRef.current) clearInterval(callDurationIntervalRef.current);
+        callDurationIntervalRef.current = null;
+        setCallStatus('idle');
+        const reason = event?.message || event?.cause || event?.code || 'Error de llamada Telnyx';
+        setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Telnyx llamada fallida: ${String(reason).slice(0, 180)}`, ...prev.slice(0, 30)]);
+        showToast(`No se pudo completar la llamada: ${String(reason).slice(0, 120)}`);
+      };
 
-    }, 3500);
+      // El SDK publica los cambios de llamada como telnyx.notification / callUpdate.
+      // Escuchar el flujo documentado del cliente evita depender de eventos no garantizados en Call.
+      const activeCallId = call.id || call.callID || call.callId;
+      let unsubscribeCallUpdates = () => {};
+      unsubscribeCallUpdates = telnyxWebRTCService.subscribeCallUpdates((updatedCall: any) => {
+        const updatedCallId = updatedCall?.id || updatedCall?.callID || updatedCall?.callId;
+        if (!activeCallId || !updatedCallId || activeCallId !== updatedCallId) return;
 
-    timeoutsRef.current.push(ringTimeout);
-  };
-
-  // Forzar conexión inmediata
-  const handleForceConnectNow = () => {
-    if (callStatus !== 'calling') return;
-    clearAllTimeouts();
-    stopRingback();
-    playConnectBeep();
-    setCallStatus('connected');
-    setSipLogs(prev => [
-      `[${new Date().toLocaleTimeString()}] FORCED 200 OK -> Sesión de llamada conectada manualmente`,
-      ...prev.slice(0, 30)
-    ]);
-    if (!callDurationIntervalRef.current) {
-      callDurationIntervalRef.current = setInterval(() => {
-        setDuration(prev => prev + 1);
-      }, 1000);
+        const state = String(updatedCall?.state || '').toLowerCase();
+        if (state === 'ringing') {
+          onRinging();
+        } else if (state === 'active' || state === 'answered') {
+          onAnswered();
+        } else if (state === 'hangup' || state === 'destroy' || state === 'purge') {
+          unsubscribeCallUpdates();
+          onEnded(updatedCall);
+        } else if (state === 'failed' || state === 'error') {
+          unsubscribeCallUpdates();
+          onFailed(updatedCall);
+        }
+      });
+    } catch (err: any) {
+      stopRingback();
+      setCallStatus('idle');
+      const message = err?.message || 'No se pudo iniciar la llamada Telnyx.';
+      setSipLogs(prev => [`[${new Date().toLocaleTimeString()}] Error al iniciar llamada: ${String(message).slice(0, 180)}`, ...prev.slice(0, 30)]);
+      showToast(message);
     }
   };
 
+
   // Llamada demo
   const handleDemoTestCall = () => {
-    const demoNumbers = ['+13055550144', '+14158829901', '+34912345678'];
-    const randomNum = demoNumbers[Math.floor(Math.random() * demoNumbers.length)];
-    setPhoneNumber(randomNum);
-    handleStartCall(randomNum);
+    showToast('La llamada de prueba no usa números ficticios. Introduce un destino autorizado y verifica tu Caller ID Telnyx antes de llamar.');
   };
 
   // Colgar llamada
   const handleHangup = () => {
+    telnyxWebRTCService.hangup();
     stopRingback();
     clearAllTimeouts();
     playHangupBeep();
@@ -646,7 +685,7 @@ export default function SoftphoneDialer({
     const endedRecord: any = {
       contactPhone: phoneNumber,
       contactName: selectedClientName ? `${selectedClientName} (${phoneNumber})` : `Contacto ${phoneNumber}`,
-      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '+1 (305) 555-0199',
+      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '',
       duration: finalDuration,
       status: finalDuration > 0 ? 'completed' : 'missed',
       direction: 'outbound',
