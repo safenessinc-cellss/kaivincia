@@ -31,6 +31,7 @@ class TelnyxWebRTCService {
   };
 
   private listeners: Array<(state: TelnyxWebRTCState) => void> = [];
+  private callUpdateListeners: Array<(call: any) => void> = [];
 
   constructor() {}
 
@@ -166,6 +167,11 @@ class TelnyxWebRTCService {
       });
       client.on('telnyx.notification', (notification: any) => {
         if (!isCurrent()) return;
+        if (notification?.type === 'callUpdate' && notification?.call) {
+          this.callUpdateListeners.forEach(listener => {
+            try { listener(notification.call); } catch {}
+          });
+        }
         if (notification?.type === 'error') {
           this.state.lastError = notification?.message || 'Notificación de error Telnyx';
           this.notify();
@@ -221,6 +227,13 @@ class TelnyxWebRTCService {
     this.currentCall = null;
     this.state.activeCallId = null;
     this.notify();
+  }
+
+  public subscribeCallUpdates(listener: (call: any) => void): () => void {
+    this.callUpdateListeners.push(listener);
+    return () => {
+      this.callUpdateListeners = this.callUpdateListeners.filter(item => item !== listener);
+    };
   }
 
   public subscribe(listener: (state: TelnyxWebRTCState) => void): () => void {
