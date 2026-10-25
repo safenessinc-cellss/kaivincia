@@ -6,7 +6,7 @@ import {
   Settings, Megaphone, FolderKanban, BarChart3, UserCircle, Users2, Calendar,
   UserPlus, FileText, Receipt, GraduationCap, ShoppingCart, ChevronRight, Home,
   ChevronDown, ChevronUp, Search, Activity, Zap, Award, Bell, Eye, EyeOff, PanelLeftClose, PanelLeftOpen,
-  BrainCircuit, Navigation, DollarSign, HelpCircle, HardDrive, ClipboardCheck,
+  BrainCircuit, Navigation, DollarSign, HelpCircle, HardDrive, ClipboardCheck, Sun, Moon,
   ShieldCheck, ArrowLeft, LayoutTemplate, Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -26,6 +26,10 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const [isCommandBarOpen, setIsCommandBarOpen] = useState(false);
   const [menuSearch, setMenuSearch] = useState('');
   const [ceoMode, setCeoMode] = useState(false);
+  const [appearance, setAppearance] = useState<'light' | 'dark'>(() => {
+    try { return localStorage.getItem('kaivincia_appearance') === 'dark' ? 'dark' : 'light'; }
+    catch { return 'light'; }
+  });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     'Módulo Core': true,
@@ -40,6 +44,11 @@ export default function CRMLayout({ userData }: { userData: any }) {
   const userRole = userData?.role || 'user';
   const isAdminOrFin = ['superadmin', 'admin', 'billing', 'accounting'].includes(userRole);
   const isSuperAdmin = userRole === 'superadmin';
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = appearance;
+    try { localStorage.setItem('kaivincia_appearance', appearance); } catch {}
+  }, [appearance]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -569,6 +578,17 @@ export default function CRMLayout({ userData }: { userData: any }) {
             </button>
 
             <div className="hidden sm:block h-8 w-px bg-gray-200"></div>
+
+            <button
+              type="button"
+              onClick={() => setAppearance(current => current === 'light' ? 'dark' : 'light')}
+              className="h-10 w-10 rounded-xl bg-white/70 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 flex flex-shrink-0 items-center justify-center transition-colors cursor-pointer"
+              title={appearance === 'light' ? 'Activar apariencia oscura' : 'Activar apariencia clara'}
+              aria-label={appearance === 'light' ? 'Activar apariencia oscura' : 'Activar apariencia clara'}
+              aria-pressed={appearance === 'dark'}
+            >
+              {appearance === 'light' ? <Moon className="w-4 h-4 text-slate-600" /> : <Sun className="w-4 h-4 text-amber-500" />}
+            </button>
 
             {/* Language Selector in Header */}
             <LanguageSelector theme="light" />
