@@ -605,7 +605,7 @@ export default function SoftphoneDialer({
 
     try {
       const normalizedCallerId = validateTelnyxCallerId(selectedCallerId);
-      const normalizedAuthorizedIds = authorizedCallerIds.map(id => String(id || '').trim().replace(/[\\s().-]/g, ''));
+      const normalizedAuthorizedIds = authorizedCallerIds.map(id => String(id || '').trim().replace(/[\s().-]/g, ''));
       if (!normalizedAuthorizedIds.includes(normalizedCallerId)) {
         throw new Error('Tu Caller ID no está configurado correctamente, contacta con el administrador. El número seleccionado no figura entre los Caller ID asignados a tu usuario.');
       }
