@@ -187,7 +187,7 @@ export default function SoftphoneDialer({
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
   const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
-  const [selectedCallerId, setSelectedCallerId] = useState<string>('+13055550199');
+  const [selectedCallerId, setSelectedCallerId] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -314,7 +314,7 @@ export default function SoftphoneDialer({
     });
 
     // Suscripción a asignaciones de números de Telnyx para la colaboradora actual
-    let sharedPoolNumbers: string[] = ['+13055550199'];
+    let sharedPoolNumbers: string[] = [];
     const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
       if (!snapshot.empty) {
         sharedPoolNumbers = snapshot.docs
@@ -343,11 +343,13 @@ export default function SoftphoneDialer({
           if (sharedPoolNumbers.length > 0) setSelectedCallerId(sharedPoolNumbers[0]);
         }
       } else {
-        setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+        setAuthorizedCallerIds([]);
+          setSelectedCallerId('');
       }
     }, (err) => {
       console.warn('Could not read agent assignments:', err);
-      setAuthorizedCallerIds(['+13055550199', '+14155550142']);
+      setAuthorizedCallerIds([]);
+      setSelectedCallerId('');
     });
 
     return () => {
@@ -588,7 +590,14 @@ export default function SoftphoneDialer({
     onCallStart?.(dialNum);
 
     try {
-      const call = await telnyxWebRTCService.makeCall(dialNum, selectedCallerId);
+      const normalizedCallerId = String(selectedCallerId || '').replace(/[\\s().-]/g, '');
+      if (!normalizedCallerId || !authorizedCallerIds.includes(selectedCallerId)) {
+        throw new Error('No hay un Caller ID autorizado asignado a tu usuario. Configura un número Telnyx activo y autorizado antes de llamar.');
+      }
+      if (!/^\\+[1-9]\\d{7,14}$/.test(normalizedCallerId)) {
+        throw new Error('El Caller ID asignado no está en formato internacional E.164.');
+      }
+      const call = await telnyxWebRTCService.makeCall(dialNum, normalizedCallerId);
       if (!call || typeof call.on !== 'function') {
         throw new Error('El SDK no devolvió un objeto de llamada válido.');
       }
@@ -643,10 +652,7 @@ export default function SoftphoneDialer({
 
   // Llamada demo
   const handleDemoTestCall = () => {
-    const demoNumbers = ['+13055550144', '+14158829901', '+34912345678'];
-    const randomNum = demoNumbers[Math.floor(Math.random() * demoNumbers.length)];
-    setPhoneNumber(randomNum);
-    handleStartCall(randomNum);
+    showToast('La llamada de prueba no usa números ficticios. Introduce un destino autorizado y verifica tu Caller ID Telnyx antes de llamar.');
   };
 
   // Colgar llamada
@@ -665,7 +671,7 @@ export default function SoftphoneDialer({
     const endedRecord: any = {
       contactPhone: phoneNumber,
       contactName: selectedClientName ? `${selectedClientName} (${phoneNumber})` : `Contacto ${phoneNumber}`,
-      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '+1 (305) 555-0199',
+      callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '',
       duration: finalDuration,
       status: finalDuration > 0 ? 'completed' : 'missed',
       direction: 'outbound',
