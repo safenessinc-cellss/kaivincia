@@ -7,8 +7,6 @@ interface RouteGuardProps {
   children: React.ReactNode;
 }
 
-const PRIVILEGED_ROLES = ['admin', 'superadmin', 'ceo', 'gestor', 'owner', 'supervisor'];
-
 export default function RouteGuard({ children }: RouteGuardProps) {
   const { user, userData, loading: authLoading } = useAuth();
   const location = useLocation();
