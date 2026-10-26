@@ -42,25 +42,18 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     );
   }
 
-  // 4. Verificar aprobación.
-  //    Regla: si status está explícitamente en pending/rejected/suspended → bloquear.
-  //    Si status es undefined pero el rol es privilegiado → tratar como aprobado
-  //    (compatibilidad con admins existentes que no tienen el campo).
+  // 4. Solo la cuenta autorizada puede omitir la aprobación explícita.
+  // Un rol superadmin o un estado legacy "active" no constituye aprobación.
   const status = String((userData as any)?.status || '').toLowerCase();
   const role = String((userData as any)?.role || '').toLowerCase();
-  const isPrivileged = PRIVILEGED_ROLES.includes(role);
+  const email = String(user.email || (userData as any)?.email || '').trim().toLowerCase();
+  const isAuthorizedSuperAdmin = email === 'safeness.c.a@gmail.com';
 
-  // A trusted SuperAdmin account must not be locked out just because its legacy
-  // profile says "pending" or "active". Explicit suspension/rejection still blocks it.
-  if (status === 'rejected' || status === 'suspended') {
+  if (status === 'rejected' || status === 'suspended' || status === 'frozen') {
     return <PendingApproval />;
   }
 
-  if (status === 'pending' && role !== 'superadmin') {
-    return <PendingApproval />;
-  }
-
-  if (status !== 'approved' && status !== 'active' && !isPrivileged) {
+  if (!isAuthorizedSuperAdmin && (status !== 'approved' || !role || role === 'none')) {
     return <PendingApproval />;
   }
 
