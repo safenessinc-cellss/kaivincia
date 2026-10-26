@@ -244,36 +244,38 @@ export default function SuperAdmin() {
     }
   };
 
-  const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+  const updateUserPermissions = (userId: string, module: string, hasAccess: boolean) => {
+    const currentUser = users.find(u => u.id === userId);
+    if (!currentUser) return;
+    const newPerms = { ...(selectedUserForPerms?.permissions || currentUser.permissions || {}), [module]: hasAccess };
+    // Keep edits as a draft until the SuperAdmin explicitly saves them.
+    setSelectedUserForPerms((prev: any) => prev && prev.id === userId ? { ...prev, permissions: newPerms } : prev);
+  };
+
+  const canSavePermissions = String(users.find(u => u.id === user?.uid)?.role || '').toLowerCase() === 'superadmin';
+
+  const saveUserPermissions = async () => {
+    if (!canSavePermissions || !selectedUserForPerms) {
+      triggerFeedback('Solo un usuario SuperAdmin puede guardar permisos.');
+      return;
+    }
     try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user?.permissions || {};
-      const newPerms = { ...currentPerms, [module]: hasAccess };
-
-      // Update in local state immediately so user sees toggle without closing dialog
-      setSelectedUserForPerms((prev: any) => prev ? {
-        ...prev,
-        permissions: newPerms
-      } : null);
-
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms } : u));
-
-      // Permission changes must never activate or approve an account.
-      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
-
+      const permissions = selectedUserForPerms.permissions || {};
+      await updateDoc(doc(db, 'users', selectedUserForPerms.id), { permissions });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'system_superadmin',
+        userEmail: user?.email || '',
         action: 'UPDATE_USER_PERMISSIONS',
         resourceType: 'User',
-        resourceId: userId,
-        details: `Módulo ${module} establecido en ${hasAccess ? 'Permitido' : 'Revocado'}`,
+        resourceId: selectedUserForPerms.id,
+        details: 'Permisos explícitos por módulo guardados.',
         timestamp: serverTimestamp(),
         ipAddress: '127.0.0.1'
       });
-
-      triggerFeedback(`Permiso "${module}" ${hasAccess ? 'concedido' : 'revocado'}.`);
+      setUsers(prev => prev.map(u => u.id === selectedUserForPerms.id ? { ...u, permissions } : u));
+      triggerFeedback('Permisos guardados correctamente. No se modificó el estado de aprobación.');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+      handleFirestoreError(error, OperationType.UPDATE, `users/${selectedUserForPerms.id}`);
     }
   };
 
@@ -1062,13 +1064,22 @@ export default function SuperAdmin() {
             </div>
 
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-              <span className="text-[11px] text-gray-400 font-medium">Los cambios se guardan reactivamente al hacer clic.</span>
-              <button 
-                onClick={() => setSelectedUserForPerms(null)}
-                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-[#00F0FF] hover:text-black transition-all"
-              >
-                Listo
-              </button>
+              <span className="text-[11px] text-gray-500 font-medium">Los cambios quedan como borrador hasta guardarlos.</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedUserForPerms(null)}
+                  className="px-4 py-2.5 bg-gray-200 text-gray-700 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-gray-300 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={saveUserPermissions}
+                  disabled={!canSavePermissions}
+                  className="px-5 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-[#00F0FF] hover:text-black transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Save className="w-3.5 h-3.5 inline mr-1.5" /> Guardar permisos
+                </button>
+              </div>
             </div>
           </div>
         </div>
