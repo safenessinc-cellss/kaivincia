@@ -114,7 +114,15 @@ export default function SuperAdmin() {
     return () => unsub();
   }, []);
 
-  const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+  const AUTHORIZED_APPROVER_EMAIL = 'safeness.c.a@gmail.com';
+  const canApproveUsers = String(user?.email || '').trim().toLowerCase() === AUTHORIZED_APPROVER_EMAIL;
+  // Legacy "active" profiles are not considered approved. Only explicit "approved"
+  // status grants access to non-owner accounts.
+  const pendingUsers = users.filter(u => {
+    const email = String(u.email || '').trim().toLowerCase();
+    const status = String(u.status || 'pending').toLowerCase();
+    return email !== AUTHORIZED_APPROVER_EMAIL && !['approved', 'rejected', 'suspended', 'frozen'].includes(status);
+  });
 
   // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
   useEffect(() => {
@@ -174,6 +182,10 @@ export default function SuperAdmin() {
   };
 
   const updateUserStatus = async (userId: string, status: string) => {
+    if (!canApproveUsers) {
+      triggerFeedback('Solo safeness.c.a@gmail.com puede modificar el estado de aprobación.');
+      return;
+    }
     try {
       await updateDoc(doc(db, 'users', userId), { status });
       await addDoc(collection(db, 'audit_logs'), {
@@ -188,6 +200,29 @@ export default function SuperAdmin() {
       triggerFeedback(`Estado de usuario actualizado a "${status}".`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
+    }
+  };
+
+  const handleApproval = async (userId: string, action: 'approve' | 'reject') => {
+    if (!canApproveUsers || !user) {
+      triggerFeedback('Solo safeness.c.a@gmail.com puede aprobar o rechazar usuarios.');
+      return;
+    }
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('/api/auth/approve-user', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ uid: userId, action }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'No se pudo actualizar la aprobación.');
+      triggerFeedback(action === 'approve' ? 'Usuario aprobado correctamente.' : 'Usuario rechazado.');
+    } catch (error: any) {
+      triggerFeedback(error?.message || 'No se pudo procesar la solicitud.');
     }
   };
 
@@ -223,10 +258,8 @@ export default function SuperAdmin() {
 
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms } : u));
 
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
-      });
+      // Permission changes must never activate or approve an account.
+      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
         userId: 'system_superadmin',
@@ -493,6 +526,38 @@ export default function SuperAdmin() {
                 </div>
               </div>
 
+              {pendingUsers.length > 0 && (
+                <section className="m-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <h3 className="text-sm font-black text-amber-900">
+                      Solicitudes sin aprobación ({pendingUsers.length})
+                    </h3>
+                    <p className="text-xs text-amber-800">
+                      Solo {AUTHORIZED_APPROVER_EMAIL} puede aprobar o rechazar el acceso.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {pendingUsers.map((pendingUser) => (
+                      <div key={pendingUser.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-100 bg-white p-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-900">{pendingUser.name || 'Usuario sin nombre'}</p>
+                          <p className="text-xs text-gray-600">{pendingUser.email || pendingUser.id}</p>
+                          <p className="text-[10px] text-amber-700">Rol: {pendingUser.role || 'none'} · Estado actual: {pendingUser.status || 'pending'}</p>
+                        </div>
+                        {canApproveUsers ? (
+                          <div className="flex gap-2">
+                            <button onClick={() => handleApproval(pendingUser.id, 'approve')} className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">Aprobar acceso</button>
+                            <button onClick={() => handleApproval(pendingUser.id, 'reject')} className="rounded-lg bg-rose-600 px-3 py-2 text-xs font-bold text-white hover:bg-rose-700">Rechazar</button>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-semibold text-amber-800">Esperando autorización de Safeness</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* Users Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-xs text-left">
@@ -527,7 +592,8 @@ export default function SuperAdmin() {
                           <select
                             value={user.role || 'none'}
                             onChange={(e) => updateUserRole(user.id, e.target.value)}
-                            className="text-xs font-bold border border-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-gray-800 focus:ring-[#00F0FF] focus:border-[#00F0FF]"
+                            disabled={!canApproveUsers}
+                            className="text-xs font-bold border border-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-gray-800 focus:ring-[#00F0FF] focus:border-[#00F0FF] disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <option value="none">⚠️ Sin Rol Asignado</option>
                             {RBAC_ROLES.map(r => (
@@ -541,6 +607,7 @@ export default function SuperAdmin() {
                           <select
                             value={user.status || 'pending'}
                             onChange={(e) => updateUserStatus(user.id, e.target.value)}
+                            disabled={!canApproveUsers}
                             className={`text-[11px] border-0 rounded-full px-3 py-1 font-bold ${
                               user.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 
                               user.status === 'suspended' ? 'bg-rose-100 text-rose-800' : 
