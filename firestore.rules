@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function isAuthorizedApprover() {
-      return isAuthenticated() &&
+      return request.auth != null &&
         request.auth.token.email == "safeness.c.a@gmail.com";
     }
 
