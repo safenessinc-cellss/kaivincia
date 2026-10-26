@@ -34,14 +34,34 @@ export default async function handler(req: any, res: any) {
 
   const userRef = adminDb.collection('users').doc(decoded.uid);
   const snap = await userRef.get();
+  const isSuperAdmin = SUPERADMINS.some((email) =>
+    email.toLowerCase() === String(decoded.email || '').toLowerCase()
+  );
+
+  // Repair legacy allowlisted SuperAdmin profiles that were accidentally created
+  // as role "none"/"tlmk" or left pending by the old client-side bootstrap.
   if (snap.exists) {
+    const existing = snap.data() || {};
+    if (isSuperAdmin && (existing.role !== 'superadmin' || existing.status === 'pending' || !existing.status)) {
+      const repaired = {
+        role: 'superadmin',
+        status: 'active',
+        email: decoded.email || existing.email || null,
+        uid: decoded.uid,
+        updatedAt: new Date().toISOString(),
+      };
+      await userRef.set(repaired, { merge: true });
+      const updated = { ...existing, ...repaired };
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ user: updated, repaired: true }));
+      return;
+    }
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ user: snap.data() }));
+    res.end(JSON.stringify({ user: existing }));
     return;
   }
-
-  const isSuperAdmin = SUPERADMINS.includes(decoded.email || '');
   const profile = {
     uid: decoded.uid,
     name: decoded.name || (decoded.email || '').split('@')[0] || 'Usuario',

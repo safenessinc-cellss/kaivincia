@@ -50,11 +50,17 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   const role = String((userData as any)?.role || '').toLowerCase();
   const isPrivileged = PRIVILEGED_ROLES.includes(role);
 
-  if (status === 'pending' || status === 'rejected' || status === 'suspended') {
+  // A trusted SuperAdmin account must not be locked out just because its legacy
+  // profile says "pending" or "active". Explicit suspension/rejection still blocks it.
+  if (status === 'rejected' || status === 'suspended') {
     return <PendingApproval />;
   }
 
-  if (status !== 'approved' && !isPrivileged) {
+  if (status === 'pending' && role !== 'superadmin') {
+    return <PendingApproval />;
+  }
+
+  if (status !== 'approved' && status !== 'active' && !isPrivileged) {
     return <PendingApproval />;
   }
 

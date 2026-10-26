@@ -96,64 +96,48 @@ export default function App() {
 
       if (currentUser) {
         try {
+          // The trusted backend owns account provisioning and approval. Never promote
+          // users or change role/status from client-side login code.
+          const token = await currentUser.getIdToken();
+          await fetch('/api/auth/bootstrap-user', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
           const userRef = doc(db, "users", currentUser.uid);
           const userSnap = await getDoc(userRef);
-
-          const existingData = userSnap.exists() ? userSnap.data() : null;
-          const currentUserRole = existingData?.role ?? null;
-          const isSuperAdmin = currentUserRole === "superadmin" || currentUserRole === "admin";
-
-          let currentProfile: any = null;
-          if (!userSnap.exists()) {
-            const newUser = {
-              uid: currentUser.uid,
-              name: currentUser.displayName || "Agente TLMK",
-              email: currentUser.email,
-              role: isSuperAdmin ? "superadmin" : "tlmk",
-              status: "active",
-              avatarUrl: currentUser.photoURL || "",
-              createdAt: new Date().toISOString(),
-              lastLogin: new Date().toISOString()
-            };
-            await setDoc(userRef, newUser);
-            currentProfile = newUser;
+          if (userSnap.exists()) {
+            const profile = userSnap.data();
+            setUserData(profile);
+            unsubUserDoc = onSnapshot(userRef, (docSnap) => {
+              if (docSnap.exists()) setUserData(docSnap.data());
+            }, (error) => console.warn("User data listener warning:", error));
           } else {
-            const data = existingData!;
-            const updatedRole = data.role && data.role !== "none" ? data.role : (isSuperAdmin ? "superadmin" : "tlmk");
-            const updatedStatus = "active";
-
-            await setDoc(userRef, {
-              lastLogin: new Date().toISOString(),
-              status: updatedStatus,
-              role: updatedRole
-            }, { merge: true });
-
-            currentProfile = { ...data, status: updatedStatus, role: updatedRole };
+            // Fail closed if the backend could not provision a profile.
+            setUserData({
+              uid: currentUser.uid,
+              name: currentUser.displayName || "Usuario",
+              email: currentUser.email,
+              role: "none",
+              status: "pending"
+            });
           }
-
-          setUserData(currentProfile);
           setUser(currentUser);
-          localStorage.setItem("kaivincia_active_user", JSON.stringify({ uid: currentUser.uid, email: currentUser.email, displayName: currentUser.displayName }));
-
-          unsubUserDoc = onSnapshot(userRef, (docSnap) => {
-            if (docSnap.exists()) {
-              const liveData = docSnap.data();
-              const stabilizedData = { ...liveData, status: liveData.status || "active" };
-              setUserData(stabilizedData);
-            }
-          }, (error) => {
-            console.warn("User data listener warning (handled):", error);
-          });
+          localStorage.setItem("kaivincia_active_user", JSON.stringify({
+            uid: currentUser.uid,
+            email: currentUser.email,
+            displayName: currentUser.displayName
+          }));
         } catch (authErr) {
           console.error("Error setting up user profile:", authErr);
-          const fallback = {
-            name: currentUser.displayName || "Agente TLMK",
-            email: currentUser.email,
-            role: "tlmk",
-            status: "active"
-          };
           setUser(currentUser);
-          setUserData(fallback);
+          setUserData({
+            uid: currentUser.uid,
+            name: currentUser.displayName || "Usuario",
+            email: currentUser.email,
+            role: "none",
+            status: "pending"
+          });
         }
       } else {
         setUser(null);
