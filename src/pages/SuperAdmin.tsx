@@ -121,7 +121,10 @@ export default function SuperAdmin() {
   const pendingUsers = users.filter(u => {
     const email = String(u.email || '').trim().toLowerCase();
     const status = String(u.status || 'pending').toLowerCase();
-    return email !== AUTHORIZED_APPROVER_EMAIL && !['approved', 'rejected', 'suspended', 'frozen'].includes(status);
+    const role = String(u.role || 'none').toLowerCase();
+    return email !== AUTHORIZED_APPROVER_EMAIL &&
+      !['rejected', 'suspended', 'frozen'].includes(status) &&
+      (status !== 'approved' || !role || role === 'none');
   });
 
   // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
