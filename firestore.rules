@@ -7,7 +7,7 @@ service cloud.firestore {
     // Helpers
     // ===============================================================
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null && (isAuthorizedApprover() || isApproved());
     }
 
     function userRole() {
@@ -16,7 +16,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && (
-        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        isAuthorizedApprover() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
          userRole() in ["admin", "superadmin", "ceo", "gestor"])
       );
@@ -36,13 +36,14 @@ service cloud.firestore {
     }
 
     function isApproved() {
-      return isAuthenticated() &&
+      return request.auth != null &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "approved") == "approved";
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "pending") == "approved";
     }
 
+    // A pending user may read only their own profile to display the waiting screen.
     function isUser(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
 
     function incoming() {
