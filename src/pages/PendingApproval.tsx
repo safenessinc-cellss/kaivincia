@@ -26,11 +26,11 @@ export default function PendingApproval() {
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 space-y-3">
           <div className="flex items-start gap-2 text-sm text-gray-700">
             <ShieldAlert className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-            <span><strong>Acceso restringido:</strong> nadie entra al dashboard sin aprobación previa del administrador.</span>
+            <span><strong>Acceso restringido:</strong> no podrás entrar al CRM hasta que <strong>safeness.c.a@gmail.com</strong> apruebe tu cuenta.</span>
           </div>
           <div className="flex items-start gap-2 text-sm text-gray-700">
             <Mail className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-            <span><strong>¿Qué hacer?</strong> Contacta al administrador de la plataforma para que libere tu acceso.</span>
+            <span><strong>¿Qué hacer?</strong> Tu solicitud está registrada. Espera la decisión de la cuenta autorizada; cambiar el rol o los permisos no activa el acceso.</span>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500 pt-1 border-t border-gray-200">
             <Clock className="w-3.5 h-3.5" />
@@ -39,7 +39,7 @@ export default function PendingApproval() {
         </div>
 
         <p className="text-[11px] text-gray-500 text-center mb-4">
-          Si necesitas acceso urgente, escribe a <span className="font-mono text-gray-700">safeness.c.a@gmail.com</span>
+          Las solicitudes de acceso solo las puede aprobar <span className="font-mono text-gray-700">safeness.c.a@gmail.com</span>
         </p>
 
         <button
