@@ -1,10 +1,7 @@
 import { adminAuth, adminDb } from '../../server/_lib/firebaseAdmin.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
-const SUPERADMINS = (process.env.SUPERADMIN_EMAILS || '')
-  .split(',')
-  .map((e) => e.trim())
-  .filter(Boolean);
+const AUTHORIZED_SUPERADMIN_EMAIL = 'safeness.c.a@gmail.com';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -34,18 +31,17 @@ export default async function handler(req: any, res: any) {
 
   const userRef = adminDb.collection('users').doc(decoded.uid);
   const snap = await userRef.get();
-  const isSuperAdmin = SUPERADMINS.some((email) =>
-    email.toLowerCase() === String(decoded.email || '').toLowerCase()
-  );
+  const isSuperAdmin = String(decoded.email || '').trim().toLowerCase() === AUTHORIZED_SUPERADMIN_EMAIL;
 
   // Repair legacy allowlisted SuperAdmin profiles that were accidentally created
   // as role "none"/"tlmk" or left pending by the old client-side bootstrap.
   if (snap.exists) {
     const existing = snap.data() || {};
-    if (isSuperAdmin && (existing.role !== 'superadmin' || existing.status === 'pending' || !existing.status)) {
+    if (isSuperAdmin && !['rejected', 'suspended'].includes(String(existing.status || '').toLowerCase()) &&
+        (existing.role !== 'superadmin' || existing.status !== 'approved')) {
       const repaired = {
         role: 'superadmin',
-        status: 'active',
+        status: 'approved',
         email: decoded.email || existing.email || null,
         uid: decoded.uid,
         updatedAt: new Date().toISOString(),
@@ -67,7 +63,7 @@ export default async function handler(req: any, res: any) {
     name: decoded.name || (decoded.email || '').split('@')[0] || 'Usuario',
     email: decoded.email || null,
     role: isSuperAdmin ? 'superadmin' : 'none',
-    status: isSuperAdmin ? 'active' : 'pending',
+    status: isSuperAdmin ? 'approved' : 'pending',
     avatarUrl: decoded.picture || '',
     createdAt: new Date().toISOString(),
     lastLogin: FieldValue.serverTimestamp(),
