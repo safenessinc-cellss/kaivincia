@@ -82,7 +82,7 @@ service cloud.firestore {
     // Users
     // ===============================================================
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isUser(userId) || isAdmin());
+      allow read: if request.auth != null && (isUser(userId) || isAdmin());
       // Profile creation is performed by the trusted Admin SDK bootstrap endpoint.
       // Only the designated approver may create, approve, change roles, or delete users.
       allow create: if isAuthorizedApprover();
