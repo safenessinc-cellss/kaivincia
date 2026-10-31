@@ -25,6 +25,8 @@ export default function RulePreview({
 }: RulePreviewProps) {
   const areaMeta = AREAS.find((a) => a.id === area);
   const eventMeta = EVENTS_BY_AREA[area]?.find((e) => e.key === event);
+  const safeConditions = Array.isArray(conditions) ? conditions : [];
+  const safeActions = Array.isArray(actions) ? actions : [];
   const fields = FIELDS_BY_AREA[area] || [];
 
   // 1. Traducción del evento a lenguaje natural
@@ -32,8 +34,8 @@ export default function RulePreview({
 
   // 2. Traducción de las condiciones
   let conditionsPhrase = 'en todos los casos (sin restricciones)';
-  if (conditions.length > 0) {
-    const parts = conditions.map((cond, idx) => {
+  if (safeConditions.length > 0) {
+    const parts = safeConditions.map((cond, idx) => {
       const fieldDef = fields.find((f) => f.key === cond.field);
       const opMeta = OPERATORS.find((o) => o.key === cond.operator);
       const fieldLabel = fieldDef?.label || cond.field;
@@ -51,7 +53,7 @@ export default function RulePreview({
 
   // 3. Traducción de las acciones
   let actionsPhrase = 'ninguna acción definida';
-  const activeActions = actions.filter((a) => a.isEnabled);
+  const activeActions = safeActions.filter((a) => a.isEnabled);
   if (activeActions.length > 0) {
     const actionParts = activeActions.map((act) => {
       const meta = ACTIONS_CATALOG.find((m) => m.type === act.type);
