@@ -41,45 +41,45 @@ export default function GuideTab() {
   return (
     <div className="space-y-8 max-w-5xl mx-auto">
       {/* Banner de Bienvenida y Filosofía */}
-      <div className="p-6 sm:p-8 rounded-[2rem] bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950/40 border border-slate-800 shadow-xl space-y-4">
+      <div className="p-6 sm:p-8 rounded-[2rem] bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950/40 border border-slate-200 shadow-xl space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/30 flex items-center justify-center text-[#00F0FF]">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600/10 border border-blue-200 flex items-center justify-center text-blue-600">
             <BookOpen className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-xl font-black text-white uppercase italic tracking-tight">
+            <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
               Manual Operativo y Estándares de Automatización (SOP)
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-600">
               Guía de referencia para diseñar flujos limpios, confiables y con contingencia operativa en las 8 áreas del negocio.
             </p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-800/80">
-          <div className="p-4 rounded-2xl bg-black/40 border border-slate-800/80 space-y-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-200">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
             <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4" /> 1. Cuando (Disparador)
             </span>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Selecciona el evento originario de entre los eventos auditados por cada área.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-black/40 border border-slate-800/80 space-y-1.5">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
             <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
               <Workflow className="w-4 h-4" /> 2. Si (Condiciones)
             </span>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Aplica filtros combinados con lógica AND / OR sin necesidad de fórmulas matemáticas.
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-black/40 border border-slate-800/80 space-y-1.5">
-            <span className="text-xs font-bold text-[#00F0FF] flex items-center gap-1.5">
+          <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <span className="text-xs font-bold text-blue-600 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4" /> 3. Hacer (Acciones + Fallback)
             </span>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-600 leading-relaxed">
               Encadena acciones secuenciales con roles asignados, tiempos de espera y plan de rescate.
             </p>
           </div>
@@ -88,8 +88,8 @@ export default function GuideTab() {
 
       {/* Matriz de Áreas y Responsables */}
       <div className="space-y-4">
-        <h3 className="text-base font-black text-white uppercase italic tracking-tight flex items-center gap-2">
-          <Workflow className="w-4 h-4 text-[#00F0FF]" />
+        <h3 className="text-base font-black text-slate-900 uppercase italic tracking-tight flex items-center gap-2">
+          <Workflow className="w-4 h-4 text-blue-600" />
           Matriz de Automatizaciones por Área de Negocio
         </h3>
 
@@ -97,13 +97,13 @@ export default function GuideTab() {
           {AREAS.map((a) => (
             <div
               key={a.id}
-              className="p-4 rounded-2xl bg-slate-950 border border-slate-800/80 space-y-2 hover:border-slate-700 transition-colors"
+              className="p-4 rounded-2xl bg-white border border-slate-200 space-y-2 hover:border-slate-300 transition-colors"
             >
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }} />
-                <span className="text-xs font-bold text-white">{a.name}</span>
+                <span className="text-xs font-bold text-slate-900">{a.name}</span>
               </div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-[11px] text-slate-600 leading-relaxed">
                 {a.description}
               </p>
             </div>
@@ -113,8 +113,8 @@ export default function GuideTab() {
 
       {/* Preguntas Frecuentes (FAQ) */}
       <div className="space-y-4">
-        <h3 className="text-base font-black text-white uppercase italic tracking-tight flex items-center gap-2">
-          <HelpCircle className="w-4 h-4 text-[#00F0FF]" />
+        <h3 className="text-base font-black text-slate-900 uppercase italic tracking-tight flex items-center gap-2">
+          <HelpCircle className="w-4 h-4 text-blue-600" />
           Preguntas Frecuentes y Políticas Operativas
         </h3>
 
@@ -124,23 +124,23 @@ export default function GuideTab() {
             return (
               <div
                 key={index}
-                className="rounded-2xl border border-slate-800 bg-slate-950/60 overflow-hidden transition-all"
+                className="rounded-2xl border border-slate-200 bg-white overflow-hidden transition-all"
               >
                 <button
                   type="button"
                   onClick={() => setActiveFaq(isOpen ? null : index)}
-                  className="w-full p-4 text-left flex items-center justify-between text-xs font-bold text-slate-200 hover:text-white cursor-pointer"
+                  className="w-full p-4 text-left flex items-center justify-between text-xs font-bold text-slate-700 hover:text-slate-900 cursor-pointer"
                 >
                   <span className="flex items-center gap-2.5">
-                    <span className="w-5 h-5 rounded-full bg-slate-900 border border-slate-800 text-slate-400 flex items-center justify-center text-[10px] font-mono">
+                    <span className="w-5 h-5 rounded-full bg-slate-50 border border-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-mono">
                       {index + 1}
                     </span>
                     {faq.q}
                   </span>
-                  {isOpen ? <ChevronUp className="w-4 h-4 text-[#00F0FF]" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                  {isOpen ? <ChevronUp className="w-4 h-4 text-blue-600" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4 pt-1 text-xs text-slate-400 leading-relaxed border-t border-slate-900 bg-black/20">
+                  <div className="px-4 pb-4 pt-1 text-xs text-slate-600 leading-relaxed border-t border-slate-200 bg-slate-50">
                     {faq.a}
                   </div>
                 )}
