@@ -77,44 +77,44 @@ export default function StrategyBlog() {
                initial={{ opacity: 0, y: 20 }}
                animate={{ opacity: 1, y: 0 }}
                transition={{ delay: i * 0.1 }}
-               whileHover={{ scale: 1.02, boxShadow: '0 20px 40px rgba(0, 240, 255, 0.1)' }}
+               whileHover={{ y: -5, boxShadow: '0 18px 36px rgba(15, 23, 42, 0.10)' }}
                onClick={() => setSelectedPost(post)}
-               className="relative overflow-hidden rounded-[2.5rem] bg-black border border-white/5 group cursor-pointer transition-all duration-300 min-h-[400px] flex flex-col justify-end"
+               className="relative overflow-hidden rounded-[2rem] bg-white border border-slate-200/80 group cursor-pointer transition-all duration-300 min-h-[440px] flex flex-col shadow-sm"
              >
-                {/* Background Image & Overlay */}
-                <img 
-                  src={post.image} 
-                  alt={post.title} 
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none" />
+                <div className="relative h-48 shrink-0 overflow-hidden bg-slate-100">
+                  <img 
+                    src={post.image} 
+                    alt={post.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                </div>
                 
-                <div className="relative z-10 p-8 pt-20">
+                <div className="relative z-10 p-7 flex-1 flex flex-col">
                   <div className="flex justify-between items-center mb-4">
-                     <span className="px-3 py-1 bg-[#00F0FF]/20 text-[#00F0FF] rounded-full text-[9px] font-black uppercase tracking-widest border border-[#00F0FF]/30 backdrop-blur-md">
+                     <span className="px-3 py-1 bg-sky-50 text-sky-700 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-100">
                         {post.category}
                      </span>
                      <button 
                        onClick={(e) => handleShare(e, post.title)}
-                       className="p-2 bg-white/10 rounded-full hover:bg-[#00F0FF]/20 text-white hover:text-[#00F0FF] transition-colors backdrop-blur-md"
+                       className="p-2 bg-slate-100 rounded-full hover:bg-sky-100 text-slate-600 hover:text-sky-700 transition-colors"
                      >
                        <Share2 className="w-4 h-4" />
                      </button>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-3 group-hover:text-[#00F0FF] transition-colors leading-[1.2] drop-shadow-lg">{post.title}</h3>
-                  <p className="text-gray-300 text-sm mb-6 leading-relaxed font-medium drop-shadow-md">{post.excerpt}</p>
+                  <h3 className="text-2xl font-bold text-slate-900 mb-3 group-hover:text-sky-700 transition-colors leading-[1.2]">{post.title}</h3>
+                  <p className="text-slate-600 text-sm mb-6 leading-relaxed font-medium">{post.excerpt}</p>
                   
-                  <div className="flex justify-between items-center pt-5 border-t border-white/10">
+                  <div className="flex justify-between items-center pt-5 border-t border-slate-200">
                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-blue-600/30 flex items-center justify-center text-blue-400 backdrop-blur-md">
+                        <div className="h-8 w-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700">
                            <User className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-white uppercase tracking-widest drop-shadow-md">{post.author}</span>
-                          <span className="text-[9px] font-bold text-gray-400 tracking-widest">{post.date}</span>
+                          <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">{post.author}</span>
+                          <span className="text-[9px] font-bold text-slate-500 tracking-widest">{post.date}</span>
                         </div>
                      </div>
-                     <span className="flex items-center gap-2 text-[10px] font-black uppercase text-[#00F0FF] tracking-widest group-hover:translate-x-1 transition-transform drop-shadow-md">
+                     <span className="flex items-center gap-2 text-[10px] font-black uppercase text-sky-700 tracking-widest group-hover:translate-x-1 transition-transform">
                         Leer <ArrowRight className="w-3 h-3" />
                      </span>
                   </div>
