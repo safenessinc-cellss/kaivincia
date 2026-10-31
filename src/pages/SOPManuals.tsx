@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import {
   BookOpen, Search, Printer, ShieldCheck, FileText, ChevronRight,
   CheckCircle2, AlertTriangle, ClipboardCheck, Users, CalendarClock,
-  ListChecks, SearchX, ArrowUpRight
+  ListChecks, SearchX
 } from 'lucide-react';
 import { MANUAL_DEPARTMENTS, MANUAL_DOCUMENTS } from '../data/sopManuals';
 
