@@ -538,3 +538,14 @@
   color: var(--color-text-primary) !important;
   background: var(--color-background) !important;
 }
+
+.kaivincia-dashboard [class*="from-[#151921]"] {
+  background-image: none !important;
+}
+.kaivincia-dashboard [class*="from-[#0B0E14]"] {
+  background-image: linear-gradient(to top, rgba(255,255,255,.94), rgba(255,255,255,.34), transparent) !important;
+}
+.kaivincia-dashboard button[class*="bg-gray-900"] {
+  background-color: var(--color-primary, #2563EB) !important;
+  color: #FFFFFF !important;
+}
