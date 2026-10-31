@@ -159,7 +159,7 @@ export default function DocumentDrive() {
       onDrop={onDrop}
     >
       {/* Grid Pattern Background */}
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-20 pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.12)_1px,transparent_0)] [background-size:24px_24px] opacity-60 pointer-events-none" />
 
       {/* Global Drag Overlay */}
       <AnimatePresence>
