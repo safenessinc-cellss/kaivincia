@@ -405,3 +405,44 @@
   color: #FFFFFF !important;
 }
 /* El tema oscuro solo se aplica si el usuario lo elige desde Apariencia. */
+
+.kaivincia-shell main [class*="bg-[#0A0D14]"] {
+  background-color: var(--color-surface, #FFFFFF) !important;
+  background-image: none !important;
+}
+/* En modo oscuro elegido por el administrador, las mismas superficies usan sus tokens oscuros. */
+:root[data-appearance-mode="dark"] .kaivincia-shell {
+  background: var(--color-background) !important;
+  color: var(--color-text-primary);
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#050505]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#05070a]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#020617]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0c0f1d]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0A0D14]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0D121D]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0f172a]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-slate-900"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-gray-900"] {
+  background-color: var(--color-surface) !important;
+  background-image: none !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-white"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-200"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-300"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-200"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-300"] {
+  color: var(--color-text-primary) !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-400"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-500"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-400"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-500"] {
+  color: var(--color-text-secondary) !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main input,
+:root[data-appearance-mode="dark"] .kaivincia-shell main textarea,
+:root[data-appearance-mode="dark"] .kaivincia-shell main select {
+  color: var(--color-text-primary) !important;
+  background-color: var(--color-surface) !important;
+}
