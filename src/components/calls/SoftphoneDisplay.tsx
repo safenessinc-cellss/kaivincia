@@ -173,7 +173,7 @@ export default function SoftphoneDisplay({
   const formattedPreview = formatDialNumberPreview(phoneNumber);
 
   return (
-    <div className={`bg-slate-900/90 border border-slate-800 rounded-2xl relative overflow-hidden transition-all shadow-inner ${
+    <div className={`bg-white/90 border border-slate-200 rounded-2xl relative overflow-hidden transition-all shadow-inner ${
       compact ? 'p-2.5 mb-2' : 'p-3 mb-2.5'
     }`}>
       {/* Barra superior: Estado, Cronómetro y Acciones de Copiar/Pegar */}
@@ -224,7 +224,7 @@ export default function SoftphoneDisplay({
         <div className="flex items-center gap-1">
           {/* Cronómetro en llamada */}
           {(callStatus === 'connected' || callStatus === 'on_hold') && (
-            <span className="flex items-center gap-1 text-white font-mono font-bold bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800 text-[10px]">
+            <span className="flex items-center gap-1 text-slate-800 font-mono font-bold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-800 text-[10px]">
               <Clock className="w-2.5 h-2.5 text-cyan-400" />
               <span>{formatTimer(duration)}</span>
             </span>
@@ -235,7 +235,7 @@ export default function SoftphoneDisplay({
             <button
               type="button"
               onClick={handleClipboardPasteBtn}
-              className="px-2 py-0.5 rounded-md bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-slate-700 text-[10px] font-sans font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+              className="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-700 border border-slate-200 text-[10px] font-sans font-bold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
               title="Pegar número desde el portapapeles (Cmd+V / Ctrl+V)"
             >
               <ClipboardPaste className="w-3 h-3 text-cyan-400" />
@@ -270,7 +270,7 @@ export default function SoftphoneDisplay({
           onKeyDown={handleKeyDown}
           placeholder="+1 (555) 000-0000"
           disabled={callStatus !== 'idle'}
-          className={`w-full bg-slate-950/70 border border-slate-800 focus:border-cyan-500/60 rounded-xl py-1.5 px-8 font-mono font-bold tracking-wider text-center text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 selection:bg-cyan-500/30 selection:text-cyan-200 transition-all ${
+          className={`w-full bg-white border border-slate-200 focus:border-blue-500/60 rounded-xl py-1.5 px-8 font-mono font-bold tracking-wider text-center text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 selection:bg-cyan-500/30 selection:text-cyan-200 transition-all ${
             compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-2xl'
           } ${callStatus !== 'idle' ? 'opacity-85 cursor-not-allowed' : ''}`}
           aria-label="Número de teléfono a marcar"
