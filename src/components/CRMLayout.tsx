@@ -313,18 +313,18 @@ export default function CRMLayout({ userData }: { userData: any }) {
           color: 'var(--color-sidebar-text)' 
         }}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 shrink-0">
+        <div className={`flex items-center justify-center px-4 border-b border-gray-200 shrink-0 transition-all duration-300 ${isSidebarCollapsed ? 'h-16' : 'h-44'}`}>
           {!isSidebarCollapsed ? (
             <img 
               src={LOGO_FULL}
-              alt="Kaivincia Logo" 
-              className="h-8 object-contain"
+              alt="Kaivincia Corp" 
+              className="h-36 w-36 object-contain"
               referrerPolicy="no-referrer"
             />
           ) : (
             <img 
               src={LOGO_FULL}
-              alt="Kaivincia Logo" 
+              alt="Kaivincia Corp" 
               className="h-8 w-8 object-contain mx-auto"
               referrerPolicy="no-referrer"
             />
