@@ -886,7 +886,7 @@ export default function SoftphoneDialer({
           } catch {}
         }
       }}
-      className={`bg-slate-950/95 backdrop-blur-xl text-white border border-slate-800 shadow-2xl transition-all ${
+      className={`ios27-softphone bg-slate-950/95 backdrop-blur-xl text-white border border-slate-800 shadow-2xl transition-all ${
         isFloating
           ? isMobile
             ? 'fixed bottom-0 left-0 right-0 w-full rounded-t-3xl rounded-b-none border-b-0 border-x-0 border-t border-slate-800 p-4 z-50 shadow-[0_-10px_35px_rgba(0,0,0,0.85)]'
@@ -1106,7 +1106,7 @@ export default function SoftphoneDialer({
                     <span>Audio</span>
                   </button>
                 </div>
-                <button type="button" onClick={handleHangup} className="w-full py-2.5 sm:py-3 bg-rose-500 hover:bg-rose-400 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(244,63,94,0.3)] flex items-center justify-center gap-2 cursor-pointer active:scale-98">
+                <button type="button" onClick={handleHangup} className="ios-call-danger w-full py-2.5 sm:py-3 bg-rose-500 hover:bg-rose-400 text-white font-black text-xs sm:text-sm uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(244,63,94,0.3)] flex items-center justify-center gap-2 cursor-pointer active:scale-98">
                   <PhoneOff className="w-4 h-4 fill-current" />
                   <span>{t('voip.hangup', 'Colgar (Esc)')}</span>
                 </button>
