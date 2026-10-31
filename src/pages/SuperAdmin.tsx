@@ -155,7 +155,9 @@ export default function SuperAdmin() {
           setMatrixState(matrixDoc.data().matrix);
         }
       } catch (err) {
-        console.warn('Matrix settings not found, using default state.');
+        // Keep the default matrix, but expose the real cause (for example
+        // permission-denied) so Firestore configuration problems are diagnosable.
+        console.error('Failed to load RBAC matrix settings; using default state:', err);
       }
     };
     loadMatrix();
