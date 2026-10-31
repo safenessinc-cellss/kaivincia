@@ -70,8 +70,8 @@ export default function RuleHistory({
             event: data.event,
             payload: data.payload || {},
             conditionsMatched: data.conditionsMatched ?? true,
-            actionsExecuted: data.actionsExecuted || [],
-            errors: data.errors || [],
+            actionsExecuted: Array.isArray(data.actionsExecuted) ? data.actionsExecuted : [],
+            errors: Array.isArray(data.errors) ? data.errors : [],
             retries: data.retries || 0,
             status: data.status || 'completed',
             timestamp: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString()
@@ -318,7 +318,7 @@ export default function RuleHistory({
                   <AlertTriangle className="w-4 h-4 shrink-0" />
                   Errores Reportados:
                 </div>
-                {selectedLog.errors.map((err, idx) => (
+                {(Array.isArray(selectedLog.errors) ? selectedLog.errors : []).map((err, idx) => (
                   <p key={idx} className="font-mono text-[11px]">• {err}</p>
                 ))}
               </div>
@@ -340,7 +340,7 @@ export default function RuleHistory({
                 Acciones Ejecutadas ({selectedLog.actionsExecuted.length}):
               </label>
               <div className="space-y-1.5">
-                {selectedLog.actionsExecuted.map((a, idx) => (
+                {(Array.isArray(selectedLog.actionsExecuted) ? selectedLog.actionsExecuted : []).map((a, idx) => (
                   <div
                     key={idx}
                     className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono flex items-center justify-between"
