@@ -52,6 +52,19 @@ function applyCssVariablesToRoot(config: AppearanceConfig) {
   if (typeof document === 'undefined') return;
 
   const root = document.documentElement;
+  const backgroundHex = (config.colors.background || '#ffffff').replace('#', '');
+  const normalizedHex = backgroundHex.length === 3
+    ? backgroundHex.split('').map((part) => part + part).join('')
+    : backgroundHex;
+  const rgb = normalizedHex.length === 6
+    ? [0, 2, 4].map((offset) => parseInt(normalizedHex.slice(offset, offset + 2), 16) / 255)
+    : [1, 1, 1];
+  const linearRgb = rgb.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+  const backgroundLuminance = 0.2126 * linearRgb[0] + 0.7152 * linearRgb[1] + 0.0722 * linearRgb[2];
+  const colorMode = config.advanced?.colorMode || 'light';
+  root.dataset.appearanceMode = colorMode === 'dark' || (colorMode === 'auto' && backgroundLuminance < 0.42)
+    ? 'dark'
+    : 'light';
 
   // 1. Tipografía
   ensureGoogleFontLoaded(config.fonts.family);
