@@ -34,14 +34,14 @@ export default function SoftphoneKeypad({
           type="button"
           disabled={disabled}
           onClick={() => onDigitPress(btn.key)}
-          className={`group bg-slate-900/80 hover:bg-cyan-500/10 active:bg-cyan-500/20 border border-slate-800 hover:border-cyan-500/40 rounded-xl flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none select-none ${
+          className={`ios-keypad group bg-slate-100 hover:bg-blue-50 active:bg-blue-100 border border-slate-200 hover:border-blue-300 rounded-2xl flex flex-col items-center justify-center transition-all cursor-pointer active:scale-95 disabled:opacity-40 disabled:pointer-events-none select-none ${
             compact ? 'py-1.5 px-1' : 'py-2 px-1.5'
           }`}
         >
-          <span className="text-base sm:text-lg font-mono font-bold text-white group-hover:text-cyan-400 transition-colors leading-tight">
+          <span className="text-base sm:text-lg font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors leading-tight">
             {btn.key}
           </span>
-          <span className="text-[8px] font-mono text-slate-500 group-hover:text-cyan-300/70 tracking-wider uppercase leading-none mt-0.5">
+          <span className="text-[8px] font-mono text-slate-500 group-hover:text-blue-600 tracking-wider uppercase leading-none mt-0.5">
             {btn.sub}
           </span>
         </button>

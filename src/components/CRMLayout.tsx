@@ -299,7 +299,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
 
   return (
     <div 
-      className={`min-h-screen flex relative ${isRightSidebar ? 'flex-row-reverse' : 'flex-row'}`}
+      className={`kaivincia-shell min-h-screen flex relative ${isRightSidebar ? 'flex-row-reverse' : 'flex-row'}`}
       style={{ backgroundColor: 'var(--color-background)' }}
     >
       <div className="fixed inset-0 z-0 pointer-events-none">
@@ -307,13 +307,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
       </div>
       {/* Sidebar */}
       <div 
-        className={`text-gray-300 ${isRightSidebar ? 'border-l' : 'border-r'} border-gray-800 flex flex-col h-screen transition-all duration-300 relative z-10 ${sidebarWidthClass}`}
+        className={`text-gray-300 ${isRightSidebar ? 'border-l' : 'border-r'} border-gray-200 flex flex-col h-screen transition-all duration-300 relative z-10 ${sidebarWidthClass}`}
         style={{ 
           backgroundColor: 'var(--color-sidebar-bg)', 
           color: 'var(--color-sidebar-text)' 
         }}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-800 shrink-0">
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 shrink-0">
           {!isSidebarCollapsed ? (
             <img 
               src={LOGO_FULL}
@@ -333,7 +333,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
 
         {/* Quick Access Icons */}
         {!isSidebarCollapsed && (
-          <div className="flex items-center justify-around p-3 border-b border-gray-800 shrink-0 bg-[#111]">
+          <div className="flex items-center justify-around p-3 border-b border-gray-200 shrink-0 bg-white/70">
             <Link to="/crm/chat" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors relative group" title={t('nav.neural_chat', 'Chat Interno')}>
               <MessageSquare className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -357,7 +357,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
                 placeholder={t('header.search_placeholder', 'Buscar módulo...')} 
                 value={menuSearch}
                 onChange={(e) => setMenuSearch(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-800 rounded-lg pl-9 pr-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-colors"
+                className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-[#00F0FF] focus:ring-1 focus:ring-[#00F0FF] transition-colors"
               />
             </div>
           </div>
@@ -371,7 +371,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
                 {!isSidebarCollapsed && (
                   <button 
                     onClick={() => toggleGroup(group.title)}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors text-gray-500 hover:text-gray-300"
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold uppercase tracking-wider transition-colors text-gray-500 hover:text-gray-800"
                   >
                     <span>{group.title}</span>
                     {isExpanded ? (
@@ -393,8 +393,8 @@ export default function CRMLayout({ userData }: { userData: any }) {
                           title={isSidebarCollapsed ? item.name : undefined}
                           className={`flex items-center group relative overflow-hidden ${isSidebarCollapsed ? 'justify-center p-2.5 mx-auto w-10 h-10' : 'px-4 py-2.5'} rounded-2xl text-sm font-medium transition-all duration-300 ${
                             isActive 
-                              ? 'bg-white/10 text-white border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]' 
-                              : 'text-gray-500 hover:bg-white/5 hover:text-gray-200'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-100 shadow-sm' 
+                              : 'text-gray-600 hover:bg-blue-50 hover:text-blue-700'
                           } ${item.highlight && !isActive ? 'text-gray-300 font-bold' : ''}`}
                         >
                           <item.icon className={`${!isSidebarCollapsed ? 'mr-3' : ''} h-4 w-4 shrink-0 transition-transform group-hover:scale-125 ${
@@ -431,7 +431,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
         </div>
 
         {/* User Profile Footer */}
-        <div className="p-4 border-t border-gray-800 shrink-0 bg-[#111]">
+        <div className="p-4 border-t border-gray-200 shrink-0 bg-white/70">
           {!isSidebarCollapsed ? (
             <>
               <div className="flex items-center gap-3 mb-4 px-2">
