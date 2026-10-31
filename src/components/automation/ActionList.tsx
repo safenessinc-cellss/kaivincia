@@ -31,6 +31,7 @@ export default function ActionList({
   const [selectedActionType, setSelectedActionType] = useState<ActionType>('crear_contacto');
   const [showAddMenu, setShowAddMenu] = useState(false);
 
+  const safeActions = Array.isArray(actions) ? actions : [];
   const allowedActionTypes = ACTIONS_BY_AREA[area] || [];
   const availableActionMetas = ACTIONS_CATALOG.filter((a) =>
     allowedActionTypes.includes(a.type)
@@ -44,7 +45,7 @@ export default function ActionList({
       id: 'act_' + Date.now() + '_' + Math.random().toString(36).substring(2, 5),
       type,
       params: { ...meta.defaultParams },
-      order: actions.length + 1,
+      order: safeActions.length + 1,
       responsibleRole: 'setter',
       delayMinutes: 0,
       isEnabled: true,
@@ -56,12 +57,12 @@ export default function ActionList({
       }
     };
 
-    onChangeActions([...actions, newAction]);
+    onChangeActions([...safeActions, newAction]);
     setShowAddMenu(false);
   };
 
   const handleRemoveAction = (id: string) => {
-    const remaining = actions.filter((a) => a.id !== id);
+    const remaining = safeActions.filter((a) => a.id !== id);
     const reordered = remaining.map((a, idx) => ({ ...a, order: idx + 1 }));
     onChangeActions(reordered);
   };
@@ -69,13 +70,13 @@ export default function ActionList({
   const handleMoveAction = (index: number, direction: 'up' | 'down') => {
     if (
       (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === actions.length - 1)
+      (direction === 'down' && index === safeActions.length - 1)
     ) {
       return;
     }
 
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    const newActions = [...actions];
+    const newActions = [...safeActions];
     const temp = newActions[index];
     newActions[index] = newActions[targetIndex];
     newActions[targetIndex] = temp;
@@ -86,13 +87,13 @@ export default function ActionList({
 
   const handleUpdateAction = (id: string, updates: Partial<Action>) => {
     onChangeActions(
-      actions.map((a) => (a.id === id ? { ...a, ...updates } : a))
+      safeActions.map((a) => (a.id === id ? { ...a, ...updates } : a))
     );
   };
 
   const handleUpdateParam = (id: string, paramKey: string, value: any) => {
     onChangeActions(
-      actions.map((a) => {
+      safeActions.map((a) => {
         if (a.id !== id) return a;
         return {
           ...a,
@@ -179,7 +180,7 @@ export default function ActionList({
       )}
 
       {/* Lista ordenada de acciones configuradas */}
-      {actions.length === 0 ? (
+      {safeActions.length === 0 ? (
         <div className="p-8 border border-dashed border-slate-800 rounded-2xl bg-slate-950/40 text-center space-y-2">
           <p className="text-xs text-slate-400 font-medium">
             No has agregado ninguna acción a la regla todavía.
@@ -190,7 +191,7 @@ export default function ActionList({
         </div>
       ) : (
         <div className="space-y-3">
-          {actions.map((action, index) => {
+          {safeActions.map((action, index) => {
             const meta = ACTIONS_CATALOG.find((a) => a.type === action.type);
 
             return (
@@ -287,7 +288,7 @@ export default function ActionList({
                             }
                             className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
                           >
-                            {field.options.map((opt) => (
+                            {(Array.isArray(field.options) ? field.options : []).map((opt) => (
                               <option key={opt.value} value={opt.value}>
                                 {opt.label}
                               </option>
