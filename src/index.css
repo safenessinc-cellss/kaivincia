@@ -446,3 +446,106 @@
   color: var(--color-text-primary) !important;
   background-color: var(--color-surface) !important;
 }
+
+
+/* Dashboard + Chat: mismas superficies corporativas que el resto del CRM */
+.kaivincia-dashboard,
+.kaivincia-chat {
+  color: var(--color-text-primary, #172033) !important;
+  background: var(--color-background, #F3F6FB) !important;
+}
+.kaivincia-dashboard [class*="bg-[#0B0E14]"],
+.kaivincia-dashboard [class*="bg-[#151921]"],
+.kaivincia-dashboard [class*="bg-[#050505]"],
+.kaivincia-dashboard [class*="bg-gray-900"],
+.kaivincia-dashboard [class*="bg-white/5"],
+.kaivincia-dashboard [class*="bg-white/10"],
+.kaivincia-chat [class*="bg-[#0a0a0a]"],
+.kaivincia-chat [class*="bg-[#050505]"],
+.kaivincia-chat [class*="bg-[#080808]"],
+.kaivincia-chat [class*="bg-[#111]"],
+.kaivincia-chat [class*="bg-zinc-950"],
+.kaivincia-chat [class*="bg-zinc-900"],
+.kaivincia-chat [class*="bg-white/5"],
+.kaivincia-chat [class*="bg-white/10"],
+.kaivincia-chat [class*="bg-zinc-950/60"],
+.kaivincia-chat [class*="from-zinc-950"],
+.kaivincia-chat [class*="via-zinc-900"],
+.kaivincia-chat [class*="to-black"] {
+  background-color: var(--color-surface, #FFFFFF) !important;
+  background-image: none !important;
+}
+.kaivincia-dashboard [class*="border-white/"],
+.kaivincia-dashboard [class*="border-[#1F2937]"],
+.kaivincia-chat [class*="border-white/"],
+.kaivincia-chat [class*="border-[#A855F7]"] {
+  border-color: color-mix(in srgb, var(--color-secondary, #CBD5E1) 35%, transparent) !important;
+}
+.kaivincia-dashboard [class*="text-white"],
+.kaivincia-dashboard [class*="text-gray-200"],
+.kaivincia-dashboard [class*="text-gray-300"],
+.kaivincia-dashboard [class*="text-gray-400"],
+.kaivincia-chat [class*="text-white"],
+.kaivincia-chat [class*="text-gray-200"],
+.kaivincia-chat [class*="text-gray-300"],
+.kaivincia-chat [class*="text-gray-400"] {
+  color: var(--color-text-primary, #172033) !important;
+}
+.kaivincia-dashboard [class*="text-gray-500"],
+.kaivincia-dashboard [class*="text-gray-600"],
+.kaivincia-chat [class*="text-gray-500"],
+.kaivincia-chat [class*="text-gray-600"],
+.kaivincia-chat [class*="text-zinc-500"],
+.kaivincia-chat [class*="text-zinc-600"] {
+  color: var(--color-text-secondary, #64748B) !important;
+}
+.kaivincia-dashboard input,
+.kaivincia-dashboard select,
+.kaivincia-dashboard textarea,
+.kaivincia-chat input,
+.kaivincia-chat select,
+.kaivincia-chat textarea {
+  color: var(--color-text-primary, #172033) !important;
+  background: var(--color-surface, #FFFFFF) !important;
+  border-color: color-mix(in srgb, var(--color-secondary, #CBD5E1) 45%, transparent) !important;
+}
+.kaivincia-dashboard [class*="rounded-2xl"],
+.kaivincia-dashboard [class*="rounded-3xl"],
+.kaivincia-chat [class*="rounded-2xl"],
+.kaivincia-chat [class*="rounded-3xl"] {
+  box-shadow: var(--card-shadow, 0 8px 24px -16px rgba(15,23,42,.22));
+}
+/* Acciones de color conservan contraste y jerarquía visual */
+.kaivincia-dashboard button[class*="bg-emerald"],
+.kaivincia-dashboard button[class*="bg-blue"],
+.kaivincia-dashboard button[class*="bg-cyan"],
+.kaivincia-dashboard button[class*="bg-amber"],
+.kaivincia-dashboard button[class*="bg-gray-900"],
+.kaivincia-chat button[class*="bg-rose"],
+.kaivincia-chat button[class*="bg-[#00F0FF]"],
+.kaivincia-chat button[class*="bg-[#A855F7]"],
+.kaivincia-chat button[class*="bg-emerald"] {
+  color: #FFFFFF !important;
+}
+/* El encabezado degradado del chat necesita texto oscuro legible en tema claro */
+.kaivincia-chat [class*="text-transparent"][class*="bg-clip-text"] {
+  background-image: linear-gradient(90deg, #172033, #475569, #64748B) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-dashboard,
+:root[data-appearance-mode="dark"] .kaivincia-chat {
+  color: var(--color-text-primary) !important;
+  background: var(--color-background) !important;
+}
+
+.kaivincia-dashboard [class*="from-[#151921]"] {
+  background-image: none !important;
+}
+.kaivincia-dashboard [class*="from-[#0B0E14]"] {
+  background-image: linear-gradient(to top, rgba(255,255,255,.94), rgba(255,255,255,.34), transparent) !important;
+}
+.kaivincia-dashboard button[class*="bg-gray-900"] {
+  background-color: var(--color-primary, #2563EB) !important;
+  color: #FFFFFF !important;
+}

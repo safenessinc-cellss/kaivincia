@@ -489,7 +489,7 @@ export default function Chat() {
   const adminUsersCount = globalUsers.filter(u => u.role === 'admin' || u.role === 'superadmin').length;
 
   return (
-    <div id="neural-chat-main-container" className="h-full min-h-screen bg-[#0a0a0a] flex flex-col md:flex-row overflow-hidden font-sans text-white">
+    <div id="neural-chat-main-container" className="kaivincia-chat h-full min-h-screen bg-transparent flex flex-col md:flex-row overflow-hidden font-sans text-slate-700">
       
       {/* COLUMN 1: LEFT SIDEBAR (CHANNELS & ACTIVE LISTS) */}
       <div id="neural-chat-sidebar" className="w-full md:w-80 border-r border-white/5 flex flex-col bg-[#050505] shadow-2xl z-20 shrink-0">
