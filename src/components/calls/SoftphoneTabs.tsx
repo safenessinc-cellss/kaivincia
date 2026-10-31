@@ -22,7 +22,7 @@ export default function SoftphoneTabs({
   const { t } = useLanguage();
 
   return (
-    <div className="flex items-center justify-between bg-slate-900/90 p-1 rounded-2xl border border-slate-800/80 mb-3 shadow-inner">
+    <div className="flex items-center justify-between bg-slate-100/90 p-1 rounded-2xl border border-slate-200 mb-3 shadow-inner">
       <div className="grid grid-cols-2 gap-1 w-full">
         {/* Pestaña 1: Marcador */}
         <button
@@ -30,8 +30,8 @@ export default function SoftphoneTabs({
           onClick={() => onTabChange('dialer')}
           className={`flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
             activeTab === 'dialer'
-              ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-black shadow-[0_0_12px_rgba(0,240,255,0.3)]'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+              ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
+              : 'text-slate-500 hover:text-blue-700 hover:bg-white/80'
           }`}
         >
           <Phone className={`w-3.5 h-3.5 ${activeTab === 'dialer' ? 'fill-current' : ''}`} />
