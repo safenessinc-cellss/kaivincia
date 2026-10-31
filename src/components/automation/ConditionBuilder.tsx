@@ -15,6 +15,7 @@ export default function ConditionBuilder({
   onChangeConditions,
   disabled
 }: ConditionBuilderProps) {
+  const safeConditions = Array.isArray(conditions) ? conditions : [];
   const availableFields = FIELDS_BY_AREA[area] || [];
 
   const handleAddCondition = () => {
@@ -24,18 +25,18 @@ export default function ConditionBuilder({
       field: firstField,
       operator: 'equals',
       value: '',
-      logic: conditions.length > 0 ? 'AND' : 'AND'
+      logic: safeConditions.length > 0 ? 'AND' : 'AND'
     };
-    onChangeConditions([...conditions, newCond]);
+    onChangeConditions([...safeConditions, newCond]);
   };
 
   const handleRemoveCondition = (id: string) => {
-    onChangeConditions(conditions.filter((c) => c.id !== id));
+    onChangeConditions(safeConditions.filter((c) => c.id !== id));
   };
 
   const handleUpdateCondition = (id: string, updates: Partial<Condition>) => {
     onChangeConditions(
-      conditions.map((c) => {
+      safeConditions.map((c) => {
         if (c.id !== id) return c;
         const updated = { ...c, ...updates };
 
@@ -82,7 +83,7 @@ export default function ConditionBuilder({
         </button>
       </div>
 
-      {conditions.length === 0 ? (
+      {safeConditions.length === 0 ? (
         <div className="p-6 border border-dashed border-slate-800 rounded-2xl bg-slate-950/40 text-center space-y-2">
           <div className="w-8 h-8 rounded-full bg-slate-900 border border-slate-800 text-slate-500 flex items-center justify-center mx-auto">
             <SlidersHorizontal className="w-4 h-4" />
@@ -96,7 +97,7 @@ export default function ConditionBuilder({
         </div>
       ) : (
         <div className="space-y-3">
-          {conditions.map((cond, index) => {
+          {safeConditions.map((cond, index) => {
             const fieldDef = availableFields.find((f) => f.key === cond.field);
             const applicableOperators = OPERATORS.filter(
               (op) => !fieldDef || op.applicableTypes.includes(fieldDef.type)
@@ -173,7 +174,7 @@ export default function ConditionBuilder({
                         className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
                       >
                         <option value="">-- Seleccionar Opción --</option>
-                        {fieldDef.options.map((opt) => (
+                        {(Array.isArray(fieldDef.options) ? fieldDef.options : []).map((opt) => (
                           <option key={opt.value} value={opt.value}>
                             {opt.label}
                           </option>
