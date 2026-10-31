@@ -52,3 +52,23 @@ Academia interna/externa, contabilidad, solicitudes, auditorías SGI, automatiza
 
 ## Limitaciones de esta pasada
 Esta es una revisión estática del código fuente disponible. No equivale a ejecutar cada pestaña con usuarios reales, ni a verificar el comportamiento de Firebase/Telnyx en producción. Los puntos señalados como riesgos requieren pruebas de integración antes de cambiar políticas o lógica.
+
+
+## Hallazgos adicionales — revisión de autenticación y telefonía (2026-10-31)
+
+### P0 — Aprovisionamiento y exposición de telefonía
+16. `api/telnyx-token.ts` valida que el solicitante tenga un ID token Firebase válido, pero no comprueba que el perfil `users/{uid}` esté aprobado ni que el usuario tenga un rol autorizado antes de crear/recuperar una credencial Telnyx. Si no existe `operadores/{uid}`, el endpoint crea automáticamente un operador con `activo: true`, `permiteSalientes: true` y `permiteEntrantes: true`. Esto puede convertir una cuenta autenticada sin aprobación del CRM en un usuario habilitado para obtener un JWT de telefonía.
+17. `api/telnyx-numbers.ts` verifica autenticación Firebase, pero no rol ni asignación; luego devuelve la lista completa de números activos de la cuenta Telnyx. La política debe separar números asignados al agente de inventario global reservado a administradores.
+18. `api/telnyx-test.ts` ejecuta la prueba de conexión sin verificar token Firebase ni rol. Aunque no devuelve la API key, permite invocar una operación administrativa del carrier sin autorización de aplicación.
+19. `src/pages/CallCenterAdmin.tsx` consulta directamente las colecciones completas `operadores`, `telnyx_phone_numbers` y `telnyx_sip_credentials`. La visibilidad de la ruta en React no protege estas lecturas; las reglas deben exigir rol administrativo y restringir secretos/credenciales.
+20. `api/auth/bootstrap-user.ts` repara perfiles allowlisted con `status: 'active'`, mientras `firestore.rules` define `isApproved()` sólo para `status == 'approved'`. El frontend y las reglas mantienen, por tanto, semánticas distintas de aprobación. Debe establecerse un estado canónico y una transición compatible, sin bloquear administradores legítimos.
+
+**Acción inmediata recomendada:** antes de tocar el endpoint, definir el contrato de elegibilidad: perfil CRM existente, estado aprobado/activo canónico, rol, operador activo, asignación de caller IDs y permisos entrantes/salientes. Aplicar el mismo helper de autorización en los endpoints de token, números, sincronización y test. No crear automáticamente operadores activos para identidades sin aprobación. Añadir pruebas negativas para usuario pendiente, suspendido, agente sin asignación y usuario no autenticado.
+
+### P1 — Inconsistencia de roles
+21. `src/constants/roles.ts` reconoce `agent`, pero el modelo de `AuthContext` y la provisión de telefonía utilizan `agente`; otras rutas utilizan `tlmk`. La función `getRoleLevel('agente')` devuelve nivel 0, por lo que los helpers jerárquicos no reconocen ese rol como agente. Se requiere alias canónico retrocompatible y migración documentada.
+22. `RouteGuard` permite estados `approved` y `active`, y contempla excepciones para roles privilegiados; las reglas Firestore sólo reconocen `approved`. La autorización de interfaz no debe considerarse equivalente a autorización de datos o APIs.
+23. El fallback `effectiveUserData` en `App.tsx` puede construir un perfil aparente `tlmk/active` cuando falta `userData`. Aunque el guard basado en AuthContext debe impedir el acceso sin perfil, se debe eliminar esa identidad sintética para que ninguna ruta/componente pueda interpretarla como autorización.
+
+### Limitación específica
+Estos hallazgos proceden de lectura estática de los archivos `api/telnyx-token.ts`, `api/telnyx-numbers.ts`, `api/telnyx-test.ts`, `api/auth/bootstrap-user.ts`, `src/pages/CallCenterAdmin.tsx`, `src/constants/roles.ts`, `src/App.tsx` y `firestore.rules`. No se han ejecutado llamadas reales a Telnyx ni pruebas con cuentas de distintos roles.
