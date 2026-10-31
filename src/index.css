@@ -212,8 +212,7 @@
 .kaivincia-shell main [class*="bg-gray-950"],
 .kaivincia-shell main [class*="bg-gray-900"],
 .kaivincia-shell main [class*="bg-zinc-950"],
-.kaivincia-shell main [class*="bg-zinc-900"],
-.kaivincia-shell main [class*="bg-black"] {
+.kaivincia-shell main [class*="bg-zinc-900"] {
   background-color: #FFFFFF !important;
   background-image: none;
 }
@@ -292,4 +291,16 @@
   background: #F1F5F9 !important;
   border: 1px solid #E2E8F0 !important;
   border-radius: 22px !important;
+}
+
+/* Keep modal scrims dark; they are overlays, not content surfaces. */
+.kaivincia-shell main [class~="bg-black/75"],
+.kaivincia-shell main [class~="bg-black/70"],
+.kaivincia-shell main [class~="bg-black/60"],
+.kaivincia-shell main [class~="bg-black/50"] {
+  background-color: rgba(15, 23, 42, .62) !important;
+}
+.kaivincia-shell main button[class*="text-white"],
+.kaivincia-shell main button [class*="text-white"] {
+  color: #FFFFFF !important;
 }
