@@ -6,19 +6,19 @@
   --font-size-base: 14px;
   --font-weight-base: 400;
   --heading-scale: 1;
-  --color-primary: #00F0FF;
-  --color-secondary: #1e293b;
-  --color-background: #05070a;
-  --color-surface: #0b1118;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #94a3b8;
-  --color-sidebar-bg: #070b10;
-  --color-sidebar-text: #cbd5e1;
-  --color-sidebar-active: #00F0FF;
-  --color-header-bg: #070b10;
+  --color-primary: #2563EB;
+  --color-secondary: #475569;
+  --color-background: #F3F6FB;
+  --color-surface: rgba(255, 255, 255, 0.88);
+  --color-text-primary: #172033;
+  --color-text-secondary: #64748b;
+  --color-sidebar-bg: rgba(255, 255, 255, 0.88);
+  --color-sidebar-text: #475569;
+  --color-sidebar-active: #2563EB;
+  --color-header-bg: rgba(255, 255, 255, 0.82);
   --sidebar-width: 256px;
   --border-radius: 12px;
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --card-shadow: 0 8px 28px -14px rgba(15, 23, 42, 0.22);
   --density-padding: 1rem;
 }
 
@@ -46,15 +46,15 @@
     font-family: var(--font-family);
     font-size: var(--font-size-base);
     font-weight: var(--font-weight-base);
-    background-color: var(--color-background);
-    color: var(--color-text-secondary);
-    background-image: radial-gradient(rgba(31, 41, 55, 0.2) 1px, transparent 0);
-    background-size: 24px 24px;
+    background-color: #F3F6FB;
+    color: #475569;
+    background-image: radial-gradient(rgba(148, 163, 184, 0.16) 1px, transparent 0);
+    background-size: 26px 26px;
     transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    color: var(--color-text-primary);
+    color: #172033;
   }
 }
 
@@ -183,3 +183,113 @@
   .border-\[\#00F0FF\], .border-cyan-500\/30 { border-color: #e5e7eb !important; }
 }
 
+
+
+/* Kaivincia Corp · macOS Tahoe inspired design system */
+.kaivincia-shell {
+  color: #334155;
+  background: radial-gradient(ellipse at 15% 0%, rgba(219,234,254,.62), transparent 36%),
+              linear-gradient(145deg, #F7F9FC 0%, #EEF3F9 100%) !important;
+}
+.kaivincia-shell aside,
+.kaivincia-shell [data-sidebar] {
+  background: rgba(255,255,255,.82) !important;
+  color: #475569 !important;
+  border-color: rgba(203,213,225,.72) !important;
+  backdrop-filter: saturate(160%) blur(24px);
+}
+.kaivincia-shell header {
+  background: rgba(255,255,255,.76) !important;
+  border-color: rgba(203,213,225,.72) !important;
+  backdrop-filter: saturate(180%) blur(24px);
+}
+.kaivincia-shell main {
+  background: transparent;
+  color: #334155;
+}
+.kaivincia-shell main [class*="bg-slate-950"],
+.kaivincia-shell main [class*="bg-slate-900"],
+.kaivincia-shell main [class*="bg-gray-950"],
+.kaivincia-shell main [class*="bg-gray-900"],
+.kaivincia-shell main [class*="bg-zinc-950"],
+.kaivincia-shell main [class*="bg-zinc-900"],
+.kaivincia-shell main [class*="bg-black"] {
+  background-color: #FFFFFF !important;
+  background-image: none;
+}
+.kaivincia-shell main [class*="border-slate-800"],
+.kaivincia-shell main [class*="border-slate-700"],
+.kaivincia-shell main [class*="border-gray-800"],
+.kaivincia-shell main [class*="border-gray-700"] {
+  border-color: #E2E8F0 !important;
+}
+.kaivincia-shell main [class*="text-white"] {
+  color: #172033 !important;
+}
+.kaivincia-shell main input,
+.kaivincia-shell main textarea,
+.kaivincia-shell main select {
+  color: #172033;
+  background-color: #FFFFFF;
+  border-color: #CBD5E1;
+}
+.kaivincia-shell main input::placeholder,
+.kaivincia-shell main textarea::placeholder {
+  color: #94A3B8;
+}
+.kaivincia-shell main [class*="rounded-2xl"],
+.kaivincia-shell main [class*="rounded-3xl"] {
+  box-shadow: 0 8px 26px -18px rgba(15,23,42,.28);
+}
+.kaivincia-shell a,
+.kaivincia-shell button {
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+/* iOS 27 inspired softphone: native-feeling dial pad and call surfaces */
+.ios27-softphone {
+  color: #172033;
+  background: linear-gradient(160deg, rgba(255,255,255,.98), rgba(241,245,249,.96)) !important;
+  border: 1px solid rgba(203,213,225,.9) !important;
+  border-radius: 28px !important;
+  box-shadow: 0 24px 64px -30px rgba(15,23,42,.38), inset 0 1px 0 rgba(255,255,255,.9) !important;
+  backdrop-filter: saturate(180%) blur(28px);
+}
+.ios27-softphone [class*="bg-slate-950"],
+.ios27-softphone [class*="bg-slate-900"],
+.ios27-softphone [class*="bg-slate-800"] {
+  background-color: #F1F5F9 !important;
+  background-image: none !important;
+}
+.ios27-softphone [class*="border-slate-800"],
+.ios27-softphone [class*="border-slate-700"] {
+  border-color: #DCE4EF !important;
+}
+.ios27-softphone [class*="text-white"] { color: #172033 !important; }
+.ios27-softphone input,
+.ios27-softphone textarea {
+  color: #172033 !important;
+  background: rgba(255,255,255,.94) !important;
+  border-color: #CBD5E1 !important;
+}
+.ios27-softphone button:not([class*="bg-rose"]):not([class*="bg-emerald"]):not([class*="bg-green"]) {
+  color: #334155;
+}
+.ios27-softphone .ios-call-primary {
+  background: #22C55E !important;
+  color: #FFFFFF !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 18px -8px rgba(34,197,94,.65);
+}
+.ios27-softphone .ios-call-danger {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+}
+.ios27-softphone .ios-keypad {
+  background: #F1F5F9 !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 22px !important;
+}
