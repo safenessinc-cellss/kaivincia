@@ -319,11 +319,11 @@ export default function RuleTemplates({ onUseTemplate }: RuleTemplatesProps) {
       {/* Barra de Filtros */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h3 className="text-base font-black text-white uppercase italic tracking-tight flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#00F0FF]" />
+          <h3 className="text-base font-black text-slate-900 uppercase italic tracking-tight flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-600" />
             Catálogo de Plantillas Listas para Clonar
           </h3>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-600">
             Mejores prácticas operativas ya probadas por área de negocio. Puedes clonarlas y ajustarlas a tu medida.
           </p>
         </div>
@@ -336,14 +336,14 @@ export default function RuleTemplates({ onUseTemplate }: RuleTemplatesProps) {
               placeholder="Buscar plantilla..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-white text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-[#00F0FF]"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-blue-500"
             />
           </div>
 
           <select
             value={selectedArea}
             onChange={(e) => setSelectedArea(e.target.value)}
-            className="bg-slate-900 border border-slate-800 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
+            className="bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500"
           >
             <option value="all">Todas las Áreas</option>
             {AREAS.map((a) => (
@@ -360,42 +360,42 @@ export default function RuleTemplates({ onUseTemplate }: RuleTemplatesProps) {
         {filtered.map((tpl) => (
           <div
             key={tpl.id}
-            className="p-5 rounded-3xl bg-slate-950/80 border border-slate-800/90 hover:border-[#00F0FF]/40 transition-all flex flex-col justify-between group shadow-lg"
+            className="p-5 rounded-3xl bg-white border border-slate-200 hover:border-blue-200/40 transition-all flex flex-col justify-between group shadow-lg"
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-950/80 text-[#00F0FF] border border-blue-800/80">
+                <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
                   {tpl.area}
                 </span>
-                <span className="text-[10px] font-mono text-slate-400">
+                <span className="text-[10px] font-mono text-slate-600">
                   {tpl.category}
                 </span>
               </div>
 
               <div>
-                <h4 className="text-sm font-bold text-white group-hover:text-[#00F0FF] transition-colors leading-snug">
+                <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
                   {tpl.name}
                 </h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                   {tpl.description}
                 </p>
               </div>
 
               {/* Resumen de Disparador y Acciones */}
-              <div className="p-3 rounded-2xl bg-black/50 border border-slate-900 space-y-1.5 text-[11px] font-mono">
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5 text-[11px] font-mono">
                 <div className="text-amber-400">
                   ⚡ <strong>Evento:</strong> {tpl.rule.event}
                 </div>
                 <div className="text-emerald-400">
                   ✓ <strong>Condiciones:</strong> {tpl.rule.conditions.length} definidas
                 </div>
-                <div className="text-[#00F0FF]">
+                <div className="text-blue-600">
                   → <strong>Acciones:</strong> {tpl.rule.actions.length} encadenadas
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 mt-4 border-t border-slate-800/80">
+            <div className="pt-4 mt-4 border-t border-slate-200">
               <button
                 type="button"
                 onClick={() =>
@@ -405,7 +405,7 @@ export default function RuleTemplates({ onUseTemplate }: RuleTemplatesProps) {
                     failureCount: 0
                   })
                 }
-                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-[#00F0FF] text-white hover:text-black font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm group-hover:bg-[#00F0FF] group-hover:text-black"
+                className="w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-blue-600 text-slate-900 hover:text-black font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm group-hover:bg-blue-600 group-hover:text-black"
               >
                 <Copy className="w-3.5 h-3.5" />
                 Usar Esta Plantilla
