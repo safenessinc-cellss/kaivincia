@@ -195,25 +195,25 @@ export default function Automations() {
   });
 
   return (
-    <div className="min-h-screen bg-[#06080C] text-slate-100 p-4 sm:p-8 font-sans">
+    <div className="automation-page min-h-screen bg-[#F4F7FB] text-slate-800 p-4 sm:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* Encabezado Superior */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-950/80 border border-slate-800/80 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white border border-slate-200 p-6 sm:p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
           <div className="space-y-1.5 z-10">
             <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-[#00F0FF]/10 text-[#00F0FF] border border-[#00F0FF]/30 text-[10px] font-mono font-black uppercase tracking-widest flex items-center gap-1.5">
+              <span className="px-3 py-1 rounded-full bg-blue-600/10 text-blue-600 border border-blue-200 text-[10px] font-mono font-black uppercase tracking-widest flex items-center gap-1.5">
                 <Zap className="w-3 h-3" /> Motor de Automatizaciones Sin Código
               </span>
               <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono font-black uppercase tracking-widest">
                 8 Áreas Conectadas
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white uppercase italic tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 uppercase italic tracking-tight">
               Centro Operativo de Automatización
             </h1>
-            <p className="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-              Diseña flujos reactivos con la lógica natural <span className="text-white font-bold">«Cuando / Si / Hacer»</span>, programa contingencias con fallback y simula evaluaciones paso a paso sin afectar datos reales.
+            <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
+              Diseña flujos reactivos con la lógica natural <span className="text-slate-900 font-bold">«Cuando / Si / Hacer»</span>, programa contingencias con fallback y simula evaluaciones paso a paso sin afectar datos reales.
             </p>
           </div>
 
@@ -224,7 +224,7 @@ export default function Automations() {
                 setEditingRule(null);
                 setShowBuilder(true);
               }}
-              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-[#00F0FF] to-cyan-400 hover:opacity-90 text-black font-black uppercase text-xs tracking-wider flex items-center gap-2 shadow-xl shadow-[#00F0FF]/10 cursor-pointer transition-all"
+              className="px-6 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 hover:opacity-90 text-white font-black uppercase text-xs tracking-wider flex items-center gap-2 shadow-xl shadow-[#00F0FF]/10 cursor-pointer transition-all"
             >
               <Plus className="w-4 h-4" />
               Nueva Automatización
@@ -233,18 +233,18 @@ export default function Automations() {
         </div>
 
         {/* Barra de Navegación de Pestañas */}
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
           <div className="flex items-center gap-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setActiveTab('rules')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'rules'
-                  ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white/10 text-slate-900 border border-white/20 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Layers className="w-3.5 h-3.5 text-[#00F0FF]" />
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
               Mis Reglas ({rules.length})
             </button>
             <button
@@ -252,8 +252,8 @@ export default function Automations() {
               onClick={() => setActiveTab('templates')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'templates'
-                  ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white/10 text-slate-900 border border-white/20 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -264,8 +264,8 @@ export default function Automations() {
               onClick={() => setActiveTab('history')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'history'
-                  ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white/10 text-slate-900 border border-white/20 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <History className="w-3.5 h-3.5 text-emerald-400" />
@@ -276,11 +276,11 @@ export default function Automations() {
               onClick={() => setActiveTab('guide')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'guide'
-                  ? 'bg-white/10 text-white border border-white/20 shadow-sm'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-white/10 text-slate-900 border border-white/20 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 text-cyan-400" />
+              <BookOpen className="w-3.5 h-3.5 text-blue-600" />
               Manual y Preguntas Frecuentes
             </button>
           </div>
@@ -319,7 +319,7 @@ export default function Automations() {
         {activeTab === 'rules' && (
           <div className="space-y-6">
             {/* Barra de Filtro de Reglas */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 rounded-2xl bg-white border border-slate-200">
               <div className="relative flex-1 sm:w-72">
                 <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
                 <input
@@ -327,7 +327,7 @@ export default function Automations() {
                   placeholder="Filtrar automatizaciones..."
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 text-white text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-[#00F0FF]"
+                  className="w-full bg-white border border-slate-200 text-slate-800 text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-blue-500"
                 />
               </div>
 
@@ -338,8 +338,8 @@ export default function Automations() {
                   onClick={() => setSelectedAreaFilter('all')}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     selectedAreaFilter === 'all'
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                      ? 'bg-slate-100 text-slate-900 shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   Todas
@@ -351,8 +351,8 @@ export default function Automations() {
                     onClick={() => setSelectedAreaFilter(a.id)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                       selectedAreaFilter === a.id
-                        ? 'bg-blue-950 text-[#00F0FF] border border-blue-800'
-                        : 'text-slate-400 hover:text-white'
+                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: a.color }} />
@@ -368,15 +368,15 @@ export default function Automations() {
                 Cargando automatizaciones configuradas...
               </div>
             ) : filteredRules.length === 0 ? (
-              <div className="p-16 border border-dashed border-slate-800 rounded-3xl bg-slate-950/40 text-center space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 text-slate-500 flex items-center justify-center mx-auto">
+              <div className="p-16 border border-dashed border-slate-200 rounded-3xl bg-slate-50 text-center space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center mx-auto">
                   <Layers className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">
+                  <h3 className="text-base font-bold text-slate-900">
                     No hay reglas configuradas para este criterio
                   </h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto mt-1">
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto mt-1">
                     Crea tu primera regla personalizada o clona una de nuestras plantillas maestras probadas.
                   </p>
                 </div>
@@ -384,14 +384,14 @@ export default function Automations() {
                   <button
                     type="button"
                     onClick={() => setShowBuilder(true)}
-                    className="px-5 py-2.5 rounded-xl bg-[#00F0FF] hover:bg-cyan-400 text-black text-xs font-bold cursor-pointer transition-all"
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-black text-xs font-bold cursor-pointer transition-all"
                   >
                     Diseñar Nueva Regla
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('templates')}
-                    className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-800 cursor-pointer transition-all"
+                    className="px-5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-900 text-xs font-bold border border-slate-200 cursor-pointer transition-all"
                   >
                     Ver Plantillas Listas
                   </button>
@@ -404,8 +404,8 @@ export default function Automations() {
                     key={rule.id}
                     className={`p-6 rounded-3xl border transition-all flex flex-col justify-between ${
                       rule.isActive
-                        ? 'bg-slate-950/80 border-slate-800/80 hover:border-[#00F0FF]/30 shadow-xl'
-                        : 'bg-slate-950/40 border-slate-900 opacity-65'
+                        ? 'bg-white border-slate-200 hover:border-blue-200 shadow-xl'
+                        : 'bg-slate-50 border-slate-200 opacity-65'
                     }`}
                   >
                     <div className="space-y-4">
@@ -413,25 +413,25 @@ export default function Automations() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="flex items-center gap-2 mb-1.5">
-                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-950 text-[#00F0FF] border border-blue-800">
+                            <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
                               {rule.area}
                             </span>
                             <span
                               className={`text-[9px] font-mono px-2 py-0.5 rounded-full flex items-center gap-1 ${
                                 rule.isActive
                                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-slate-800 text-slate-500'
+                                  : 'bg-slate-100 text-slate-500'
                               }`}
                             >
                               <span className={`w-1.5 h-1.5 rounded-full ${rule.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
                               {rule.isActive ? 'Activa' : 'Pausada'}
                             </span>
                           </div>
-                          <h3 className="text-base font-bold text-white leading-snug">
+                          <h3 className="text-base font-bold text-slate-900 leading-snug">
                             {rule.name}
                           </h3>
                           {rule.description && (
-                            <p className="text-xs text-slate-400 mt-1">
+                            <p className="text-xs text-slate-600 mt-1">
                               {rule.description}
                             </p>
                           )}
@@ -441,7 +441,7 @@ export default function Automations() {
                         <button
                           type="button"
                           onClick={() => handleToggleActive(rule)}
-                          className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white cursor-pointer"
+                          className="p-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 cursor-pointer"
                           title={rule.isActive ? 'Pausar regla' : 'Activar regla'}
                         >
                           <Power className={`w-4 h-4 ${rule.isActive ? 'text-emerald-400' : 'text-slate-600'}`} />
@@ -449,22 +449,22 @@ export default function Automations() {
                       </div>
 
                       {/* Resumen de Flujo: Disparador, Condiciones y Acciones */}
-                      <div className="p-3.5 rounded-2xl bg-black/50 border border-slate-900 space-y-2 text-xs">
+                      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
                         <div className="flex items-center gap-2 text-amber-400 font-mono text-[11px]">
                           <span className="font-black">CUANDO:</span>
-                          <span className="text-slate-200">{rule.event}</span>
+                          <span className="text-slate-700">{rule.event}</span>
                         </div>
                         <div className="flex items-center gap-2 text-emerald-400 font-mono text-[11px]">
                           <span className="font-black">SI:</span>
-                          <span className="text-slate-200">
+                          <span className="text-slate-700">
                             {rule.conditions.length === 0
                               ? 'Siempre (sin filtros)'
                               : `${rule.conditions.length} condición(es)`}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-[#00F0FF] font-mono text-[11px]">
+                        <div className="flex items-center gap-2 text-blue-600 font-mono text-[11px]">
                           <span className="font-black">HACER:</span>
-                          <span className="text-slate-200">
+                          <span className="text-slate-700">
                             {rule.actions.length} acción(es) en cadena
                           </span>
                         </div>
@@ -472,7 +472,7 @@ export default function Automations() {
 
                       {/* Métricas de Ejecución */}
                       <div className="flex items-center justify-between text-[10px] font-mono text-slate-500 pt-1">
-                        <span>Ejecuciones: <strong className="text-white">{rule.executionCount}</strong></span>
+                        <span>Ejecuciones: <strong className="text-slate-900">{rule.executionCount}</strong></span>
                         {(rule.failureCount ?? 0) > 0 && (
                           <span className="text-rose-400">Fallos: {rule.failureCount}</span>
                         )}
@@ -481,7 +481,7 @@ export default function Automations() {
                     </div>
 
                     {/* Botones de acción al pie de la tarjeta */}
-                    <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-200">
                       <button
                         type="button"
                         onClick={() => setTestingRule(rule)}
@@ -498,7 +498,7 @@ export default function Automations() {
                             setEditingRule(rule);
                             setShowBuilder(true);
                           }}
-                          className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 cursor-pointer transition-colors"
+                          className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 cursor-pointer transition-colors"
                           title="Editar regla"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -506,7 +506,7 @@ export default function Automations() {
                         <button
                           type="button"
                           onClick={() => handleDeleteRule(rule.id)}
-                          className="p-2 rounded-xl bg-slate-900 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-800 cursor-pointer transition-colors"
+                          className="p-2 rounded-xl bg-slate-50 hover:bg-red-500/20 text-slate-600 hover:text-red-400 border border-slate-200 cursor-pointer transition-colors"
                           title="Eliminar regla"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
