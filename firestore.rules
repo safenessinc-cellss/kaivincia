@@ -263,6 +263,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // RBAC permission matrix: authenticated users may read the matrix
+    // to evaluate their effective navigation; only admins may modify it.
+    match /settings/rbac_matrix {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
     match /settings/appearance {
       allow read:  if true;
       allow write: if isSuperAdmin() || isAdmin();
