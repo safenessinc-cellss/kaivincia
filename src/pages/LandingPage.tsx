@@ -120,7 +120,7 @@ export default function LandingPage({ onGuestMode }: LandingPageProps) {
       <nav className={`fixed w-full z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070a]/80 backdrop-blur-xl border-b border-white/5 py-4' : 'bg-transparent py-8'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <img src="/images/logo.png" alt="Logo" className="h-10 w-auto" />
+            <img src="/images/kaivincia-globe.svg" alt="Kaivincia Corp" className="h-14 w-14 object-contain rounded-full" />
           </div>
 
           <div className="hidden md:flex items-center gap-8">
