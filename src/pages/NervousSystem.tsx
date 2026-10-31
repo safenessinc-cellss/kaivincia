@@ -7,6 +7,7 @@ import {
   Search, ChevronRight, Fingerprint, Lock, Globe, CheckSquare
 } from 'lucide-react';
 import { useGlobalContext } from '../contexts/GlobalContext';
+import { LOGO_FULL } from '../constants/images';
 
 // --- MOCK DATA ---
 const INSIGHTS = [
