@@ -72,3 +72,16 @@ Esta es una revisión estática del código fuente disponible. No equivale a eje
 
 ### Limitación específica
 Estos hallazgos proceden de lectura estática de los archivos `api/telnyx-token.ts`, `api/telnyx-numbers.ts`, `api/telnyx-test.ts`, `api/auth/bootstrap-user.ts`, `src/pages/CallCenterAdmin.tsx`, `src/constants/roles.ts`, `src/App.tsx` y `firestore.rules`. No se han ejecutado llamadas reales a Telnyx ni pruebas con cuentas de distintos roles.
+
+
+## Hallazgos adicionales — telefonía, monitoreo y controles administrativos
+
+24. `api/telnyx/numbers/sync.ts` valida identidad Firebase, pero no valida rol administrativo ni aprobación antes de consultar el inventario Telnyx completo y escribirlo en Firestore. Un usuario autenticado podría invocar la sincronización fuera del panel administrativo.
+25. `api/telnyx-test.ts` tampoco verifica método/identidad/rol de forma suficiente: acepta POST sin validar Authorization y ejecuta `testConnection`. Debe limitarse a administradores autenticados y registrar auditoría.
+26. `src/pages/CallSystem.tsx` presenta el estado fijo “Troncal Zadarma Online” y el monitor permite crear una llamada local de prueba con proveedor, duración, latencia, jitter y grabación simulados. La interfaz debe etiquetar esos valores como DEMO y derivar el estado del carrier de una comprobación real.
+27. `src/pages/SecurityCenter.tsx` muestra “Protección del Ecosistema: EN LÍNEA” como estado fijo. Sus métricas usan listeners reales, pero no constituyen por sí mismas una verificación integral de seguridad.
+28. En `src/pages/SuperAdmin.tsx`, los controles del modal “Políticas Globales de Sesión & Seguridad” usan selectores/checkbox locales sin estado persistido; el botón “Guardar Políticas” sólo cierra el modal y muestra feedback. El modal “Sincronización de Red & Permisos” también muestra resultados predefinidos y cierra el modal con un mensaje de éxito sin ejecutar sincronización backend. Es necesario implementar persistencia/acción real o presentarlos como prototipos deshabilitados.
+29. `src/pages/CallCenterAdmin.tsx` consulta colecciones de operadores, números y credenciales; además, la sincronización invoca endpoint que sólo comprueba identidad. La protección de la página no sustituye controles en Firestore y API.
+
+## Estado de producción verificado durante la auditoría
+La consulta del proyecto Vercel `kaivinciacorp2` devolvió el deployment de producción `dpl_poPcxMcebyBGrWg99rbJCay9My3r` en estado `READY`, con alias `www.kaivinciacorp.com`, asociado al commit estable `eab664c88b67fd191496eb4bbfffe966438e3c29`. Esta verificación confirma el estado del deployment en Vercel; no sustituye pruebas funcionales de cada pantalla ni llamadas reales al carrier.
