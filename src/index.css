@@ -304,3 +304,145 @@
 .kaivincia-shell main button [class*="text-white"] {
   color: #FFFFFF !important;
 }
+
+
+/* Kaivincia · normalización de módulos y respeto a Apariencia */
+.kaivincia-shell {
+  background: var(--color-background, #F3F6FB) !important;
+  color: var(--color-text-primary, #172033);
+  font-family: var(--font-family, Inter, sans-serif);
+}
+.kaivincia-shell main {
+  color: var(--color-text-primary, #172033);
+  background: transparent !important;
+}
+.kaivincia-shell main > div {
+  color: inherit;
+}
+/* Superficies oscuras heredadas en Portal, Nómina, Drive y Pipeline */
+.kaivincia-shell main [class*="bg-[#050505]"],
+.kaivincia-shell main [class*="bg-[#05070a]"],
+.kaivincia-shell main [class*="bg-[#020617]"],
+.kaivincia-shell main [class*="bg-[#0c0f1d]"],
+.kaivincia-shell main [class*="bg-[#0D121D]"],
+.kaivincia-shell main [class*="bg-[#0f172a]"] {
+  background-color: var(--color-surface, #FFFFFF) !important;
+  background-image: none !important;
+}
+.kaivincia-shell main [class*="from-[#0f172a]"],
+.kaivincia-shell main [class*="to-[#020617]"] {
+  --tw-gradient-from: var(--color-surface, #FFFFFF) !important;
+  --tw-gradient-to: var(--color-surface, #FFFFFF) !important;
+  background-image: none !important;
+}
+/* Tarjetas y paneles que antes usaban grises/negros translúcidos */
+.kaivincia-shell main [class*="bg-gray-900/"],
+.kaivincia-shell main [class*="bg-slate-900/"],
+.kaivincia-shell main [class*="bg-slate-800/"],
+.kaivincia-shell main [class*="bg-gray-800/"],
+.kaivincia-shell main [class*="bg-white/5"],
+.kaivincia-shell main [class*="bg-white/10"] {
+  background-color: color-mix(in srgb, var(--color-surface, #FFFFFF) 94%, var(--color-background, #F3F6FB)) !important;
+  background-image: none !important;
+}
+/* Texto secundario: contraste legible sobre superficies claras */
+.kaivincia-shell main [class*="text-gray-200"],
+.kaivincia-shell main [class*="text-gray-300"],
+.kaivincia-shell main [class*="text-slate-200"],
+.kaivincia-shell main [class*="text-slate-300"] {
+  color: var(--color-text-primary, #172033) !important;
+}
+.kaivincia-shell main [class*="text-gray-400"],
+.kaivincia-shell main [class*="text-gray-500"],
+.kaivincia-shell main [class*="text-slate-400"],
+.kaivincia-shell main [class*="text-slate-500"] {
+  color: var(--color-text-secondary, #64748B) !important;
+}
+.kaivincia-shell main [class*="text-cyan-300"],
+.kaivincia-shell main [class*="text-cyan-400"],
+.kaivincia-shell main [class*="text-[#00F0FF]"],
+.kaivincia-shell main [class*="text-[#22D3EE]"] {
+  color: color-mix(in srgb, var(--color-primary, #2563EB) 78%, #172033) !important;
+}
+/* Inputs, tablas y bordes coherentes */
+.kaivincia-shell main input,
+.kaivincia-shell main textarea,
+.kaivincia-shell main select {
+  color: var(--color-text-primary, #172033) !important;
+  background-color: var(--color-surface, #FFFFFF) !important;
+  border-color: color-mix(in srgb, var(--color-secondary, #CBD5E1) 78%, transparent) !important;
+}
+.kaivincia-shell main input::placeholder,
+.kaivincia-shell main textarea::placeholder {
+  color: var(--color-text-secondary, #64748B) !important;
+  opacity: .8;
+}
+.kaivincia-shell main [class*="border-slate-800"],
+.kaivincia-shell main [class*="border-slate-700"],
+.kaivincia-shell main [class*="border-gray-800"],
+.kaivincia-shell main [class*="border-gray-700"],
+.kaivincia-shell main [class*="border-[#1E293B]"] {
+  border-color: color-mix(in srgb, var(--color-secondary, #CBD5E1) 78%, transparent) !important;
+}
+.kaivincia-shell main [class*="rounded-xl"],
+.kaivincia-shell main [class*="rounded-2xl"],
+.kaivincia-shell main [class*="rounded-3xl"] {
+  box-shadow: var(--card-shadow, 0 8px 24px -16px rgba(15,23,42,.24));
+}
+/* Los botones conservan el color de acción y el texto blanco cuando tienen fondo cromático. */
+.kaivincia-shell main button[class*="bg-"],
+.kaivincia-shell main button [class*="text-white"] {
+  color: inherit;
+}
+.kaivincia-shell main button[class*="bg-emerald"],
+.kaivincia-shell main button[class*="bg-green"],
+.kaivincia-shell main button[class*="bg-red"],
+.kaivincia-shell main button[class*="bg-rose"],
+.kaivincia-shell main button[class*="bg-blue-600"],
+.kaivincia-shell main button[class*="bg-blue-500"],
+.kaivincia-shell main button[class*="bg-cyan-500"],
+.kaivincia-shell main button[class*="bg-cyan-400"] {
+  color: #FFFFFF !important;
+}
+/* El tema oscuro solo se aplica si el usuario lo elige desde Apariencia. */
+
+.kaivincia-shell main [class*="bg-[#0A0D14]"] {
+  background-color: var(--color-surface, #FFFFFF) !important;
+  background-image: none !important;
+}
+/* En modo oscuro elegido por el administrador, las mismas superficies usan sus tokens oscuros. */
+:root[data-appearance-mode="dark"] .kaivincia-shell {
+  background: var(--color-background) !important;
+  color: var(--color-text-primary);
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#050505]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#05070a]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#020617]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0c0f1d]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0A0D14]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0D121D]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-[#0f172a]"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-slate-900"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="bg-gray-900"] {
+  background-color: var(--color-surface) !important;
+  background-image: none !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-white"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-200"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-300"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-200"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-300"] {
+  color: var(--color-text-primary) !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-400"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-gray-500"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-400"],
+:root[data-appearance-mode="dark"] .kaivincia-shell main [class*="text-slate-500"] {
+  color: var(--color-text-secondary) !important;
+}
+:root[data-appearance-mode="dark"] .kaivincia-shell main input,
+:root[data-appearance-mode="dark"] .kaivincia-shell main textarea,
+:root[data-appearance-mode="dark"] .kaivincia-shell main select {
+  color: var(--color-text-primary) !important;
+  background-color: var(--color-surface) !important;
+}

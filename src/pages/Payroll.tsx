@@ -30,7 +30,7 @@ export default function Payroll() {
     : PAYMENTS.filter(p => p.type === activeType);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-gray-300 font-mono p-4 md:p-8">
+    <div className="min-h-screen bg-transparent text-slate-700 font-sans p-4 md:p-8">
       {/* BLOOMBERG STYLE HEADER */}
       <div className="max-w-[1600px] mx-auto space-y-8">
         

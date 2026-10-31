@@ -99,7 +99,7 @@ export default function UserPortal() {
   const weeklyGoal = { current: 1250, target: 2500, label: 'Comisiones Semanales' };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-8 font-sans bg-[#0c0f1d] min-h-screen -m-6 p-6 overflow-hidden relative">
+    <div className="space-y-8 max-w-7xl mx-auto p-4 md:p-8 font-sans bg-transparent text-slate-700 min-h-screen -m-6 p-6 overflow-hidden relative">
       {/* Background Decor */}
       <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-emerald-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-blue-600/10 rounded-full blur-[100px] pointer-events-none" />
