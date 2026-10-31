@@ -236,14 +236,30 @@ export default function CRMLayout({ userData }: { userData: any }) {
     ];
   }, [userRole, isAdminOrFin, isSuperAdmin, t]);
 
+  // Normalize navigation data before rendering. A malformed/partial group must
+  // never crash the entire CRM shell when its items collection is missing.
+  const normalizedMenuGroups = useMemo(() => {
+    const groups = Array.isArray(menuGroups) ? menuGroups : [];
+    return groups
+      .filter((group: any) => group && typeof group === 'object')
+      .map((group: any) => ({
+        ...group,
+        items: (Array.isArray(group.items) ? group.items : [])
+          .filter((item: any) => item && typeof item === 'object')
+          .filter((item: any) => typeof item.name === 'string' && typeof item.href === 'string')
+      }));
+  }, [menuGroups]);
+
   const filteredMenuGroups = useMemo(() => {
-    if (!menuSearch) return menuGroups;
+    if (!menuSearch) return normalizedMenuGroups;
     const lowerSearch = menuSearch.toLowerCase();
-    return menuGroups.map(group => ({
-      ...group,
-      items: group.items.filter(item => item.name.toLowerCase().includes(lowerSearch))
-    })).filter(group => group.items.length > 0);
-  }, [menuGroups, menuSearch]);
+    return normalizedMenuGroups
+      .map(group => ({
+        ...group,
+        items: group.items.filter((item: any) => item.name.toLowerCase().includes(lowerSearch))
+      }))
+      .filter(group => group.items.length > 0);
+  }, [normalizedMenuGroups, menuSearch]);
 
   // Generate Breadcrumbs based on current path
   const generateBreadcrumbs = () => {
@@ -255,7 +271,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
 
     const breadcrumbs = [{ name: t('header.home', 'Inicio'), href: '/crm' }];
     let currentPath = '';
-    const allItems = menuGroups.flatMap(g => g.items);
+    const allItems = normalizedMenuGroups.flatMap(group => group.items);
 
     pathnames.forEach((name, index) => {
       currentPath += `/${name}`;
