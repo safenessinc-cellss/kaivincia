@@ -124,7 +124,7 @@ export default function RuleHistory({
   return (
     <div className="space-y-4">
       {/* Barra de Filtros */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-800">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-2xl bg-white border border-slate-200">
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <div className="relative flex-1 sm:w-64">
             <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-3" />
@@ -133,7 +133,7 @@ export default function RuleHistory({
               placeholder="Buscar por regla, evento o área..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 text-white text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-[#00F0FF]"
+              className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-xl pl-9 pr-3 py-2 outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -144,8 +144,8 @@ export default function RuleHistory({
             onClick={() => setStatusFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               statusFilter === 'all'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-slate-100 text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Todos ({logs.length})
@@ -156,7 +156,7 @@ export default function RuleHistory({
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               statusFilter === 'completed'
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                : 'text-slate-400 hover:text-emerald-400'
+                : 'text-slate-600 hover:text-emerald-400'
             }`}
           >
             <CheckCircle2 className="w-3.5 h-3.5" />
@@ -168,7 +168,7 @@ export default function RuleHistory({
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               statusFilter === 'failed'
                 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
-                : 'text-slate-400 hover:text-rose-400'
+                : 'text-slate-600 hover:text-rose-400'
             }`}
           >
             <AlertTriangle className="w-3.5 h-3.5" />
@@ -180,7 +180,7 @@ export default function RuleHistory({
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               statusFilter === 'no_match'
                 ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                : 'text-slate-400 hover:text-amber-400'
+                : 'text-slate-600 hover:text-amber-400'
             }`}
           >
             <Clock className="w-3.5 h-3.5" />
@@ -195,14 +195,14 @@ export default function RuleHistory({
           Cargando auditoría de automatizaciones...
         </div>
       ) : filteredLogs.length === 0 ? (
-        <div className="p-12 text-center bg-slate-950/40 border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs space-y-1">
+        <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-slate-500 text-xs space-y-1">
           <p>No se encontraron registros de auditoría para los criterios seleccionados.</p>
           <p className="text-[10px] text-slate-600">Los eventos disparados aparecerán aquí en tiempo real.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
+        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-900/80 text-[10px] font-mono uppercase tracking-widest text-slate-400 border-b border-slate-800">
+            <thead className="bg-slate-50/80 text-[10px] font-mono uppercase tracking-widest text-slate-600 border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4">Estado</th>
                 <th className="py-3 px-4">Regla / Evento</th>
@@ -230,7 +230,7 @@ export default function RuleHistory({
                         <AlertTriangle className="w-3 h-3" /> Parcial
                       </span>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1 w-fit">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-700 flex items-center gap-1 w-fit">
                         <Clock className="w-3 h-3" /> Ignorado
                       </span>
                     )}
@@ -238,24 +238,24 @@ export default function RuleHistory({
 
                   {/* Regla y Evento */}
                   <td className="py-3 px-4">
-                    <div className="font-sans font-bold text-white text-xs">{log.ruleName}</div>
-                    <div className="text-[10px] text-slate-400">{log.event}</div>
+                    <div className="font-sans font-bold text-slate-900 text-xs">{log.ruleName}</div>
+                    <div className="text-[10px] text-slate-600">{log.event}</div>
                   </td>
 
                   {/* Área */}
                   <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 text-[10px] border border-slate-800">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-50 text-slate-600 text-[10px] border border-slate-200">
                       {log.area}
                     </span>
                   </td>
 
                   {/* Acciones ejecutadas */}
-                  <td className="py-3 px-4 text-slate-300">
-                    <span className="font-bold text-white">{log.actionsExecuted.length}</span> ejecutadas
+                  <td className="py-3 px-4 text-slate-600">
+                    <span className="font-bold text-slate-900">{log.actionsExecuted.length}</span> ejecutadas
                   </td>
 
                   {/* Fecha */}
-                  <td className="py-3 px-4 text-slate-400 text-[11px]">
+                  <td className="py-3 px-4 text-slate-600 text-[11px]">
                     {formatTimestamp(log.timestamp)}
                   </td>
 
@@ -276,7 +276,7 @@ export default function RuleHistory({
                       <button
                         type="button"
                         onClick={() => setSelectedLog(log)}
-                        className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 cursor-pointer"
+                        className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-700 cursor-pointer"
                         title="Ver detalle del payload y acciones"
                       >
                         <Eye className="w-3.5 h-3.5" />
@@ -293,19 +293,19 @@ export default function RuleHistory({
       {/* Modal de Detalle Exhaustivo del Log */}
       {selectedLog && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-[#0B0E14] border border-slate-800 rounded-[2rem] max-w-2xl w-full p-6 space-y-5 shadow-2xl relative my-8">
-            <div className="flex justify-between items-start border-b border-slate-800 pb-4">
+          <div className="bg-[#0B0E14] border border-slate-200 rounded-[2rem] max-w-2xl w-full p-6 space-y-5 shadow-2xl relative my-8">
+            <div className="flex justify-between items-start border-b border-slate-200 pb-4">
               <div>
-                <h3 className="text-base font-black text-white uppercase italic">
+                <h3 className="text-base font-black text-slate-900 uppercase italic">
                   Detalle de Auditoría de Ejecución
                 </h3>
-                <p className="text-xs text-slate-400 font-mono">
+                <p className="text-xs text-slate-600 font-mono">
                   ID: {selectedLog.id} • {selectedLog.ruleName}
                 </p>
               </div>
               <button
                 onClick={() => setSelectedLog(null)}
-                className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 cursor-pointer"
+                className="p-1.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-white/5 cursor-pointer"
               >
                 ✕
               </button>
@@ -326,28 +326,28 @@ export default function RuleHistory({
 
             {/* Payload de Entrada */}
             <div>
-              <label className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-1">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-slate-600 block mb-1">
                 Datos de Entrada del Evento (Payload):
               </label>
-              <pre className="p-3 rounded-xl bg-black/80 border border-slate-900 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-44">
+              <pre className="p-3 rounded-xl bg-black/80 border border-slate-200 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-44">
                 {JSON.stringify(selectedLog.payload, null, 2)}
               </pre>
             </div>
 
             {/* Acciones */}
             <div>
-              <label className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block mb-1">
+              <label className="text-[10px] font-mono uppercase tracking-widest text-slate-600 block mb-1">
                 Acciones Ejecutadas ({selectedLog.actionsExecuted.length}):
               </label>
               <div className="space-y-1.5">
                 {(Array.isArray(selectedLog.actionsExecuted) ? selectedLog.actionsExecuted : []).map((a, idx) => (
                   <div
                     key={idx}
-                    className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono flex items-center justify-between"
+                    className="p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs font-mono flex items-center justify-between"
                   >
                     <div>
-                      <span className="text-white font-bold mr-2">{a.actionType}</span>
-                      <span className="text-[11px] text-slate-400">{a.message}</span>
+                      <span className="text-slate-900 font-bold mr-2">{a.actionType}</span>
+                      <span className="text-[11px] text-slate-600">{a.message}</span>
                     </div>
                     <span className={a.status === 'success' ? 'text-emerald-400' : 'text-rose-400'}>
                       {a.status.toUpperCase()}
@@ -357,10 +357,10 @@ export default function RuleHistory({
               </div>
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-slate-800">
+            <div className="flex justify-end pt-3 border-t border-slate-200">
               <button
                 onClick={() => setSelectedLog(null)}
-                className="px-5 py-2 rounded-xl bg-slate-900 text-slate-300 text-xs font-bold hover:bg-slate-800 cursor-pointer"
+                className="px-5 py-2 rounded-xl bg-slate-50 text-slate-600 text-xs font-bold hover:bg-slate-100 cursor-pointer"
               >
                 Cerrar
               </button>
