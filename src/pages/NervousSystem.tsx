@@ -105,8 +105,16 @@ export default function NervousSystem() {
       {/* Header Neural */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 shrink-0 relative z-10">
         <div className="flex items-center gap-6">
-          <div className="h-16 w-16 bg-gradient-to-br from-gray-900 to-black border border-[#00F0FF]/30 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(0,240,255,0.15)] group transition-all duration-500 hover:border-[#00F0FF]">
-             <BrainCircuit className="w-10 h-10 text-[#00F0FF] group-hover:scale-110 transition-transform" />
+          <div className="h-16 w-16 bg-white border border-slate-200 rounded-2xl flex items-center justify-center shadow-sm p-2.5">
+             <img
+               src={LOGO_FULL}
+               alt="Kaivincia Corp"
+               className="w-full h-full object-contain"
+               loading="eager"
+               onError={(event) => {
+                 event.currentTarget.style.display = 'none';
+               }}
+             />
           </div>
           <div>
             <div className="flex items-center gap-3">
