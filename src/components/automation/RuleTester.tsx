@@ -86,32 +86,32 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-[#0B0E14] border border-slate-800 rounded-[2.5rem] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-[#0B0E14] border border-slate-200 rounded-[2.5rem] max-w-3xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative my-8 animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
-        <div className="flex justify-between items-start border-b border-slate-800 pb-5">
+        <div className="flex justify-between items-start border-b border-slate-200 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
               <Play className="w-5 h-5 ml-0.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black text-white uppercase italic tracking-tight">
+                <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tight">
                   Simulador de Regla (Dry-Run Controlado)
                 </h3>
                 <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   Sin tocar datos reales
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Regla: <strong className="text-white">{rule.name}</strong> • Disparador: <span className="text-[#00F0FF]">{rule.event}</span>
+              <p className="text-xs text-slate-600">
+                Regla: <strong className="text-slate-900">{rule.name}</strong> • Disparador: <span className="text-blue-600">{rule.event}</span>
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-white/5 transition-colors cursor-pointer"
           >
             ✕
           </button>
@@ -120,29 +120,29 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
         {/* Formulario de Entrada Mock */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-[#00F0FF]" />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-600 flex items-center gap-2">
+              <Sliders className="w-4 h-4 text-blue-600" />
               1. Configura los Datos Simulados del Evento
             </span>
             <button
               onClick={handleReset}
-              className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1"
+              className="text-[10px] text-slate-600 hover:text-slate-900 flex items-center gap-1"
             >
               <RotateCcw className="w-3 h-3" /> Reiniciar Valores
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl bg-white border border-slate-200">
             {fields.map((f) => (
               <div key={f.key}>
-                <label className="block text-[9px] font-mono text-slate-400 uppercase tracking-widest mb-1">
+                <label className="block text-[9px] font-mono text-slate-600 uppercase tracking-widest mb-1">
                   {f.label}
                 </label>
                 {f.type === 'select' && f.options ? (
                   <select
                     value={testPayload[f.key] ?? ''}
                     onChange={(e) => handleFieldChange(f.key, e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
+                    className="w-full bg-slate-50 border border-slate-700 text-slate-900 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500"
                   >
                     {f.options.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -154,7 +154,7 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
                   <select
                     value={String(testPayload[f.key])}
                     onChange={(e) => handleFieldChange(f.key, e.target.value === 'true')}
-                    className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
+                    className="w-full bg-slate-50 border border-slate-700 text-slate-900 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500"
                   >
                     <option value="true">Verdadero (True / Activo)</option>
                     <option value="false">Falso (False / Inactivo)</option>
@@ -169,7 +169,7 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
                         f.type === 'number' ? Number(e.target.value) : e.target.value
                       )
                     }
-                    className="w-full bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-2 outline-none focus:border-[#00F0FF]"
+                    className="w-full bg-slate-50 border border-slate-700 text-slate-900 text-xs rounded-xl px-3 py-2 outline-none focus:border-blue-500"
                   />
                 )}
               </div>
@@ -190,9 +190,9 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
 
         {/* Resultado del Dry-Run */}
         {testResult && (
-          <div className="space-y-4 p-5 rounded-2xl bg-slate-950 border border-slate-800 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-2">
+          <div className="space-y-4 p-5 rounded-2xl bg-white border border-slate-200 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-400" />
                 2. Resultado del Análisis
               </span>
@@ -217,11 +217,11 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
 
             {/* Desglose de Condiciones */}
             <div className="space-y-2">
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+              <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
                 Evaluación de Condiciones:
               </span>
               {testResult.stepDetails.length === 0 ? (
-                <p className="text-xs text-slate-400 bg-slate-900/60 p-2.5 rounded-xl">
+                <p className="text-xs text-slate-600 bg-slate-50/60 p-2.5 rounded-xl">
                   Sin condiciones configuradas (pasa automáticamente en 100% de los casos).
                 </p>
               ) : (
@@ -242,11 +242,11 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
                           <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
                         )}
                         <span>
-                          [{step.field}] {step.operator} <strong className="text-white">{JSON.stringify(step.expected)}</strong>
+                          [{step.field}] {step.operator} <strong className="text-slate-900">{JSON.stringify(step.expected)}</strong>
                         </span>
                       </div>
-                      <div className="text-[10px] text-slate-400">
-                        Valor real simulado: <span className="text-white font-bold">{JSON.stringify(step.actual)}</span>
+                      <div className="text-[10px] text-slate-600">
+                        Valor real simulado: <span className="text-slate-900 font-bold">{JSON.stringify(step.actual)}</span>
                       </div>
                     </div>
                   ))}
@@ -256,7 +256,7 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
 
             {/* Desglose de Acciones que se Dispararían */}
             <div className="space-y-2 pt-2">
-              <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+              <span className="text-[10px] font-mono text-slate-600 uppercase tracking-widest">
                 Acciones Encadenadas a Ejecutar:
               </span>
               <div className="space-y-1.5">
@@ -265,19 +265,19 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
                     key={act.order}
                     className={`p-2.5 rounded-xl border flex items-center justify-between text-xs ${
                       act.willExecute
-                        ? 'bg-blue-950/30 border-blue-800/60 text-cyan-200'
-                        : 'bg-slate-900/40 border-slate-800 text-slate-500'
+                        ? 'bg-blue-50/30 border-blue-200/60 text-cyan-200'
+                        : 'bg-slate-50/40 border-slate-200 text-slate-500'
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-lg bg-black text-[#00F0FF] text-[10px] font-mono font-bold flex items-center justify-center border border-slate-800">
+                      <span className="w-5 h-5 rounded-lg bg-black text-blue-600 text-[10px] font-mono font-bold flex items-center justify-center border border-slate-200">
                         {act.order}
                       </span>
                       <span className="font-bold">{act.label}</span>
                     </div>
 
-                    <div className="flex items-center gap-3 text-[10px] font-mono text-slate-400">
-                      <span>Responsable: <strong className="text-white">{act.responsible}</strong></span>
+                    <div className="flex items-center gap-3 text-[10px] font-mono text-slate-600">
+                      <span>Responsable: <strong className="text-slate-900">{act.responsible}</strong></span>
                       {act.delay > 0 && <span>Espera: <strong className="text-amber-300">{act.delay} min</strong></span>}
                       <span className={act.willExecute ? 'text-emerald-400 font-bold' : 'text-slate-600'}>
                         {act.willExecute ? '✓ Se dispararía' : '✗ Descartada'}
@@ -291,10 +291,10 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
         )}
 
         {/* Footer */}
-        <div className="flex justify-end pt-2 border-t border-slate-800">
+        <div className="flex justify-end pt-2 border-t border-slate-200">
           <button
             onClick={onClose}
-            className="px-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold transition-all"
+            className="px-6 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all"
           >
             Cerrar Simulador
           </button>

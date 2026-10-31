@@ -122,34 +122,34 @@ export default function RuleBuilder({
   };
 
   return (
-    <div className="bg-[#0B0E14] border border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
+    <div className="bg-[#0B0E14] border border-slate-200 rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
       {/* Header del Modal Constructor */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-800/80 pb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-200 pb-6">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#00F0FF]/10 border border-[#00F0FF]/30 flex items-center justify-center text-[#00F0FF]">
+            <div className="w-10 h-10 rounded-2xl bg-blue-600/10 border border-blue-200 flex items-center justify-center text-blue-600">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-white uppercase italic tracking-tight">
+              <h2 className="text-xl font-black text-slate-900 uppercase italic tracking-tight">
                 {initialRule ? 'Editar Flujo de Automatización' : 'Diseñador Visual de Regla'}
               </h2>
-              <p className="text-xs text-slate-400">
-                Estructura de proceso natural: <span className="text-white font-bold">«Cuando ocurra [Evento], si se cumple [Condición], hacer [Acciones]»</span>
+              <p className="text-xs text-slate-600">
+                Estructura de proceso natural: <span className="text-slate-900 font-bold">«Cuando ocurra [Evento], si se cumple [Condición], hacer [Acciones]»</span>
               </p>
             </div>
           </div>
         </div>
 
         {/* Pasos Visuales (Stepper) */}
-        <div className="flex items-center gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-slate-200">
           <button
             type="button"
             onClick={() => setCurrentStep(1)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               currentStep === 1
-                ? 'bg-[#00F0FF] text-black shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-600 text-black shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             1. Evento
@@ -159,8 +159,8 @@ export default function RuleBuilder({
             onClick={() => setCurrentStep(2)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               currentStep === 2
-                ? 'bg-[#00F0FF] text-black shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-600 text-black shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             2. Condiciones
@@ -170,8 +170,8 @@ export default function RuleBuilder({
             onClick={() => setCurrentStep(3)}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               currentStep === 3
-                ? 'bg-[#00F0FF] text-black shadow-md'
-                : 'text-slate-400 hover:text-white'
+                ? 'bg-blue-600 text-black shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             3. Acciones
@@ -193,7 +193,7 @@ export default function RuleBuilder({
             {/* Nombre y Descripción */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-600 mb-1">
                   Nombre de la Automatización *
                 </label>
                 <input
@@ -202,12 +202,12 @@ export default function RuleBuilder({
                   placeholder="Ej: Lead de Instagram con palabra PERFIL a Setter"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-[#00F0FF]"
+                  className="w-full bg-slate-50 border border-slate-700 text-slate-900 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-600 mb-1">
                   Estado Inicial
                 </label>
                 <div className="flex items-center gap-3 h-10">
@@ -217,7 +217,7 @@ export default function RuleBuilder({
                     className={`px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
                       isActive
                         ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
-                        : 'bg-slate-900 border-slate-800 text-slate-500'
+                        : 'bg-slate-50 border-slate-200 text-slate-500'
                     }`}
                   >
                     <span className={`w-2 h-2 rounded-full ${isActive ? 'bg-emerald-400 animate-ping' : 'bg-slate-600'}`} />
@@ -227,7 +227,7 @@ export default function RuleBuilder({
               </div>
 
               <div className="md:col-span-3">
-                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-400 mb-1">
+                <label className="block text-[10px] font-mono uppercase tracking-widest text-slate-600 mb-1">
                   Descripción Operativa (Opcional)
                 </label>
                 <input
@@ -235,7 +235,7 @@ export default function RuleBuilder({
                   placeholder="Explica a qué proceso responde esta regla (ej: Calificación de leads de campaña Meta Ads Q3)"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-4 py-2 text-xs outline-none focus:border-[#00F0FF]"
+                  className="w-full bg-slate-50 border border-slate-700 text-slate-900 rounded-xl px-4 py-2 text-xs outline-none focus:border-blue-500"
                 />
               </div>
             </div>
@@ -285,12 +285,12 @@ export default function RuleBuilder({
         )}
 
         {/* Footer con Navegación y Acciones */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6 border-t border-slate-800">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-6 border-t border-slate-200">
           <div>
             <button
               type="button"
               onClick={onCancel}
-              className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs font-bold transition-all"
+              className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-600 hover:text-slate-900 text-xs font-bold transition-all"
             >
               Cancelar
             </button>
@@ -301,7 +301,7 @@ export default function RuleBuilder({
               <button
                 type="button"
                 onClick={handlePrevStep}
-                className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-900 text-xs font-bold border border-slate-700 flex items-center gap-2 transition-all cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Anterior
@@ -312,7 +312,7 @@ export default function RuleBuilder({
               <button
                 type="button"
                 onClick={handleNextStep}
-                className="px-6 py-2.5 rounded-xl bg-[#00F0FF] hover:bg-[#22D3EE] text-black text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg cursor-pointer"
+                className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-[#22D3EE] text-black text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg cursor-pointer"
               >
                 Siguiente
                 <ArrowRight className="w-4 h-4" />
