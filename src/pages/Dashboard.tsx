@@ -127,7 +127,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0B0E14] text-gray-400 font-sans p-6 lg:p-10 pb-20">
+    <div className="kaivincia-dashboard min-h-screen bg-transparent text-slate-600 font-sans p-6 lg:p-10 pb-20">
       
       {/* HEADER: DYNAMIC STATUS BAR */}
       <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-6">
