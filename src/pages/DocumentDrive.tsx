@@ -153,7 +153,7 @@ export default function DocumentDrive() {
 
   return (
     <div 
-      className="p-8 space-y-8 bg-[#020617] h-full min-h-[calc(100vh-4rem)] relative overflow-hidden flex flex-col"
+      className="p-8 space-y-8 bg-transparent text-slate-700 h-full min-h-[calc(100vh-4rem)] relative overflow-hidden flex flex-col"
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
