@@ -21,6 +21,8 @@ interface RuleTesterProps {
 }
 
 export default function RuleTester({ rule, onClose }: RuleTesterProps) {
+  const safeConditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+  const safeActions = Array.isArray(rule.actions) ? rule.actions : [];
   const fields = FIELDS_BY_AREA[rule.area] || [];
 
   // Inicializar payload de prueba con valores por defecto acordes al área
@@ -51,10 +53,10 @@ export default function RuleTester({ rule, onClose }: RuleTesterProps) {
 
   const handleRunSimulation = () => {
     // 1. Evaluar paso a paso las condiciones sin escribir en Firestore
-    const { matched, details } = evaluateRuleConditions(rule.conditions, testPayload);
+    const { matched, details } = evaluateRuleConditions(safeConditions, testPayload);
 
     // 2. Simular qué acciones se ejecutarían
-    const activeActions = rule.actions
+    const activeActions = safeActions
       .filter((a) => a.isEnabled)
       .sort((a, b) => a.order - b.order);
 
