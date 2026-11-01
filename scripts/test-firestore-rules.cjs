@@ -32,6 +32,9 @@ async function main() {
     const admin = env.authenticatedContext('admin').firestore();
 
     await assertSucceeds(getDoc(doc(alice, 'clients', 'alice-client')));
+    await assertSucceeds(setDoc(doc(alice, 'clients', 'alice-new-client'), { name: 'New client', createdBy: 'alice' }));
+    await assertFails(setDoc(doc(bob, 'clients', 'forged-client'), { name: 'Forged', createdBy: 'alice' }));
+    await assertFails(setDoc(doc(pending, 'tasks', 'pending-task'), { title: 'Pending', createdBy: 'pending', assignedTo: 'pending' }));
     await assertFails(getDoc(doc(alice, 'clients', 'bob-client')));
     await assertSucceeds(getDocs(query(collection(alice, 'clients'), where('createdBy', '==', 'alice'))));
     await assertFails(getDocs(collection(alice, 'clients')));
@@ -46,6 +49,7 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
 
     await assertSucceeds(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDocs(collection(admin, 'clients')));
 
