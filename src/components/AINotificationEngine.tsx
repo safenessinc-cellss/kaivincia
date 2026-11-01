@@ -181,10 +181,10 @@ export default function AINotificationEngine() {
                          <div className="flex items-center gap-3">
                             <span className="text-[10px] font-black text-gray-500 uppercase">Status:</span>
                             <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${
-                              result.type === 'legal' ? 'bg-red-500/20 text-red-500' :
-                              result.type === 'success' ? 'bg-emerald-500/20 text-emerald-500' :
+                              result.priority === 'alta' ? 'bg-red-500/20 text-red-500' :
+                              result.priority === 'baja' ? 'bg-emerald-500/20 text-emerald-500' :
                               'bg-blue-500/20 text-blue-500'
-                            }`}>DEPLOY-READY</span>
+                            }`}>{`BORRADOR · PRIORIDAD ${result.priority.toUpperCase()}`}</span>
                          </div>
                       </div>
 
@@ -194,11 +194,11 @@ export default function AINotificationEngine() {
                       </div>
 
                       <div className="mt-8 flex justify-center gap-4">
-                         <button className="px-8 py-3 bg-[#A855F7] text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-2xl hover:scale-105 transition-all flex items-center gap-2">
-                            <Send className="w-4 h-4" /> Ship Notification
+                         <button type="button" disabled title="El envío requiere configurar y validar un proveedor de correo." className="px-8 py-3 bg-white/5 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 cursor-not-allowed flex items-center gap-2">
+                            <Send className="w-4 h-4" /> Envío no configurado
                          </button>
-                         <button className="px-8 py-3 bg-white/5 text-gray-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all">
-                            Send Test Draft
+                         <button type="button" disabled title="El envío de pruebas aún no está conectado a un proveedor de correo." className="px-8 py-3 bg-white/5 text-gray-500 rounded-xl text-[10px] font-black uppercase tracking-widest border border-white/10 cursor-not-allowed">
+                            Prueba no disponible
                          </button>
                       </div>
                    </motion.div>
