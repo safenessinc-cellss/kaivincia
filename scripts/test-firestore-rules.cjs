@@ -4,6 +4,7 @@ const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, delet
 
 const projectId = 'demo-kaivincia-security';
 const rules = fs.readFileSync('firestore.rules', 'utf8');
+const ticketMessageTimestamp = Timestamp.fromDate(new Date('2026-11-01T09:00:00.000Z'));
 
 async function main() {
   const env = await initializeTestEnvironment({ projectId, firestore: { rules } });
@@ -48,7 +49,7 @@ async function main() {
         userId: 'alice', userEmail: 'alice@example.test', subject: 'Login issue',
         description: 'Cannot log in', priority: 'medium', status: 'open',
         assignedTo: null, assignedToEmail: null,
-        messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message', createdAt: Timestamp.now() }],
+        messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message', createdAt: ticketMessageTimestamp }],
         createdAt: '2026-11-01'
       });
       await setDoc(doc(db, 'support_tickets', 'bob-ticket'), {
@@ -151,7 +152,7 @@ async function main() {
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', updatedAt: 'now' }));
     const originalTicketMessage = { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message' };
     await assertSucceeds(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
-      messages: [ { ...originalTicketMessage, createdAt: Timestamp.now() }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Additional details', createdAt: Timestamp.now() } ],
+      messages: [ { ...originalTicketMessage, createdAt: ticketMessageTimestamp }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Additional details', createdAt: Timestamp.now() } ],
       updatedAt: serverTimestamp()
     }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
