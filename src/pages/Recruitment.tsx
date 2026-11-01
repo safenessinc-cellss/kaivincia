@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
@@ -17,6 +17,7 @@ const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Co
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -70,6 +71,29 @@ export default function Recruitment() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Attendance state is read from persisted records for the signed-in user.
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setAttendanceLog([]);
+      setIsCheckedIn(false);
+      return;
+    }
+    const attendanceQuery = query(
+      collection(db, 'attendance_logs'),
+      where('userId', '==', uid),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
+    return onSnapshot(attendanceQuery, (snapshot) => {
+      const logs = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+      setAttendanceLog(logs);
+      setIsCheckedIn(logs[0]?.type === 'in');
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'attendance_logs');
+    });
   }, []);
 
   // Fetch Jobs
@@ -197,44 +221,27 @@ export default function Recruitment() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    setIsUploading(true);
-    // Simulate AI extraction
-    setTimeout(async () => {
-      const newCandidate = {
-        name: 'Candidato Extraído IA',
-        role: 'Por Definir',
-        status: 'Nuevo',
-        aiScore: Math.floor(Math.random() * 30) + 70,
-        email: 'ia.extract@nucleus.test',
-        phone: '+00 000 000 000',
-        createdAt: new Date().toISOString(),
-        aiSummary: 'Perfil extraído automáticamente mediante el motor Nucleus Core.'
-      };
-      
-      try {
-        await addDoc(collection(db, 'candidates'), newCandidate);
-      } catch (error) {
-        console.error("Error seeding extracted candidate", error);
-      }
-      
-      setIsUploading(false);
-      alert('Analizando CV con IA: Extracción completada. El perfil ha sido catalogado en el Pipeline.');
-    }, 2500);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(false);
+    setUploadError(`El análisis de CV con IA no está conectado. No se cargó el archivo ni se creó un candidato: ${file.name}`);
+    e.target.value = '';
   };
 
   const handleAttendance = async (type: 'in' | 'out') => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
     try {
       const log = {
-        userId: auth.currentUser?.uid || 'guest',
-        userName: auth.currentUser?.displayName || 'Colaborador',
+        userId: currentUser.uid,
+        userName: currentUser.displayName || currentUser.email || 'Colaborador',
         type,
         timestamp: new Date().toISOString(),
-        ip: '192.168.1.' + Math.floor(Math.random() * 255) // Simulated IP
+        source: 'web'
       };
       await addDoc(collection(db, 'attendance_logs'), log);
       setIsCheckedIn(type === 'in');
-      alert(`Fichaje ${type === 'in' ? 'de entrada' : 'de salida'} registrado correctamente.`);
+      alert(`Fichaje ${type === 'in' ? 'de entrada' : 'de salida'} registrado.`);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'attendance_logs');
     }
@@ -251,7 +258,7 @@ export default function Recruitment() {
         createdAt: new Date().toISOString()
       };
       await addDoc(collection(db, 'absence_requests'), request);
-      alert('Solicitud enviada a RRHH y a su superior para aprobación.');
+      alert('Solicitud registrada con estado pendiente. La notificación automática a RRHH/superior no está confirmada.');
       setIsAbsenceModalOpen(false);
       setAbsenceForm({ type: 'Día Libre', startDate: '', endDate: '', reason: '' });
     } catch (error) {
@@ -305,8 +312,8 @@ export default function Recruitment() {
 
               <div className="space-y-6">
                 <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-gray-100">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Tiempo de Sesión</p>
-                  <p className="text-5xl font-black text-gray-900 italic tracking-tighter">00:00:00</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Estado del fichaje</p>
+                  <p className="text-5xl font-black text-gray-900 italic tracking-tighter">{isCheckedIn ? 'ENTRADA REGISTRADA' : 'SIN FICHAJE ACTIVO'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -341,8 +348,8 @@ export default function Recruitment() {
                       <MapPin className="w-5 h-5" />
                    </div>
                    <div>
-                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación Validada</p>
-                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">Kaivincia Virtual Node • VPN Enabled</p>
+                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación no verificada</p>
+                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">No se captura GPS ni IP en este módulo.</p>
                    </div>
                 </div>
               </div>
@@ -660,45 +667,24 @@ export default function Recruitment() {
                     <div className="flex justify-between items-end mb-10">
                        <div>
                           <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Monitor de Disponibilidad</h3>
-                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sincronización de Red Kaivincia Core</p>
+                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sin telemetría global conectada</p>
                        </div>
                        <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-xl">
                           <Clock className="w-4 h-4 text-[#00F0FF]" />
-                          <span className="text-xs font-mono font-black italic">14:41:22 UTC-5</span>
+                          <span className="text-xs font-mono font-black italic">Estado no disponible</span>
                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                          {[
-                            { name: 'Ana S.', role: 'Setter', status: 'active', ip: '192.168.1.45' },
-                            { name: 'Carlos R.', role: 'Aprendiz', status: 'break', ip: '192.168.1.12' },
-                            { name: 'Elena M.', role: 'Gestor', status: 'active', ip: '187.12.4.99' },
-                            { name: 'Luis P.', role: 'Setter', status: 'offline', ip: 'Unknown' },
-                          ].map((emp, i) => (
-                            <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group overflow-hidden">
-                               <div className="flex justify-between items-start mb-4">
-                                  <div className="h-8 w-8 bg-white border border-gray-100 rounded-xl flex items-center justify-center text-[10px] font-black italic">
-                                     {emp.name.split(' ')[0][0]}
-                                  </div>
-                                  <div className={`h-2 w-2 rounded-full ${emp.status === 'active' ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : emp.status === 'break' ? 'bg-amber-500' : 'bg-gray-300'}`} />
-                               </div>
-                               <h4 className="text-[11px] font-black text-gray-900 uppercase italic truncate">{emp.name}</h4>
-                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
-                               <div className="mt-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MousePointer2 className="w-3 h-3 text-[#00F0FF]" />
-                                  <span className="text-[8px] font-mono text-gray-400">{emp.ip}</span>
-                               </div>
-                            </div>
-                          ))}
-                       </div>
-                       
-                       <button 
-                          onClick={() => setIsAttendanceModalOpen(true)}
-                          className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic"
-                       >
-                          Acceder al Panel de Control de Jornada (Fichaje)
-                       </button>
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
+                       <p className="text-xs font-black uppercase tracking-widest text-gray-700">Monitor global no conectado</p>
+                       <p className="text-[10px] text-gray-500 mt-2">No hay telemetría real de disponibilidad. No se muestran nombres, estados ni direcciones IP de ejemplo.</p>
+                    </div>
+                    <button
+                      onClick={() => setIsAttendanceModalOpen(true)}
+                      className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic"
+                    >
+                      Abrir fichaje personal
+                    </button>
                     </div>
                  </div>
 
