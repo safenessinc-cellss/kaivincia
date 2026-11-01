@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     function isHR() {
-      return isApproved() && userRole() in ["superadmin", "admin", "ceo", "rrhh"];
+      return isApproved() && userRole() in ["superadmin", "admin", "owner", "ceo", "rrhh"];
     }
 
     function isApproved() {
@@ -252,6 +252,7 @@ service cloud.firestore {
         isApproved() &&
         existing().get('userId', '') == request.auth.uid &&
         request.resource.data.diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) &&
+        existing().get('status', 'open') in ['open', 'in_progress'] &&
         request.resource.data.get('status', '') == existing().get('status', '') &&
         request.resource.data.get('priority', '') == existing().get('priority', '') &&
         request.resource.data.get('assignedTo', null) == existing().get('assignedTo', null)
@@ -347,8 +348,9 @@ service cloud.firestore {
       allow read, update, delete: if isHR();
       allow create: if request.resource.data.keys().hasOnly([
         'name', 'email', 'phone', 'city', 'linkedin', 'role', 'experience', 'jobId',
-        'skills', 'status', 'hasPhoto', 'hasResume', 'resumeFileName', 'createdAt'
+        'skills', 'status', 'hasPhoto', 'hasResume', 'resumeFileName', 'resumeText', 'createdAt'
       ]) && request.resource.data.get('status', '') == 'Nuevo' &&
+        request.resource.data.get('resumeText', '') is string && request.resource.data.resumeText.size() <= 15000 &&
         request.resource.data.get('name', '') is string &&
         request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 150 &&
         request.resource.data.get('email', '') is string && request.resource.data.email.size() <= 254;
@@ -499,14 +501,25 @@ service cloud.firestore {
     match /attendance_logs/{logId} {
       allow read:   if isHR() ||
                        (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isApproved() && hasOnlyOwnAssignments(incoming()) && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow create: if isApproved() &&
+        incoming().keys().hasOnly(['userId', 'userName', 'type', 'timestamp', 'source']) &&
+        incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('type', '') in ['in', 'out'] &&
+        incoming().get('timestamp', '') is string;
       allow update, delete: if isHR();
     }
 
     match /absence_requests/{requestId} {
       allow read:   if isHR() ||
                        (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isAuthenticated() && hasOnlyOwnAssignments(incoming()) && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow create: if isApproved() &&
+        incoming().keys().hasOnly(['type', 'startDate', 'endDate', 'reason', 'userId', 'userName', 'status', 'createdAt']) &&
+        incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('status', '') == 'pending' &&
+        incoming().get('startDate', '') is string &&
+        incoming().get('endDate', '') is string &&
+        incoming().get('reason', '') is string &&
+        incoming().reason.size() <= 3000;
       allow update, delete: if isHR();
     }
 
