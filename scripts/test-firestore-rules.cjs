@@ -21,6 +21,7 @@ async function main() {
       await setDoc(doc(db, 'clients', 'bob-client'), { name: 'Bob Client', createdBy: 'bob', assignedTo: 'bob' });
       await setDoc(doc(db, 'clients', 'alice-client', 'notes', 'note-1'), { text: 'private note' });
       await setDoc(doc(db, 'tasks', 'alice-task'), { title: 'Alice task', createdBy: 'alice', assignedTo: 'alice' });
+      await setDoc(doc(db, 'omnichannel_threads', 'alice-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'alice', name: 'Alice conversation' });
       await setDoc(doc(db, 'chat_messages', 'private-message'), { type: 'private', senderId: 'alice', targetId: 'bob', text: 'private' });
       await setDoc(doc(db, 'chat_messages', 'general-message'), { type: 'groups', targetId: 'general', senderId: 'alice', text: 'general' });
       await setDoc(doc(db, 'chat_messages', 'devops-message'), { type: 'groups', targetId: 'dev-ops', senderId: 'admin', text: 'internal' });
@@ -53,6 +54,13 @@ async function main() {
     await assertFails(getDocs(collection(alice, 'clients')));
     await assertSucceeds(getDoc(doc(alice, 'tasks', 'alice-task')));
     await assertFails(getDoc(doc(bob, 'tasks', 'alice-task')));
+    await assertSucceeds(getDoc(doc(alice, 'omnichannel_threads', 'alice-thread')));
+    await assertFails(getDoc(doc(bob, 'omnichannel_threads', 'alice-thread')));
+    await assertFails(updateDoc(doc(alice, 'omnichannel_threads', 'alice-thread'), { assignedTo: 'bob' }));
+    await assertFails(setDoc(doc(alice, 'omnichannel_threads', 'shared-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(alice, 'omnichannel_threads', 'alice-new-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'alice' }));
+    await assertSucceeds(setDoc(doc(alice, 'omnichannel_threads', 'alice-thread', 'messages', 'own-message'), { senderId: 'alice', text: 'own' }));
+    await assertFails(setDoc(doc(alice, 'omnichannel_threads', 'alice-thread', 'messages', 'forged-message'), { senderId: 'bob', text: 'forged' }));
     await assertFails(getDoc(doc(pending, 'clients', 'alice-client')));
     await assertFails(getDoc(doc(pending, 'clients', 'alice-client', 'notes', 'note-1')));
 
