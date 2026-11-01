@@ -177,7 +177,7 @@ const PRESETS: Record<string, PresetDefinition> = {
     defaultCost: '$0.012',
     description: 'Configuración a la medida para cualquier proveedor VoIP con parámetros manuales.',
     iconBg: 'bg-slate-500/10 border-slate-500/30',
-    iconColor: 'text-slate-300',
+    iconColor: 'text-slate-600',
     hints: {
       userHint: 'Usuario / Extensión del proveedor',
       keyHint: 'API Key / Contraseña de terminación',
@@ -331,7 +331,9 @@ export default function VoipProviderModal({
     if (!targetSip) return;
 
     let decryptedPw = '';
-    if (targetSip.passwordEncrypted) {
+    // Legacy ENC_V1 secrets are no longer decrypted in the browser. Telnyx
+    // WebRTC authenticates through the short-lived backend JWT instead.
+    if (targetSip.passwordEncrypted?.startsWith('ENC_UI_V1:')) {
       decryptedPw = await SipCredentialsService.decryptSipPassword(targetSip.passwordEncrypted);
     }
 
@@ -350,7 +352,9 @@ export default function VoipProviderModal({
       }
     }));
 
-    setSipAppliedMessage(`¡SIP "${targetSip.name}" cargado y credenciales sincronizadas!`);
+    setSipAppliedMessage(targetSip.passwordEncrypted?.startsWith('ENC_V1:')
+      ? `SIP "${targetSip.name}" cargado. La autenticación WebRTC se realiza mediante JWT seguro del backend.`
+      : `¡SIP "${targetSip.name}" cargado y credenciales sincronizadas!`);
     setTimeout(() => setSipAppliedMessage(null), 3000);
   };
 
@@ -572,22 +576,22 @@ export default function VoipProviderModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+    <div className="fixed inset-0 bg-slate-50/25 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
       <motion.div
         initial={{ scale: 0.95, opacity: 0, y: 15 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 15 }}
-        className="bg-slate-950 text-white border border-slate-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]"
+        className="bg-white text-slate-900 border border-slate-200 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col my-auto max-h-[92vh]"
       >
         {/* Header con Título y Estado */}
-        <div className="p-5 sm:p-6 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/50">
+        <div className="p-5 sm:p-6 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-[0_0_15px_rgba(0,240,255,0.15)]">
               <Server className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-lg font-black uppercase tracking-tight text-white italic">
+                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 italic">
                   {form.id ? 'Configurar Parámetros VoIP & APIs' : 'Nuevo Carrier de Telefonía'}
                 </h3>
                 {form.isDefault && (
@@ -605,7 +609,7 @@ export default function VoipProviderModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
             title="Cerrar modal"
           >
             <X className="w-5 h-5" />
@@ -613,7 +617,7 @@ export default function VoipProviderModal({
         </div>
 
         {/* Barra de Presets Rápidos ("Solo de editar") */}
-        <div className="px-5 py-3 bg-slate-900/30 border-b border-slate-800/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="px-5 py-3 bg-slate-50/30 border-b border-slate-200/80 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-400" />
             <span>Plantillas Rápidas:</span>
@@ -628,7 +632,7 @@ export default function VoipProviderModal({
                 className={`px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer border ${
                   isSelected
                     ? 'bg-cyan-500 text-black border-cyan-400 shadow-[0_0_12px_rgba(0,240,255,0.3)]'
-                    : 'bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800 hover:border-slate-700'
+                    : 'bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200 hover:border-slate-700'
                 }`}
               >
                 <span>{p.name.split(' ')[0]}</span>
@@ -638,14 +642,14 @@ export default function VoipProviderModal({
         </div>
 
         {/* Selector de Pestañas de Configuración */}
-        <div className="flex items-center border-b border-slate-800/80 bg-slate-950 px-5 gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex items-center border-b border-slate-200/80 bg-white px-5 gap-2 overflow-x-auto no-scrollbar">
           <button
             type="button"
             onClick={() => setActiveTab('sip')}
             className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'sip'
                 ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
             <Server className="w-3.5 h-3.5" />
@@ -658,7 +662,7 @@ export default function VoipProviderModal({
             className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'api'
                 ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
             <Zap className="w-3.5 h-3.5" />
@@ -671,7 +675,7 @@ export default function VoipProviderModal({
             className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'webrtc'
                 ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
             <Globe className="w-3.5 h-3.5" />
@@ -684,7 +688,7 @@ export default function VoipProviderModal({
             className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'routing'
                 ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
@@ -704,7 +708,7 @@ export default function VoipProviderModal({
               <button
                 type="button"
                 onClick={() => setValidationError(null)}
-                className="text-rose-400 hover:text-white ml-2"
+                className="text-rose-400 hover:text-slate-900 ml-2"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -732,7 +736,7 @@ export default function VoipProviderModal({
                     value={form.name || ''}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Ej. Zadarma Principal, Telnyx US West..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-400 font-bold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-900 focus:outline-none focus:border-cyan-400 font-bold"
                   />
                 </div>
 
@@ -743,7 +747,7 @@ export default function VoipProviderModal({
                   <select
                     value={form.type || 'sip'}
                     onChange={(e) => setForm({ ...form, type: e.target.value as any })}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-slate-200 focus:outline-none focus:border-cyan-400 font-semibold"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-slate-700 focus:outline-none focus:border-cyan-400 font-semibold"
                   >
                     <option value="sip">SIP Trunk (Estándar PBX/Cloud)</option>
                     <option value="api">API Directa (REST + WebRTC Gateway)</option>
@@ -754,7 +758,7 @@ export default function VoipProviderModal({
               </div>
 
               {/* Dominio y Puerto SIP */}
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Radio className="w-3.5 h-3.5" />
@@ -776,7 +780,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, domain: e.target.value }
                       })}
                       placeholder="sip.zadarma.com o 192.168.1.100"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -791,7 +795,7 @@ export default function VoipProviderModal({
                         ...form,
                         credentials: { ...form.credentials, port: parseInt(e.target.value, 10) || 5060 }
                       })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
@@ -807,7 +811,7 @@ export default function VoipProviderModal({
                         ...form,
                         credentials: { ...form.credentials, transport: e.target.value as any }
                       })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     >
                       <option value="WSS">WSS (Secure WebSocket - Recomendado navegador)</option>
                       <option value="UDP">UDP (SIP Estándar PBX)</option>
@@ -828,14 +832,14 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, callerId: e.target.value }
                       })}
                       placeholder="+1 (305) 555-0199"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Credenciales de Autenticación SIP */}
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Lock className="w-3.5 h-3.5" />
@@ -844,7 +848,7 @@ export default function VoipProviderModal({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 font-mono cursor-pointer"
+                    className="text-[10px] text-slate-400 hover:text-slate-900 flex items-center gap-1 font-mono cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     <span>{showPassword ? 'Ocultar' : 'Revelar Contraseña'}</span>
@@ -864,7 +868,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, username: e.target.value }
                       })}
                       placeholder="ej. 345678 o 101"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -881,13 +885,13 @@ export default function VoipProviderModal({
                           credentials: { ...form.credentials, password: e.target.value }
                         })}
                         placeholder="••••••••••••"
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 pr-9 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                        className="w-full bg-white border border-slate-200 rounded-xl p-2.5 pr-9 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                       />
                       {form.credentials?.password && (
                         <button
                           type="button"
                           onClick={() => handleCopy(form.credentials?.password || '', 'password')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900"
                           title="Copiar contraseña"
                         >
                           {copiedField === 'password' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -926,7 +930,7 @@ export default function VoipProviderModal({
                         value={selectedSipId || (availableSips.find(s => s.username === form.credentials?.authUsername)?.id || '')}
                         onChange={(e) => handleSelectSip(e.target.value)}
                         disabled={isLoadingSips}
-                        className="w-full bg-slate-950 border border-slate-800 focus:border-cyan-400 rounded-xl p-2.5 text-xs text-slate-200 font-mono focus:outline-none transition-colors cursor-pointer"
+                        className="w-full bg-white border border-slate-200 focus:border-cyan-400 rounded-xl p-2.5 text-xs text-slate-700 font-mono focus:outline-none transition-colors cursor-pointer"
                       >
                         <option value="">
                           {isLoadingSips 
@@ -947,7 +951,7 @@ export default function VoipProviderModal({
                               key={sip.id}
                               value={sip.id}
                               disabled={Boolean(isAssignedToOther && !isAdmin)}
-                              className={isAssignedToOther ? 'text-slate-500 bg-slate-900' : 'text-slate-100 bg-slate-950'}
+                              className={isAssignedToOther ? 'text-slate-500 bg-slate-50' : 'text-slate-100 bg-white'}
                             >
                               {sip.name} — {sip.username} ({sip.connectionId}) {badgeText}
                             </option>
@@ -976,14 +980,14 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, callerName: e.target.value }
                       })}
                       placeholder="KaiVincia Commercial"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
 
                 {/* PANEL DE PREVIEW DETALLADO DEL SIP SELECCIONADO */}
                 {selectedSip && (
-                  <div className="p-3 bg-slate-950/80 rounded-xl border border-cyan-500/30 space-y-2 mt-2">
+                  <div className="p-3 bg-white/80 rounded-xl border border-cyan-500/30 space-y-2 mt-2">
                     <div className="flex items-center justify-between text-[10px]">
                       <div className="flex items-center gap-1.5 font-bold text-cyan-300">
                         <UserCheck className="w-3.5 h-3.5 text-cyan-400" />
@@ -1010,7 +1014,7 @@ export default function VoipProviderModal({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono text-slate-300 pt-1.5 border-t border-slate-800/80">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] font-mono text-slate-600 pt-1.5 border-t border-slate-200/80">
                       <div>
                         <span className="text-slate-500 text-[8px] uppercase block">{t('sip.connection_id', 'Connection ID')}</span>
                         <div className="flex items-center gap-1">
@@ -1057,7 +1061,7 @@ export default function VoipProviderModal({
           {/* ================= PESTAÑA 2: APIS REST & WEBHOOKS ================= */}
           {activeTab === 'api' && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5" />
@@ -1066,7 +1070,7 @@ export default function VoipProviderModal({
                   <button
                     type="button"
                     onClick={() => setShowApiKey(!showApiKey)}
-                    className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 font-mono cursor-pointer"
+                    className="text-[10px] text-slate-400 hover:text-slate-900 flex items-center gap-1 font-mono cursor-pointer"
                   >
                     {showApiKey ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                     <span>{showApiKey ? 'Ocultar Keys' : 'Revelar Keys'}</span>
@@ -1085,7 +1089,7 @@ export default function VoipProviderModal({
                       credentials: { ...form.credentials, apiBaseUrl: e.target.value }
                     })}
                     placeholder="https://api.telnyx.com/v2 o https://api.zadarma.com/v1"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
 
@@ -1102,7 +1106,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, apiKey: e.target.value }
                       })}
                       placeholder="KEY0184... o API_TOKEN"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -1118,7 +1122,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, apiSecret: e.target.value }
                       })}
                       placeholder="••••••••••••"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
@@ -1135,13 +1139,13 @@ export default function VoipProviderModal({
                       credentials: { ...form.credentials, accountId: e.target.value }
                     })}
                     placeholder="AC01994... (Twilio) o Zadarma Account User"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
               </div>
 
               {/* Webhooks para CDR y Eventos de Llamada */}
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Activity className="w-3.5 h-3.5" />
                   <span>Webhooks de Eventos & Call Detail Records (CDR)</span>
@@ -1160,13 +1164,13 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, webhookUrl: e.target.value }
                       })}
                       placeholder="https://tudominio.com/api/voip/webhook"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 pr-9 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 pr-9 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                     {form.credentials?.webhookUrl && (
                       <button
                         type="button"
                         onClick={() => handleCopy(form.credentials?.webhookUrl || '', 'webhook')}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-900"
                       >
                         {copiedField === 'webhook' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
@@ -1186,7 +1190,7 @@ export default function VoipProviderModal({
                       credentials: { ...form.credentials, webhookSecret: e.target.value }
                     })}
                     placeholder="whsec_••••••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
               </div>
@@ -1196,7 +1200,7 @@ export default function VoipProviderModal({
           {/* ================= PESTAÑA 3: WEBRTC, STUN/TURN & CÓDECS ================= */}
           {activeTab === 'webrtc' && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Globe className="w-3.5 h-3.5" />
                   <span>Señalización WebSocket WebRTC (WSS)</span>
@@ -1214,7 +1218,7 @@ export default function VoipProviderModal({
                       credentials: { ...form.credentials, wsUrl: e.target.value }
                     })}
                     placeholder="wss://sip.zadarma.com:443/ws o wss://rtc.telnyx.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
 
@@ -1231,7 +1235,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, stunServer: e.target.value }
                       })}
                       placeholder="stun:stun.l.google.com:19302"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -1247,7 +1251,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, turnServer: e.target.value }
                       })}
                       placeholder="turn:turn.mycarrier.com:3478"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
@@ -1265,7 +1269,7 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, turnUsername: e.target.value }
                       })}
                       placeholder="turn_user"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -1281,14 +1285,14 @@ export default function VoipProviderModal({
                         credentials: { ...form.credentials, turnPassword: e.target.value }
                       })}
                       placeholder="••••••••"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Códecs de Audio y DTMF */}
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>Calidad de Voz & Transmisión de Tonos DTMF</span>
@@ -1305,7 +1309,7 @@ export default function VoipProviderModal({
                         ...form,
                         credentials: { ...form.credentials, preferredCodec: e.target.value as any }
                       })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
                     >
                       <option value="OPUS">OPUS 48kHz (Máxima calidad y reducción de ruido)</option>
                       <option value="G711U">G.711u / PCMU (América / Telefónico estándar)</option>
@@ -1325,7 +1329,7 @@ export default function VoipProviderModal({
                         ...form,
                         credentials: { ...form.credentials, dtmfType: e.target.value as any }
                       })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400 font-semibold"
                     >
                       <option value="RFC2833">RFC 2833 / RTP Event (Estándar recomendado)</option>
                       <option value="SIP_INFO">SIP INFO Message (Señalización directa)</option>
@@ -1340,7 +1344,7 @@ export default function VoipProviderModal({
           {/* ================= PESTAÑA 4: ENRUTAMIENTO, COSTOS & FAILOVER ================= */}
           {activeTab === 'routing' && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                   <DollarSign className="w-3.5 h-3.5" />
                   <span>Costos & Prioridad de Marcado</span>
@@ -1356,7 +1360,7 @@ export default function VoipProviderModal({
                       value={form.costPerMinute || '$0.012'}
                       onChange={(e) => setForm({ ...form, costPerMinute: e.target.value })}
                       placeholder="$0.012"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -1370,7 +1374,7 @@ export default function VoipProviderModal({
                       max={10}
                       value={form.priority || 1}
                       onChange={(e) => setForm({ ...form, priority: parseInt(e.target.value, 10) || 1 })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     />
                   </div>
 
@@ -1381,7 +1385,7 @@ export default function VoipProviderModal({
                     <select
                       value={form.currency || 'USD'}
                       onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                      className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                     >
                       <option value="USD">USD ($ - Dólares)</option>
                       <option value="EUR">EUR (€ - Euros)</option>
@@ -1397,7 +1401,7 @@ export default function VoipProviderModal({
                   <select
                     value={form.failover || ''}
                     onChange={(e) => setForm({ ...form, failover: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400 font-mono"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400 font-mono"
                   >
                     <option value="">Ninguno (No conmutar si falla)</option>
                     {allProviders.filter(p => p.id !== form.id).map(p => (
@@ -1423,29 +1427,29 @@ export default function VoipProviderModal({
                       credentials: { ...form.credentials, allowedPrefixes: e.target.value }
                     })}
                     placeholder="+1, +34, +52, +54"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 font-mono text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 font-mono text-slate-700 text-xs focus:outline-none focus:border-cyan-400"
                   />
                 </div>
               </div>
 
               {/* Opciones Adicionales de Gestión */}
-              <div className="p-4 bg-slate-900/60 rounded-2xl border border-slate-800/80 space-y-3">
+              <div className="p-4 bg-slate-50/60 rounded-2xl border border-slate-200/80 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-bold text-slate-200 text-xs">Establecer como Carrier Predeterminado</p>
+                    <p className="font-bold text-slate-700 text-xs">Establecer como Carrier Predeterminado</p>
                     <p className="text-[10px] text-slate-400">Las llamadas del softphone usarán este proveedor de forma preferente.</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={!!form.isDefault}
                     onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-                    className="w-4 h-4 rounded text-cyan-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    className="w-4 h-4 rounded text-cyan-500 bg-slate-50 border-slate-700 cursor-pointer"
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
                   <div>
-                    <p className="font-bold text-slate-200 text-xs">Grabar Llamadas Salientes por Defecto</p>
+                    <p className="font-bold text-slate-700 text-xs">Grabar Llamadas Salientes por Defecto</p>
                     <p className="text-[10px] text-slate-400">Activa automáticamente la captura de audio en la nube.</p>
                   </div>
                   <input
@@ -1455,7 +1459,7 @@ export default function VoipProviderModal({
                       ...form,
                       credentials: { ...form.credentials, recordCallsByDefault: e.target.checked }
                     })}
-                    className="w-4 h-4 rounded text-cyan-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    className="w-4 h-4 rounded text-cyan-500 bg-slate-50 border-slate-700 cursor-pointer"
                   />
                 </div>
 
@@ -1468,7 +1472,7 @@ export default function VoipProviderModal({
                     value={form.notes || ''}
                     onChange={(e) => setForm({ ...form, notes: e.target.value })}
                     placeholder="Detalles sobre el contrato, límite de canales concurrentes, etc."
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400 resize-none"
+                    className="w-full bg-white border border-slate-200 rounded-xl p-2.5 text-slate-700 text-xs focus:outline-none focus:border-cyan-400 resize-none"
                   />
                 </div>
               </div>
@@ -1518,12 +1522,12 @@ export default function VoipProviderModal({
           )}
 
           {/* Footer de Acciones del Modal */}
-          <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
               type="button"
               onClick={handleRunConnectionTest}
               disabled={isTesting}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-700 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
             >
               <Zap className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin text-cyan-400' : 'text-amber-400'}`} />
               <span>{isTesting ? 'Probando Conexión & APIs...' : 'Probar APIs & SIP'}</span>
@@ -1533,7 +1537,7 @@ export default function VoipProviderModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-xl bg-slate-900 text-slate-400 hover:text-white font-bold text-xs transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-slate-50 text-slate-400 hover:text-slate-900 font-bold text-xs transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
