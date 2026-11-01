@@ -714,19 +714,9 @@ export default function SoftphoneDialer({
         return;
       }
     } else {
-      startRingback();
-      onCallStart?.(dialNum);
-      const ringTimeout = setTimeout(() => {
-        stopRingback();
-        playConnectBeep();
-        setCallStatus('connected');
-        setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] SIP 200 OK -> Llamada simulada`,
-          ...prev.slice(0, 30)
-        ]);
-        callDurationIntervalRef.current = setInterval(() => setDuration(prev => prev + 1), 1000);
-      }, 3500);
-      timeoutsRef.current.push(ringTimeout);
+      showToast('Este proveedor no tiene una pasarela de llamadas conectada. No se inició ninguna llamada.');
+      setCallStatus('idle');
+      return;
     }
   };
 
