@@ -71,19 +71,29 @@ export default async function handler(req: any, res: any) {
         rawBody = JSON.stringify(payload);
       }
 
-      // Verificación opcional de firma SHA256 si App Secret está configurado y hay cabecera X-Hub-Signature-256
+      // Meta webhooks must be authenticated before any event is processed.
       const appSecret = MetaBackendService.getAppSecret();
-      const signatureHeader = req.headers['x-hub-signature-256'] as string;
+      const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined;
 
-      if (appSecret && signatureHeader && rawBody) {
-        try {
-          const expectedSig = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-          if (signatureHeader !== expectedSig) {
-            console.warn('[Meta Webhook] Firma X-Hub-Signature-256 no coincide. Procesando con advertencia.');
-          }
-        } catch (sigErr) {
-          console.warn('[Meta Webhook] Error al validar firma:', sigErr);
-        }
+      if (!appSecret) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ received: false, error: 'Webhook signature verification is not configured.' }));
+        return;
+      }
+
+      if (!signatureHeader || !/^sha256=[a-f0-9]{64}$/i.test(signatureHeader) || !rawBody) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ received: false, error: 'Missing or invalid webhook signature.' }));
+        return;
+      }
+
+      const expectedSig = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
+      const received = Buffer.from(signatureHeader, 'utf8');
+      const expected = Buffer.from(expectedSig, 'utf8');
+      if (received.length !== expected.length || !crypto.timingSafeEqual(received, expected)) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ received: false, error: 'Webhook signature verification failed.' }));
+        return;
       }
 
       // Procesar eventos entrantes a través del servicio central
