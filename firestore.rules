@@ -62,6 +62,46 @@ service cloud.firestore {
       );
     }
 
+    function canManageHelpdesk() {
+      return isApproved() && hasEffectivePermission(
+        "helpdesk_manage",
+        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor"]
+      );
+    }
+
+    function isValidTicketStatusTransition(beforeStatus, afterStatus) {
+      return beforeStatus == afterStatus ||
+        (beforeStatus == "open" && afterStatus in ["in_progress", "resolved", "closed"]) ||
+        (beforeStatus == "in_progress" && afterStatus in ["open", "resolved", "closed"]) ||
+        (beforeStatus == "resolved" && afterStatus in ["open", "closed"]) ||
+        (beforeStatus == "closed" && afterStatus == "open");
+    }
+
+    function isValidTicketReply(before, after) {
+      let beforeMessages = before.get("messages", []);
+      let afterMessages = after.get("messages", []);
+      let lastMessage = afterMessages[afterMessages.size() - 1];
+      return beforeMessages is list &&
+        afterMessages is list &&
+        afterMessages.size() == beforeMessages.size() + 1 &&
+        afterMessages.toSet().hasAll(beforeMessages.toSet()) &&
+        lastMessage.get("senderId", "") == request.auth.uid &&
+        lastMessage.get("senderEmail", "") == request.auth.token.email &&
+        lastMessage.get("text", "") is string &&
+        lastMessage.get("text", "").size() > 0 &&
+        lastMessage.get("text", "").size() <= 5000 &&
+        lastMessage.get("createdAt", null) is timestamp;
+    }
+
+    function isValidTicketAssignment(data) {
+      let assignedUid = data.get("assignedTo", null);
+      return assignedUid == null
+        ? data.get("assignedToEmail", null) == null
+        : assignedUid is string &&
+          exists(/databases/$(database)/documents/users/$(assignedUid)) &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("email", "") == data.get("assignedToEmail", "");
+    }
+
     function isVoipUser() {
       return isApproved() && hasEffectivePermission(
         "voip_calls",
@@ -275,35 +315,52 @@ service cloud.firestore {
     // ===============================================================
     // Helpdesk
     // ===============================================================
-        match /support_tickets/{ticketId} {
-      allow get: if isAdmin() || (isAuthenticated() && existing().userId == request.auth.uid);
-      allow list: if isAdmin() || (isAuthenticated() && resource.data.get('userId', '') == request.auth.uid);
+    match /support_tickets/{ticketId} {
+      allow get: if canManageHelpdesk() || (isApproved() && existing().get('userId', '') == request.auth.uid);
+      allow list: if canManageHelpdesk() || (isApproved() && resource.data.get('userId', '') == request.auth.uid);
       allow create: if isApproved() &&
         request.resource.data.get('userId', '') == request.auth.uid &&
+        request.resource.data.get('userEmail', '') == request.auth.token.email &&
         request.resource.data.keys().hasOnly(['userId', 'userEmail', 'subject', 'description', 'priority', 'status', 'assignedTo', 'assignedToEmail', 'createdAt', 'updatedAt', 'messages']) &&
         request.resource.data.get('subject', '') is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 180 &&
         request.resource.data.get('description', '') is string && request.resource.data.description.size() > 0 && request.resource.data.description.size() <= 10000 &&
         request.resource.data.get('priority', 'medium') in ['low', 'medium', 'high', 'critical'] &&
         request.resource.data.get('status', '') == 'open' &&
         request.resource.data.get('assignedTo', null) == null &&
-        request.resource.data.get('assignedToEmail', null) == null;
-      // Customers may append conversation messages only. Status, priority,
-      // ownership and assignment remain exclusively under support staff control.
-      allow update: if isAdmin() || (
+        request.resource.data.get('assignedToEmail', null) == null &&
+        request.resource.data.get('messages', []) is list &&
+        request.resource.data.messages.size() == 1 &&
+        request.resource.data.messages[0].get('senderId', '') == request.auth.uid &&
+        request.resource.data.messages[0].get('senderEmail', '') == request.auth.token.email &&
+        request.resource.data.messages[0].get('text', '') == request.resource.data.description &&
+        request.resource.data.messages[0].get('createdAt', null) is timestamp;
+      // Support staff may only manage the workflow fields and append one
+      // authenticated message. Ticket identity and original content are immutable.
+      allow update: if (
+        canManageHelpdesk() &&
+        request.resource.data.diff(existing()).affectedKeys().hasOnly(['status', 'priority', 'assignedTo', 'assignedToEmail', 'updatedAt', 'messages']) &&
+        request.resource.data.get('userId', '') == existing().get('userId', '') &&
+        request.resource.data.get('userEmail', '') == existing().get('userEmail', '') &&
+        request.resource.data.get('subject', '') == existing().get('subject', '') &&
+        request.resource.data.get('description', '') == existing().get('description', '') &&
+        request.resource.data.get('createdAt', null) == existing().get('createdAt', null) &&
+        request.resource.data.get('status', '') in ['open', 'in_progress', 'resolved', 'closed'] &&
+        isValidTicketStatusTransition(existing().get('status', 'open'), request.resource.data.get('status', 'open')) &&
+        request.resource.data.get('priority', '') in ['low', 'medium', 'high', 'critical'] &&
+        isValidTicketAssignment(request.resource.data) &&
+        (!request.resource.data.diff(existing()).affectedKeys().hasAny(['messages']) || isValidTicketReply(existing(), request.resource.data))
+      ) || (
         isApproved() &&
         existing().get('userId', '') == request.auth.uid &&
         request.resource.data.diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) &&
-        request.resource.data.get('messages', []).size() == existing().get('messages', []).size() + 1 &&
-        request.resource.data.messages[request.resource.data.messages.size() - 1].senderId == request.auth.uid &&
-        request.resource.data.messages[request.resource.data.messages.size() - 1].text is string &&
-        request.resource.data.messages[request.resource.data.messages.size() - 1].text.size() > 0 &&
-        request.resource.data.messages[request.resource.data.messages.size() - 1].text.size() <= 5000 &&
+        isValidTicketReply(existing(), request.resource.data) &&
         existing().get('status', 'open') in ['open', 'in_progress'] &&
         request.resource.data.get('status', '') == existing().get('status', '') &&
         request.resource.data.get('priority', '') == existing().get('priority', '') &&
-        request.resource.data.get('assignedTo', null) == existing().get('assignedTo', null)
+        request.resource.data.get('assignedTo', null) == existing().get('assignedTo', null) &&
+        request.resource.data.get('assignedToEmail', null) == existing().get('assignedToEmail', null)
       );
-      allow delete: if isAdmin();
+      allow delete: if false;
     }
 
     // ===============================================================
@@ -389,25 +446,70 @@ service cloud.firestore {
     // ===============================================================
     // Reclutamiento
     // ===============================================================
+    function isOpenJobApplication(data) {
+      let jobId = data.get('jobId', '');
+      return jobId == 'general-pool' ||
+        (jobId is string && jobId.size() > 0 &&
+          exists(/databases/$(database)/documents/jobs/$(jobId)) &&
+          get(/databases/$(database)/documents/jobs/$(jobId)).data.get('status', '') == 'active');
+    }
+
     match /candidates/{candidateId} {
       allow read, delete: if isHR();
       allow update: if isHR() &&
-        request.resource.data.get('hrNotes', '') is string &&
-        request.resource.data.get('hrNotes', '').size() <= 5000;
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'name', 'role', 'phone', 'email', 'hrNotes']) &&
+        request.resource.data.get('status', resource.data.get('status', 'Nuevo')) in ['Nuevo', 'En Revisión', 'Entrevista', 'Academia Kaivincia', 'Contratado'] &&
+        request.resource.data.get('name', resource.data.get('name', '')) is string &&
+        request.resource.data.get('name', resource.data.get('name', '')).size() > 0 &&
+        request.resource.data.get('name', resource.data.get('name', '')).size() <= 150 &&
+        request.resource.data.get('role', resource.data.get('role', '')) is string &&
+        request.resource.data.get('role', resource.data.get('role', '')).size() <= 150 &&
+        request.resource.data.get('phone', resource.data.get('phone', '')) is string &&
+        request.resource.data.get('phone', resource.data.get('phone', '')).size() <= 40 &&
+        request.resource.data.get('email', resource.data.get('email', '')) is string &&
+        request.resource.data.get('email', resource.data.get('email', '')).size() <= 254 &&
+        request.resource.data.get('hrNotes', resource.data.get('hrNotes', '')) is string &&
+        request.resource.data.get('hrNotes', resource.data.get('hrNotes', '')).size() <= 5000;
       allow create: if request.resource.data.keys().hasOnly([
         'name', 'email', 'phone', 'city', 'linkedin', 'role', 'experience', 'jobId',
         'skills', 'status', 'hasPhoto', 'hasResume', 'resumeFileName', 'resumeText', 'createdAt'
-      ]) && request.resource.data.get('status', '') == 'Nuevo' &&
-        request.resource.data.get('resumeText', '') is string && request.resource.data.resumeText.size() <= 15000 &&
+      ]) &&
+        request.resource.data.get('status', '') == 'Nuevo' &&
+        isOpenJobApplication(request.resource.data) &&
+        request.resource.data.get('resumeText', '') is string &&
+        request.resource.data.resumeText.size() > 0 && request.resource.data.resumeText.size() <= 15000 &&
+        request.resource.data.get('resumeFileName', '') is string &&
+        request.resource.data.resumeFileName.size() > 0 && request.resource.data.resumeFileName.size() <= 180 &&
+        request.resource.data.get('hasResume', false) == true &&
+        request.resource.data.get('hasPhoto', false) == false &&
+        request.resource.data.get('skills', []) is list &&
+        request.resource.data.skills.size() <= 30 &&
         request.resource.data.get('name', '') is string &&
         request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 150 &&
-        request.resource.data.get('email', '') is string && request.resource.data.email.size() <= 254;
+        request.resource.data.get('email', '') is string &&
+        request.resource.data.email.size() > 0 && request.resource.data.email.size() <= 254 &&
+        request.resource.data.get('phone', '') is string &&
+        request.resource.data.phone.size() <= 40 &&
+        request.resource.data.get('city', '') is string &&
+        request.resource.data.city.size() <= 120 &&
+        request.resource.data.get('linkedin', '') is string &&
+        request.resource.data.linkedin.size() <= 500 &&
+        request.resource.data.get('role', '') is string &&
+        request.resource.data.role.size() <= 150 &&
+        request.resource.data.get('experience', '') is string &&
+        request.resource.data.experience.size() <= 5000 &&
+        request.resource.data.get('jobId', '') is string &&
+        request.resource.data.jobId.size() > 0 &&
+        request.resource.data.jobId.size() <= 128 &&
+        request.resource.data.get('createdAt', null) == request.time;
     }
 
     match /jobs/{jobId} {
-      allow get, list:      if true;
+      // Public pages use a sanitized server endpoint; full HR job records
+      // contain internal candidate and acquisition metrics.
+      allow get, list: if isHR();
       allow create, update: if isHR() && isValidJob(incoming());
-      allow delete:         if isHR();
+      allow delete: if isHR();
     }
 
     // ===============================================================
@@ -547,28 +649,98 @@ service cloud.firestore {
     // Asistencia & permisos
     // ===============================================================
     match /attendance_logs/{logId} {
-      allow read:   if isHR() ||
-                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
+      allow read: if isHR() ||
+        (isApproved() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      // Timestamp is server-authored; the client cannot backdate or fabricate
+      // attendance events. Logs are immutable after creation.
       allow create: if isApproved() &&
         incoming().keys().hasOnly(['userId', 'userName', 'type', 'timestamp', 'source']) &&
         incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('userName', '') == request.auth.token.email &&
         incoming().get('type', '') in ['in', 'out'] &&
-        incoming().get('timestamp', '') is string;
-      allow update, delete: if isHR();
+        incoming().get('source', '') == 'web' &&
+        incoming().get('timestamp', null) == request.time;
+      allow update, delete: if false;
     }
 
     match /absence_requests/{requestId} {
-      allow read:   if isHR() ||
-                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
+      allow read: if isHR() ||
+        (isApproved() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
       allow create: if isApproved() &&
         incoming().keys().hasOnly(['type', 'startDate', 'endDate', 'reason', 'userId', 'userName', 'status', 'createdAt']) &&
         incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('userName', '') == request.auth.token.email &&
         incoming().get('status', '') == 'pending' &&
-        incoming().get('startDate', '') is string &&
-        incoming().get('endDate', '') is string &&
-        incoming().get('reason', '') is string &&
-        incoming().reason.size() <= 3000;
-      allow update, delete: if isHR();
+        incoming().get('type', '') is string && incoming().type.size() > 0 && incoming().type.size() <= 80 &&
+        incoming().get('startDate', '') is string && incoming().startDate.matches('^\\d{4}-\\d{2}-\\d{2}
+
+        match /notifications/{notificationId} {
+      allow read: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+    }
+
+        match /documents/{documentId} {
+      allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+    }
+
+    match /settings/telnyx_config {
+      allow read, write: if isTelephonyAdmin();
+    }
+
+    // ===============================================================
+    // Deny-all
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+) &&
+        incoming().get('endDate', '') is string && incoming().endDate.matches('^\\d{4}-\\d{2}-\\d{2}
+
+        match /notifications/{notificationId} {
+      allow read: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+    }
+
+        match /documents/{documentId} {
+      allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+    }
+
+    match /settings/telnyx_config {
+      allow read, write: if isTelephonyAdmin();
+    }
+
+    // ===============================================================
+    // Deny-all
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+) &&
+        incoming().startDate <= incoming().endDate &&
+        incoming().get('reason', '') is string && incoming().reason.size() <= 3000 &&
+        incoming().get('createdAt', null) == request.time;
+      allow update: if isHR() &&
+        resource.data.get('status', '') == 'pending' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy', 'reviewerEmail']) &&
+        request.resource.data.get('status', '') in ['approved', 'rejected'] &&
+        request.resource.data.get('reviewedBy', '') == request.auth.uid &&
+        request.resource.data.get('reviewerEmail', '') == request.auth.token.email &&
+        request.resource.data.get('reviewedAt', null) == request.time;
+      allow delete: if false;
     }
 
         match /notifications/{notificationId} {
