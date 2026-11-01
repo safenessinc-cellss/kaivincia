@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import { db } from '../firebase';
 import { Link } from 'react-router-dom';
 import { Briefcase, MapPin, Clock, ChevronRight, Search, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -12,23 +10,33 @@ export default function Careers() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    // Basic query to avoid index requirements during development
-    const q = query(
-      collection(db, 'jobs'),
-      orderBy('createdAt', 'desc')
-    );
+    const controller = new AbortController();
+    let active = true;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allJobs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      // Filter active jobs client-side to be safe
-      setJobs(allJobs.filter((job: any) => job.status === 'active'));
-      setLoading(false);
-    }, (error) => {
-      console.error("Error fetching jobs:", error);
-      setLoading(false);
-    });
+    const loadPublicJobs = async () => {
+      try {
+        const response = await fetch('/api/public-jobs', { signal: controller.signal });
+        if (!response.ok) throw new Error(`Vacantes no disponibles (HTTP ${response.status}).`);
+        const payload = await response.json();
+        if (active) {
+          const safeJobs = Array.isArray(payload.jobs) ? payload.jobs : [];
+          setJobs(safeJobs.filter((job: any) => job && job.status === 'active'));
+        }
+      } catch (error) {
+        if (active && !controller.signal.aborted) {
+          console.error('Error fetching public jobs:', error);
+          setJobs([]);
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
 
-    return () => unsubscribe();
+    void loadPublicJobs();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, []);
 
   const filteredJobs = jobs.filter(job => 
@@ -122,7 +130,7 @@ export default function Careers() {
               <h2 className="text-3xl font-serif font-bold text-white">Vacantes Activas</h2>
               <div className="flex items-center gap-2 mt-2">
                  <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Actualizado en tiempo real • {filteredJobs.length} Posiciones</p>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest leading-none">Vacantes publicadas • {filteredJobs.length} Posiciones</p>
               </div>
            </div>
         </div>
