@@ -34,13 +34,6 @@ const PIPELINE_COLUMNS: { id: PipelineStage; label: string; color: string; badge
   { id: 'NO_INTERESADO', label: 'No Interesado / Descartado', color: 'border-red-500/40 text-red-400', badgeBg: 'bg-red-500/10 text-red-400' },
 ];
 
-const TLMK_AGENTS = [
-  'Zaydeli De La Rosa',
-  'Marta García',
-  'Carlos Méndez',
-  'Agente Comercial General'
-];
-
 interface CardProps {
   lead: LeadOpportunity;
   onMove: (leadId: string, direction: 'prev' | 'next') => void;
@@ -360,6 +353,10 @@ function DroppableColumn({
 export default function Pipeline() {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<LeadOpportunity[]>([]);
+  // Assignment choices are derived from existing CRM records; never invent agent identities.
+  const TLMK_AGENTS = useMemo(() => Array.from(new Set(
+    leads.map(lead => lead.assignedTLMK?.trim()).filter((name): name is string => Boolean(name) && name !== 'Sin asignar')
+  )), [leads]);
   const [loading, setLoading] = useState(true);
   const [selectedTLMK, setSelectedTLMK] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
