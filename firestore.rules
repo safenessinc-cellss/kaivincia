@@ -329,12 +329,13 @@ service cloud.firestore {
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read: if isVoipUser() && isAdmin();
+      allow read: if isAdmin() && (isVoipUser() || isTelephonyAdmin());
       allow write: if isTelephonyAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
-      allow read: if isVoipUser() && (isAdmin() || existing().get('agentId', '') == request.auth.uid);
+      allow read: if (isAdmin() && (isVoipUser() || isTelephonyAdmin())) ||
+        (isVoipUser() && existing().get('agentId', '') == request.auth.uid);
       allow write: if isTelephonyAdmin();
     }
 
