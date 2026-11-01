@@ -206,7 +206,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
     }
 
     if (userRole === 'rrhh') {
-      return [coreGroup, talentGroup, academyGroup, portalGroup];
+      return [talentGroup, portalGroup];
     }
 
     if (userRole === 'gestor') {
