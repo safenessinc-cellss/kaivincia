@@ -65,7 +65,7 @@ service cloud.firestore {
     function isVoipUser() {
       return isApproved() && hasEffectivePermission(
         "voip_calls",
-        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
+        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor", "supervisor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
       );
     }
 
