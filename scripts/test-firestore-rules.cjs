@@ -25,6 +25,7 @@ async function main() {
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
         ['support-agent', { role: 'agent', status: 'approved', email: 'support-agent@example.test', permissions: { helpdesk_manage: true } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
+        ['superadmin-denied', { role: 'superadmin', status: 'approved', permissions: { voip_calls: false, telephony_config: false } }],
         ['pending-superadmin', { role: 'superadmin', status: 'pending' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
@@ -89,6 +90,7 @@ async function main() {
     const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
     const supportAgent = env.authenticatedContext('support-agent', { email: 'support-agent@example.test' }).firestore();
     const superadmin = env.authenticatedContext('superadmin').firestore();
+    const superadminDenied = env.authenticatedContext('superadmin-denied').firestore();
     const pendingSuperadmin = env.authenticatedContext('pending-superadmin').firestore();
     const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
@@ -157,6 +159,7 @@ async function main() {
     await assertFails(getDoc(doc(manager, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(getDoc(doc(adminNoTelephony, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDocs(query(collection(alice, 'voip_call_history'), where('agentId', '==', 'alice'))));
@@ -173,6 +176,9 @@ async function main() {
     await assertFails(getDoc(doc(agentNoVoip, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(admin, 'voip_providers', 'telnyx')));
     await assertSucceeds(getDoc(doc(admin, 'settings', 'telnyx_config')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'settings', 'telnyx_config')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'telnyx_phone_numbers', 'admin-number')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'settings', 'rbac_matrix')));
     await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertFails(updateDoc(doc(manager, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
