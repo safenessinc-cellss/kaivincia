@@ -10,11 +10,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 // Mock Data for Bloomberg Terminal Style
 const PAYMENTS = [
-  { id: '1', agent: 'Carlos Ruiz', role: 'Closer', revenue: 42000, cost: 5000, type: 'Mixed', status: 'Scheduled', date: '2024-03-30', bonus: 1250 },
-  { id: '2', agent: 'Ana Silva', role: 'Setter', revenue: 12000, cost: 2500, type: 'Fixed', status: 'Paid', date: '2024-03-15', bonus: 0 },
-  { id: '3', agent: 'Maria Gomez', role: 'Support', revenue: 3200, cost: 2800, type: 'Appointment', status: 'Pending', date: '2024-03-28', bonus: 150 },
-  { id: '4', agent: 'Miguel Rojas', role: 'Ops', revenue: 15000, cost: 4500, type: 'Mixed', status: 'Scheduled', date: '2024-03-30', bonus: 500 },
-  { id: '5', agent: 'Paula Lopez', role: 'Setter', revenue: 5000, cost: 1500, type: 'Appointment', status: 'Scheduled', date: '2024-03-30', bonus: 200 },
+  { id: '1', agent: 'Agente Demo 01', role: 'Closer', revenue: 42000, cost: 5000, type: 'Mixed', status: 'Scheduled', date: '2024-03-30', bonus: 1250 },
+  { id: '2', agent: 'Agente Demo 02', role: 'Setter', revenue: 12000, cost: 2500, type: 'Fixed', status: 'Paid', date: '2024-03-15', bonus: 0 },
+  { id: '3', agent: 'Agente Demo 03', role: 'Support', revenue: 3200, cost: 2800, type: 'Appointment', status: 'Pending', date: '2024-03-28', bonus: 150 },
+  { id: '4', agent: 'Agente Demo 04', role: 'Ops', revenue: 15000, cost: 4500, type: 'Mixed', status: 'Scheduled', date: '2024-03-30', bonus: 500 },
+  { id: '5', agent: 'Agente Demo 05', role: 'Setter', revenue: 5000, cost: 1500, type: 'Appointment', status: 'Scheduled', date: '2024-03-30', bonus: 200 },
 ];
 
 export default function Payroll() {
@@ -31,6 +31,9 @@ export default function Payroll() {
 
   return (
     <div className="min-h-screen bg-transparent text-slate-700 font-sans p-4 md:p-8">
+      <div role="status" className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+        DEMOSTRACIÓN: nómina, ingresos, costes, ROI y bonos son datos ficticios de muestra. Esta pantalla no lee la nómina real, no ejecuta pagos y no exporta archivos.
+      </div>
       {/* BLOOMBERG STYLE HEADER */}
       <div className="max-w-[1600px] mx-auto space-y-8">
         
@@ -64,17 +67,17 @@ export default function Payroll() {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <div className="w-3 h-3 bg-[#00F0FF] rounded-full animate-pulse" />
-              <h1 className="text-sm font-black uppercase tracking-[0.3em] text-white">Kaivincia Real-Time Terminal</h1>
+              <h1 className="text-sm font-black uppercase tracking-[0.3em] text-white">Kaivincia Payroll Demo</h1>
             </div>
             <p className="text-4xl font-black text-white italic tracking-tighter uppercase">Nómina & Rentabilidad <span className="text-[#00F0FF]">SYS.01</span></p>
           </div>
           <div className="flex items-center gap-4">
              <div className="bg-gray-900 border border-gray-800 p-3 rounded-xl min-w-[150px]">
-               <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Volume Period (USD)</p>
+               <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Volume Period (USD, DEMO)</p>
                <p className="text-xl font-black text-[#00F0FF] italic">$142,850.00</p>
              </div>
-             <button className="h-14 px-8 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-[#00F0FF] transition-all flex items-center gap-3">
-               <Download className="w-4 h-4" /> Export.CSV
+             <button disabled title="La exportación aún no está conectada a datos reales" className="h-14 px-8 bg-gray-200 text-gray-500 text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-3 cursor-not-allowed">
+               <Download className="w-4 h-4" /> Exportación no disponible
              </button>
           </div>
         </header>
@@ -82,7 +85,7 @@ export default function Payroll() {
         {/* METRICS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total Payroll (Live)', val: `$${totalPayroll.toLocaleString()}`, detail: '+4.2% vs Prev', icon: Wallet, color: 'white' },
+            { label: 'Total Payroll (DEMO)', val: `$${totalPayroll.toLocaleString()}`, detail: '+4.2% vs Prev', icon: Wallet, color: 'white' },
             { label: 'Smart Bonuses (Algorithmic)', val: '$2,220', detail: 'Calculated by KPIs', icon: Zap, color: '#00F0FF' },
             { label: 'Operating Margin', val: '64.2%', detail: 'Stable Trend', icon: TrendingUp, color: 'green' },
             { label: 'CAC Total', val: '$420', detail: '-12% Efficiency', icon: BarChart3, color: 'blue' }
@@ -101,7 +104,7 @@ export default function Payroll() {
           <div className="xl:col-span-2 bg-gray-900/30 border border-gray-800 rounded-[2rem] p-8">
             <div className="flex justify-between items-center mb-10">
                <h3 className="text-lg font-black text-white uppercase italic flex items-center gap-3">
-                  <BarChart3 className="w-5 h-5 text-[#00F0FF]" /> Agent ROI Matrix (Live)
+                  <BarChart3 className="w-5 h-5 text-[#00F0FF]" /> Agent ROI Matrix (DEMO)
                </h3>
                <div className="flex gap-4">
                   <div className="flex items-center gap-2">
@@ -118,7 +121,7 @@ export default function Payroll() {
             <div className="space-y-8">
                {PAYMENTS.map(p => {
                  const roi = ((p.revenue - p.cost) / p.cost) * 100;
-                 const isMaria = p.agent === 'Maria Gomez';
+                 const isMaria = p.agent === 'Agente Demo 03';
                  return (
                    <div key={p.id} className="relative">
                       <div className="flex justify-between items-end mb-2">
@@ -194,7 +197,7 @@ export default function Payroll() {
                    <div className="flex items-start gap-3">
                       <Zap className="w-4 h-4 text-[#00F0FF] mt-0.5" />
                       <p className="text-[10px] text-gray-400 leading-relaxed font-bold uppercase italic">
-                         Smart Bonus System: Automatización de incentivos basada en Revenue Real-Time.
+                         Sistema de bonos ilustrativo. No calcula pagos ni utiliza ingresos reales.
                       </p>
                    </div>
                 </div>
