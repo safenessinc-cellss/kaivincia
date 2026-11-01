@@ -319,9 +319,9 @@ export default function Dashboard() {
               
               <div className="space-y-4">
                  {[
-                   { label: 'Uso de API GenAI', value: '88%', color: 'bg-cyan-500' },
-                   { label: 'Sincronización GPS', value: 'Active', color: 'bg-emerald-500' },
-                   { label: 'Latencia de Nodo', value: '14ms', color: 'bg-[#A855F7]' }
+                   { label: 'Uso de API GenAI', value: 'No disponible', color: 'bg-slate-500' },
+                   { label: 'Sincronización GPS', value: 'No verificada', color: 'bg-slate-500' },
+                   { label: 'Latencia de Nodo', value: 'No disponible', color: 'bg-slate-500' }
                  ].map(stat => (
                    <div key={stat.label} className="flex flex-col gap-1.5">
                       <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-gray-500">
@@ -395,16 +395,7 @@ export default function Dashboard() {
             </div>
             
             <div className="grid grid-cols-6 gap-2 h-48 content-center">
-              {[...Array(24)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`h-full w-full rounded-lg transition-all duration-500 cursor-pointer hover:scale-110 active:scale-95 border ${
-                    i === 3 || i === 12 ? 'bg-[#EF4444] border-red-500/50' : 
-                    i % 5 === 0 ? 'bg-[#F59E0B22] border-amber-500/30' : 'bg-[#10B98122] border-emerald-500/30'
-                  }`}
-                  title="Unit Status"
-                />
-              ))}
+              <div className="col-span-6 text-center text-xs text-gray-500 py-8">Estado de clientes no disponible: aún no hay una fuente de salud verificada conectada.</div>
             </div>
             
             <div className="mt-6 flex justify-between items-center">
@@ -418,7 +409,7 @@ export default function Dashboard() {
                    <span className="text-[8px] font-black uppercase tracking-widest">Error Node</span>
                  </div>
                </div>
-               <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">2 Entities Delayed</span>
+               <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Sin incidencias verificadas</span>
             </div>
           </motion.div>
 
