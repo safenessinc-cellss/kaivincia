@@ -14,15 +14,19 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const principal = await authorizeCrmRequest(req, res, { requireOperator: true });
+    const principal = await authorizeCrmRequest(req, res);
     if (!principal) return;
-
     if (principal.isAdmin) {
       const result = await TelnyxBackendService.getAccountPhoneNumbers();
       return res.status(result.success ? 200 : 502).json(result);
     }
 
-    const assigned = Array.isArray(principal.operator.numerosAsignados) ? principal.operator.numerosAsignados : [];
+    const operatorSnap = await adminDb.collection('operadores').doc(principal.uid).get();
+    const operator = operatorSnap.data() || {};
+    if (!operatorSnap.exists || operator.activo !== true) {
+      return res.status(403).json({ success: false, numbers: [], error: 'No tienes un perfil de operador activo.' });
+    }
+    const assigned = Array.isArray(operator.numerosAsignados) ? operator.numerosAsignados : [];
     const numbers: any[] = [];
     for (const id of assigned) {
       const snap = await adminDb.collection('telnyx_phone_numbers').doc(String(id)).get();
