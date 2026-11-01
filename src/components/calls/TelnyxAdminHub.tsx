@@ -179,9 +179,14 @@ export default function TelnyxAdminHub() {
   // Cargar lista de agentes para asignar credenciales (al nivel superior del componente)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
+      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador']);
       const agents = snap.docs
         .map(d => ({ uid: d.id, ...(d.data() as any) }))
-        .filter((u: any) => u.status === 'active' || u.role === 'tlmk' || u.role === 'agente' || u.role === 'admin' || u.role === 'supervisor')
+        .filter((u: any) =>
+          ['approved', 'active'].includes(String(u.status || '').toLowerCase()) &&
+          voipRoles.has(String(u.role || '').toLowerCase()) &&
+          u.permissions?.voip_calls !== false
+        )
         .map((u: any) => ({
           uid: u.uid,
           email: u.email || u.uid,
@@ -195,13 +200,21 @@ export default function TelnyxAdminHub() {
   // Lista normalizada de colaboradoras (contextUsers + fallback seguro)
   const collaborators = useMemo(() => {
     if (contextUsers && contextUsers.length > 0) {
-      return contextUsers.map((u: any) => ({
-        id: u.id || u.uid,
-        name: u.displayName || u.name || u.email || 'Colaboradora',
-        email: u.email || '',
-        role: u.role || 'Agente',
-        avatar: u.photoURL || u.name?.[0] || 'C'
-      }));
+      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador']);
+      return contextUsers
+        .filter((u: any) =>
+          ['approved', 'active'].includes(String(u.status || '').toLowerCase()) &&
+          voipRoles.has(String(u.role || '').toLowerCase()) &&
+          u.permissions?.voip_calls !== false &&
+          Boolean(u.id || u.uid)
+        )
+        .map((u: any) => ({
+          id: u.id || u.uid,
+          name: u.displayName || u.name || u.email || 'Colaborador',
+          email: u.email || '',
+          role: u.role || 'agent',
+          avatar: u.photoURL || u.name?.[0] || 'U'
+        }));
     }
     return [];
   }, [contextUsers]);
