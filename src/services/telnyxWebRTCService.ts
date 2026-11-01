@@ -180,11 +180,11 @@ class TelnyxWebRTCService {
             console.log('[TelnyxWebRTC] ✅ Token individual renovado correctamente');
           } catch (err: any) {
             console.error('[TelnyxWebRTC] ❌ Fallo al renovar token:', err.message);
-            try { this.client?.disconnect(); } catch {}
-            this.state.isConnected = false;
+            // A transient network error should not tear down an otherwise
+            // live call. Outbound is paused until the next successful refresh.
             this.state.canMakeOutbound = false;
             this.state.canReceiveInbound = false;
-            this.state.lastError = 'Sesión expirada. Vuelve a autenticarte.';
+            this.state.lastError = 'No fue posible renovar el token. Se reintentará antes de habilitar nuevas llamadas.';
             this.notify();
           }
         }
