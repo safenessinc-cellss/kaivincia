@@ -26,18 +26,16 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && (
+      return isApproved() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         userRole() in ["admin", "superadmin", "owner", "ceo", "gestor"])
+        userRole() in ["admin", "superadmin", "owner", "ceo", "gestor"]
       );
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && (
+      return isApproved() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         userRole() in ["superadmin", "admin"])
+        userRole() in ["superadmin", "admin"]
       );
     }
 
