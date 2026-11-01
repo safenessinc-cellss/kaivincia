@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { requestGemini } from '../services/geminiApi';
 import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, setDoc, getDocs, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenAI } from '@google/genai';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { 
@@ -519,40 +519,11 @@ export default function Clients() {
         }
 
         setImportStatus({ type: 'loading', message: 'Estructurando listado mediante Gemini IA...' });
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          throw new Error("La clave de API de Gemini no está configurada.");
-        }
-
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Analiza el siguiente texto de un documento e identifica a los clientes y sus datos asociados.
-Devuelve únicamente un arreglo JSON en el formato exacto de un objeto que tiene una clave llamada "clients", cuyo valor es un arreglo de objetos de cliente.
-Cada objeto de cliente debe tener exactamente los siguientes nombres de campos en minúsculas:
-- "name": Nombre completo del contacto/cliente (por ejemplo, "Juan Pérez")
-- "company": Nombre de la empresa u organización (por ejemplo, "TechCorp")
-- "email": Correo electrónico válido
-- "phone": Número de de teléfono o contacto
-- "sector": Sector o industria (por ejemplo, "Tecnología", "Salud", "Servicios", "Finanzas")
-- "amount": Monto del contrato (un número real o entero, por ejemplo, 1200)
-- "status": Debe ser exactamente uno de estos valores: "Activo", "En Riesgo", "Lead", "Inactivo"
-- "billingModel": Debe ser exactamente uno de estos valores: "Fijo", "Variable", "Híbrido"
-- "pipelineStage": Etapa de venta (por ejemplo, "Propuesta", "Contacto Inicial", "Cerrado Ganado")
-
-Texto del documento:
-${textContent}
-
-Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluyas explicaciones ni bloques de código markdown, solo el JSON puro.`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
+        const result = await requestGemini<{ clients: Array<Record<string, unknown>> }>('client-import', {
+          consent: true,
+          textContent
         });
-
-        const rawText = response.text || '';
-        let cleanText = rawText.trim();
-        if (cleanText.startsWith('```')) {
-          cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-        }
+        const parsedData = result;
 
         const parsedData = JSON.parse(cleanText);
         if (!parsedData.clients || !Array.isArray(parsedData.clients)) {
@@ -565,11 +536,11 @@ Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluy
           company: c.company || '',
           email: c.email || '',
           phone: c.phone || '',
-          sector: c.sector || 'Tecnología',
+          sector: c.sector || 'No especificado',
           amount: Number(c.amount) || 0,
-          status: c.status || 'Activo',
-          billingModel: c.billingModel || 'Fijo',
-          pipelineStage: c.pipelineStage || 'Propuesta'
+          status: c.status || 'Lead',
+          billingModel: c.billingModel || 'Variable',
+          pipelineStage: c.pipelineStage || 'Contacto Inicial'
         }));
 
         setImportRows(clientsList);
