@@ -37,21 +37,11 @@ function telnyxDevApiPlugin(env: Record<string, string>): Plugin {
           return geminiHandler(req, res);
         }
 
-        if (pathname === '/api/meta-config') {
-          const { default: metaConfigHandler } = await import('./api/meta-config.js');
-          return metaConfigHandler(req, res);
+        if (pathname.startsWith('/api/meta')) {
+          const { default: metaHandler } = await import('./api/meta.js');
+          req.query = { ...(req.query || {}), endpoint: pathname.slice('/api/'.length) };
+          return metaHandler(req, res);
         }
-
-        if (pathname === '/api/meta-send') {
-          const { default: metaSendHandler } = await import('./api/meta-send.js');
-          return metaSendHandler(req, res);
-        }
-
-        if (pathname === '/api/meta-webhook') {
-          const { default: metaWebhookHandler } = await import('./api/meta-webhook.js');
-          return metaWebhookHandler(req, res);
-        }
-
 
         if ((pathname === '/api/telnyx/config' || pathname === '/api/telnyx-config') && req.method === 'GET') {
           try {
