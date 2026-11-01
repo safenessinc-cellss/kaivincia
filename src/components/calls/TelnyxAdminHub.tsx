@@ -190,9 +190,7 @@ export default function TelnyxAdminHub() {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as TelnyxPhoneNumber));
         setPhoneNumbers(list);
       } else {
-        INITIAL_DEMO_NUMBERS.forEach(n => {
-          setDoc(doc(db, 'telnyx_phone_numbers', n.id), n).catch(console.error);
-        });
+        setPhoneNumbers([]);
       }
     }, (err) => console.warn('Could not load telnyx_phone_numbers:', err));
 
