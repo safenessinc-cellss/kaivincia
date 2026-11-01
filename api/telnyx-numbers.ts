@@ -2,6 +2,7 @@ import { adminDb } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
+const CONFIG_ROLES = new Set(['superadmin', 'admin']);
 const VOIP_ROLES = new Set([
   ...PRIVILEGED_ROLES, 'supervisor', 'agent', 'collaborator'
 ]);
@@ -33,7 +34,10 @@ export default async function handler(req: any, res: any) {
     const profileSnap = await adminDb.collection('users').doc(authUser.uid).get();
     const profile = profileSnap.data() || {};
     const role = normalizeRole(profile.role);
-    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role) || !(await hasVoipPermission(authUser.uid, profile, role))) {
+    const permissionGranted = CONFIG_ROLES.has(role)
+      ? await hasTelephonyConfigPermission(profile, role)
+      : await hasVoipPermission(authUser.uid, profile, role);
+    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role) || !permissionGranted) {
       res.statusCode = 403;
       res.end(JSON.stringify({ success: false, numbers: [], error: 'Cuenta sin autorización para telefonía.' }));
       return;
@@ -106,4 +110,14 @@ async function hasVoipPermission(uid: string, profile: any, role: string): Promi
   const matrixValue = roleMatrix?.voip_calls;
   if (typeof matrixValue === 'boolean') return matrixValue;
   return ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'].includes(role);
+}
+
+
+async function hasTelephonyConfigPermission(profile: any, role: string): Promise<boolean> {
+  const override = profile.permissions?.telephony_config;
+  if (typeof override === 'boolean') return override;
+  const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
+  const matrixValue = matrixSnap.data()?.matrix?.[role]?.telephony_config;
+  if (typeof matrixValue === 'boolean') return matrixValue;
+  return CONFIG_ROLES.has(role);
 }
