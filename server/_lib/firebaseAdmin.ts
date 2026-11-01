@@ -2,27 +2,26 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-if (!getApps().length) {
+let adminConfigured = getApps().length > 0;
+
+if (!adminConfigured) {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (!raw) {
-    throw new Error(
-      'Firebase Admin no configurado: falta FIREBASE_SERVICE_ACCOUNT_KEY (JSON de la service account)'
-    );
+  if (raw) {
+    try {
+      const serviceAccount: any = JSON.parse(raw);
+      if (typeof serviceAccount.private_key === 'string') {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+      initializeApp({ credential: cert(serviceAccount) });
+      adminConfigured = true;
+      console.log('[firebaseAdmin] App inicializada para', serviceAccount.project_id);
+    } catch (error) {
+      console.error('[firebaseAdmin] No se pudo inicializar Firebase Admin:', (error as Error).message);
+    }
   }
-
-  let serviceAccount: any;
-  try {
-    serviceAccount = JSON.parse(raw);
-  } catch (e) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY no es JSON válido: ' + (e as Error).message);
-  }
-  if (typeof serviceAccount.private_key === 'string') {
-    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-  }
-
-  initializeApp({ credential: cert(serviceAccount) });
-  console.log('[firebaseAdmin] App inicializada para', serviceAccount.project_id);
 }
 
-export const adminAuth = getAuth();
-export const adminDb = getFirestore();
+export const isFirebaseAdminConfigured = adminConfigured;
+
+export const adminAuth = adminConfigured ? getAuth() : null as unknown as ReturnType<typeof getAuth>;
+export const adminDb = adminConfigured ? getFirestore() : null as unknown as ReturnType<typeof getFirestore>;
