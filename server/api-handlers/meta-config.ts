@@ -1,4 +1,4 @@
-import { MetaBackendService } from '../server/metaBackend.js';
+import { MetaBackendService } from '../metaBackend.js';
 
 export default async function handler(req: any, res: any) {
   // Configuración de encabezados CORS
@@ -36,7 +36,7 @@ export default async function handler(req: any, res: any) {
       const authUser = await MetaBackendService.verifyAuthToken(authHeader);
 
       // Si no hay token de autenticación válido y no es modo desarrollo asistido, requerir login
-      if (!authUser && !req.headers['x-dev-uid'] && process.env.NODE_ENV === 'production') {
+      if (!authUser && process.env.NODE_ENV === 'production') {
         res.statusCode = 401;
         res.end(JSON.stringify({
           success: false,

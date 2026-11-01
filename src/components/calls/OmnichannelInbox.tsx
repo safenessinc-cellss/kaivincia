@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   X
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -24,58 +24,13 @@ interface OmnichannelInboxProps {
   className?: string;
 }
 
-const DEFAULT_THREADS = [
-  {
-    id: 'th_1',
-    name: 'Marta Morales',
-    phone: '+34 690 123 456',
-    email: 'marta.m@cliente.com',
-    channel: 'WhatsApp',
-    lastMsg: 'Perfecto, quedo a la espera del presupuesto.',
-    time: '11:42 AM',
-    unread: 1,
-    priority: 'High',
-    messages: [
-      { id: 'm1', sender: 'them', text: 'Hola, quería consultar sobre el plan empresarial.', time: '11:30 AM' },
-      { id: 'm2', sender: 'me', text: '¡Hola Marta! Con gusto te envío el detalle de cobertura.', time: '11:35 AM' },
-      { id: 'm3', sender: 'them', text: 'Perfecto, quedo a la espera del presupuesto.', time: '11:42 AM' }
-    ]
-  },
-  {
-    id: 'th_2',
-    name: 'Carlos Mendoza',
-    phone: '+1 415 882 9901',
-    email: 'carlos@techcorp.io',
-    channel: 'Email',
-    lastMsg: 'Confirmamos la reunión técnica para el viernes.',
-    time: 'Ayer',
-    unread: 0,
-    priority: 'Medium',
-    messages: [
-      { id: 'm1', sender: 'them', text: 'Confirmamos la reunión técnica para el viernes a las 10:00.', time: 'Ayer' }
-    ]
-  },
-  {
-    id: 'th_3',
-    name: 'Laura Gómez',
-    phone: '+54 9 11 4455 6677',
-    email: 'laura@gomez.ar',
-    channel: 'Instagram',
-    lastMsg: '¿Tienen soporte para integración con CRM?',
-    time: '2 días',
-    unread: 0,
-    priority: 'Low',
-    messages: [
-      { id: 'm1', sender: 'them', text: 'Hola, ¿tienen soporte para integración con CRM?', time: '2 días' }
-    ]
-  }
-];
+
 
 export default function OmnichannelInbox({ onStartCallWithContact, className = '' }: OmnichannelInboxProps) {
   const { t } = useLanguage();
 
-  const { user, loading: authLoading } = useAuth();
-  const [threads, setThreads] = useState<any[]>(DEFAULT_THREADS);
+  const { user, userData, loading: authLoading } = useAuth();
+  const [threads, setThreads] = useState<any[]>([]);
   const [selectedThreadId, setSelectedThreadId] = useState<string>('th_1');
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState('all');
@@ -92,18 +47,24 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
   useEffect(() => {
     if (authLoading || !user) return;
 
-    const q = collection(db, 'omnichannel_threads');
-    const unsub = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const loaded = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setThreads(loaded);
-      }
-    }, (err) => {
-      console.warn('Could not sync omnichannel_threads, fallback local:', err);
-    });
-
-    return () => unsub();
-  }, [user, authLoading]);
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
+    const threadRecords = new Map<string, any>();
+    const queries = isAdmin ? [collection(db, 'omnichannel_threads')] : [
+      query(collection(db, 'omnichannel_threads'), where('ownerId', '==', user.uid)),
+      query(collection(db, 'omnichannel_threads'), where('createdBy', '==', user.uid)),
+      query(collection(db, 'omnichannel_threads'), where('assignedTo', '==', user.uid))
+    ];
+    const unsubscribers = queries.map(q => onSnapshot(q, snapshot => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') threadRecords.delete(change.doc.id);
+        else threadRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+      });
+      const list = Array.from(threadRecords.values());
+      setThreads(list);
+      if (!list.some(thread => thread.id === selectedThreadId)) setSelectedThreadId(list[0]?.id || '');
+    }, err => console.warn('Could not sync scoped omnichannel threads:', err)));
+    return () => unsubscribers.forEach(unsub => unsub());
+  }, [user, userData?.role, authLoading]);
 
   const selectedThread = threads.find(t => t.id === selectedThreadId) || threads[0] || null;
 
@@ -135,12 +96,13 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
       time: 'Ahora'
     };
 
-    setThreads(prev => prev.map(t => t.id === selectedThread.id ? updatedThread : t));
-    setReplyText('');
-
     try {
       await setDoc(doc(db, 'omnichannel_threads', selectedThread.id), updatedThread, { merge: true });
-    } catch (e) {}
+      setThreads(prev => prev.map(t => t.id === selectedThread.id ? updatedThread : t));
+      setReplyText('');
+    } catch (error) {
+      console.error('Could not save omnichannel reply:', error);
+    }
   };
 
   const handleCreateNewThread = async (e: React.FormEvent) => {
@@ -148,6 +110,9 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
     const newId = 'th_' + Date.now().toString().slice(-6);
     const threadData = {
       id: newId,
+      ownerId: user?.uid,
+      createdBy: user?.uid,
+      assignedTo: user?.uid,
       name: newName || 'Nuevo Contacto',
       phone: newTarget,
       email: '',
@@ -166,13 +131,14 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
       ]
     };
 
-    setThreads(prev => [threadData, ...prev]);
-    setSelectedThreadId(newId);
-    setShowNewModal(false);
-
     try {
       await setDoc(doc(db, 'omnichannel_threads', newId), threadData);
-    } catch (e) {}
+      setThreads(prev => [threadData, ...prev]);
+      setSelectedThreadId(newId);
+      setShowNewModal(false);
+    } catch (error) {
+      console.error('Could not create omnichannel thread:', error);
+    }
   };
 
   return (

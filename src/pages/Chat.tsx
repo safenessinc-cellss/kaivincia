@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   Send, Users, User, MessageSquare, Hash, Search, Sparkles, 
@@ -12,9 +12,9 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GoogleGenAI } from '@google/genai';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { requestGemini } from '../services/geminiApi';
 
 type ChatFilter = 'all' | 'groups' | 'clients' | 'private' | 'contacts';
 
@@ -85,6 +85,8 @@ export default function Chat() {
     { id: 'general', name: 'Kaivincia Interno', type: 'team', sentimentEmoji: '🔥', lastMessage: 'Chat de equipo activo' },
     { id: 'dev-ops', name: 'DevOps & Scaling', type: 'group', sentimentEmoji: '⚡', lastMessage: 'Infraestructura estable' }
   ];
+  const canViewDevOps = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserDoc?.role || '').toLowerCase());
+  const visibleBaseChannels = baseChannels.filter(channel => channel.id === 'general' || canViewDevOps);
 
   // Derive client list for sidebar
   const clientChannels = clients.map(c => ({
@@ -132,25 +134,59 @@ export default function Chat() {
     }
   }, [location]);
 
-  // Load chat messages in real-time
+  // Subscribe only to the selected conversation. Private messages are fetched
+  // through participant-constrained queries, never by downloading the whole collection.
   useEffect(() => {
-    const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return { id: doc.id, ...data };
-      });
-      setMessages(msgs);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
-    }, (error) => {
-      console.error("Error fetching chat messages:", error);
-      handleFirestoreError(error, OperationType.GET, 'chat_messages');
-    });
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setMessages([]);
+      return;
+    }
 
-    return () => unsubscribe();
-  }, []);
+    const base = collection(db, 'chat_messages');
+    const subscriptions: Array<() => void> = [];
+    const byId = new Map<string, any>();
+    const publish = () => {
+      setMessages(Array.from(byId.values()).sort((a, b) => {
+        const left = a.createdAt?.toMillis?.() ?? new Date(a.createdAt || 0).getTime();
+        const right = b.createdAt?.toMillis?.() ?? new Date(b.createdAt || 0).getTime();
+        return left - right;
+      }));
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
+    };
+    const subscribe = (constraints: any[]) => {
+      const unsubscribe = onSnapshot(query(base, ...constraints), snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') byId.delete(change.doc.id);
+          else byId.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+        });
+        publish();
+      }, error => {
+        console.error('Error fetching scoped chat messages:', error);
+        handleFirestoreError(error, OperationType.GET, 'chat_messages');
+      });
+      subscriptions.push(unsubscribe);
+    };
+
+    if (activeFilter === 'groups' && activeChannelId) {
+      subscribe([where('type', '==', 'groups'), where('targetId', '==', activeChannelId), orderBy('createdAt', 'asc')]);
+      // Backward-compatible read for records written before type/targetId existed.
+      subscribe([where('channelId', '==', activeChannelId)]);
+    } else if (activeFilter === 'clients' && activeClientId) {
+      subscribe([where('type', '==', 'clients'), where('targetId', '==', activeClientId), orderBy('createdAt', 'asc')]);
+      subscribe([where('channelId', '==', activeClientId)]);
+    } else if (activeFilter === 'private' && activePrivateUserId) {
+      subscribe([where('type', '==', 'private'), where('senderId', '==', uid), where('targetId', '==', activePrivateUserId), orderBy('createdAt', 'asc')]);
+      subscribe([where('type', '==', 'private'), where('senderId', '==', activePrivateUserId), where('targetId', '==', uid), orderBy('createdAt', 'asc')]);
+      // Legacy direct messages had senderId/targetId but no explicit type.
+      subscribe([where('senderId', '==', uid), where('targetId', '==', activePrivateUserId)]);
+      subscribe([where('senderId', '==', activePrivateUserId), where('targetId', '==', uid)]);
+    } else {
+      setMessages([]);
+    }
+
+    return () => subscriptions.forEach(unsubscribe => unsubscribe());
+  }, [activeFilter, activeChannelId, activeClientId, activePrivateUserId]);
 
   // Update selected colleague's administration states
   useEffect(() => {
@@ -352,105 +388,52 @@ export default function Chat() {
     }
   };
 
-  // Sincronización IA - Generate Smart Suggestions
+  // AI assistance runs on the authenticated server; recent messages are sent to Gemini only after the user invokes it.
   const handleGenerateAiSuggestions = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSuggestions(true);
     setAiSuggestions([]);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
-      const ai = new GoogleGenAI({ apiKey });
-
       const peer = globalUsers.find(u => u.id === activePrivateUserId);
-      const recentContext = filteredMessages.slice(-6).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
-        return `${name}: ${m.text}`;
-      }).join('\n');
-
-      const prompt = `
-        Actúa como un asistente ejecutivo premium de redactores para Kaivincia Corp.
-        Basándote en los últimos mensajes de este chat corporativo privado con ${peer?.name || 'Colega'}, genera EXACTAMENTE 3 respuestas de trabajo ejecutivas, eficientes y cordiales que "Yo" podría responder de inmediato.
-        
-        Conversación reciente:
-        ${recentContext || "(No hay mensajes recientes. Sugiere un saludo corporativo cortés para iniciar el contacto.)"}
-
-        Devuelve únicamente un objeto JSON estructurado de la siguiente manera:
-        {
-          "suggestions": ["Sugerencia 1", "Sugerencia 2", "Sugerencia 3"]
-        }
-        Asegúrate de que cada sugerencia tenga un tono profesional óptimo en español y sea directa (menos de 10 palabras).
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
-        }
+      const messages = filteredMessages.slice(-6).map(m => ({
+        role: m.senderId === auth.currentUser?.uid ? 'user' : 'assistant',
+        text: m.text
+      }));
+      const result = await requestGemini<{ suggestions: string[] }>('chat-suggestions', {
+        consent: true,
+        peerName: peer?.name || 'Colega',
+        messages
       });
-
-      const text = response.text;
-      if (text) {
-        const data = JSON.parse(text);
-        if (data.suggestions && Array.isArray(data.suggestions)) {
-          setAiSuggestions(data.suggestions);
-        }
-      }
+      setAiSuggestions(Array.isArray(result.suggestions) ? result.suggestions : []);
     } catch (err) {
       console.error("Gemini smart suggestions failed:", err);
-      // Fallback
       setAiSuggestions([
         "Entendido. Lo reviso de inmediato y te confirmo.",
-        "Excelente. Quedo atento a las directrices de la CEO.",
-        "Entendido. ¿Te parece si agendamos una llamada rápida en Teams?"
+        "Gracias por la información. Te confirmo los próximos pasos.",
+        "¿Te parece si coordinamos una llamada?"
       ]);
     } finally {
       setIsGeneratingSuggestions(false);
     }
   };
 
-  // Sincronización IA - Generate structured executive summary
   const handleGenerateSummary = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSummary(true);
     setConversationSummary('');
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
-      const ai = new GoogleGenAI({ apiKey });
-
-      const peer = globalUsers.find(u => u.id === activePrivateUserId);
-      const chatContext = filteredMessages.slice(-12).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
-        return `${name}: ${m.text}`;
-      }).join('\n');
-
-      const prompt = `
-        Analiza los siguientes mensajes de chat corporativo confidencial de Kaivincia Corp con ${peer?.name || 'Colega'}.
-        Genera un informe analítico ejecutivo y un resumen estructurado con viñetas en español.
-        Enfócate en:
-        1. Resumen de temas discutidos (máximo 2 líneas).
-        2. Tareas o compromisos pendientes acordados.
-        3. Tono analítico o sentimiento general detectado.
-        
-        Conversación reciente:
-        ${chatContext || "No hay mensajes suficientes en el chat para analizar."}
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
+      const messages = filteredMessages.slice(-12).map(m => ({
+        role: m.senderId === auth.currentUser?.uid ? 'user' : 'assistant',
+        text: m.text
+      }));
+      const result = await requestGemini<{ summary: string }>('chat-summary', {
+        consent: true,
+        messages
       });
-
-      if (response.text) {
-        setConversationSummary(response.text);
-      } else {
-        setConversationSummary("La IA no logró extraer suficiente contexto de esta conversación.");
-      }
+      setConversationSummary(result.summary || "No se obtuvo un resumen de la conversación.");
     } catch (err) {
       console.error("Gemini summary failed:", err);
-      setConversationSummary("Error de Conectividad: No se pudo contactar con el Copilot IA de Kaivincia.");
+      setConversationSummary("No se pudo generar el resumen. Puedes continuar utilizando el chat sin IA.");
     } finally {
       setIsGeneratingSummary(false);
     }
@@ -557,11 +540,11 @@ export default function Chat() {
                 <div className="flex items-center justify-between px-3 mb-3">
                   <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Canales de Equipo</h3>
                   <span className="bg-white/5 text-gray-400 text-[8px] font-black px-1.5 py-0.5 rounded">
-                    {baseChannels.length}
+                    {visibleBaseChannels.length}
                   </span>
                 </div>
                 <div className="space-y-0.5">
-                  {baseChannels.map(channel => {
+                  {visibleBaseChannels.map(channel => {
                     const isSelected = activeFilter === 'groups' && activeChannelId === channel.id;
                     return (
                       <button
@@ -1279,6 +1262,7 @@ export default function Chat() {
                             )}
                           </button>
                         </div>
+                        <p className="px-1 text-[9px] text-gray-500">Al solicitar sugerencias, los últimos mensajes de esta conversación privada se envían a Google Gemini para su análisis.</p>
 
                         <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
                           {aiSuggestions.map((suggestion, idx) => (

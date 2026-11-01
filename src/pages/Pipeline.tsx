@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDoc, updateDoc, doc, addDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -32,13 +32,6 @@ const PIPELINE_COLUMNS: { id: PipelineStage; label: string; color: string; badge
   { id: 'CITA_CUMPLIDA', label: 'Cita Cumplida (GPS Verificada)', color: 'border-emerald-500/40 text-emerald-400', badgeBg: 'bg-emerald-500/10 text-emerald-400' },
   { id: 'CIERRE', label: 'Cierre Ganado / Venta', color: 'border-[#00F0FF]/40 text-[#00F0FF]', badgeBg: 'bg-[#00F0FF]/10 text-[#00F0FF]' },
   { id: 'NO_INTERESADO', label: 'No Interesado / Descartado', color: 'border-red-500/40 text-red-400', badgeBg: 'bg-red-500/10 text-red-400' },
-];
-
-const TLMK_AGENTS = [
-  'Zaydeli De La Rosa',
-  'Marta García',
-  'Carlos Méndez',
-  'Agente Comercial General'
 ];
 
 interface CardProps {
@@ -148,6 +141,7 @@ function KanbanCard({
       <div className={`bg-slate-900/90 border border-slate-800 rounded-xl ${size === 'sm' ? 'p-2 mb-2' : size === 'lg' ? 'p-3 mb-3.5' : 'p-2.5 mb-3'} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <button
+            disabled={!lead.phone}
             onClick={() => onCall(lead.phone)}
             className={`${size === 'sm' ? 'w-6 h-6' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7'} rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-black flex items-center justify-center transition-all cursor-pointer shadow-sm`}
             title="Llamar con Discador VoIP"
@@ -161,8 +155,9 @@ function KanbanCard({
         </div>
 
         <button
+          disabled={!lead.phone}
           onClick={() => onWhatsApp(lead.phone, lead.name)}
-          className={`px-2.5 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 ${size === 'sm' ? 'text-[9px]' : 'text-[10px]'} font-bold flex items-center gap-1 transition-all cursor-pointer`}
+          className={`px-2.5 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed ${size === 'sm' ? 'text-[9px]' : 'text-[10px]'} font-bold flex items-center gap-1 transition-all cursor-pointer`}
           title="Abrir WhatsApp"
         >
           <MessageSquare className={iconSizeClass} /> WhatsApp
@@ -358,6 +353,10 @@ function DroppableColumn({
 export default function Pipeline() {
   const navigate = useNavigate();
   const [leads, setLeads] = useState<LeadOpportunity[]>([]);
+  // Assignment choices are derived from existing CRM records; never invent agent identities.
+  const TLMK_AGENTS = useMemo(() => Array.from(new Set(
+    leads.map(lead => lead.assignedTLMK?.trim()).filter((name): name is string => Boolean(name) && name !== 'Sin asignar')
+  )), [leads]);
   const [loading, setLoading] = useState(true);
   const [selectedTLMK, setSelectedTLMK] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -393,138 +392,41 @@ export default function Pipeline() {
       return;
     }
 
-    const q = query(collection(db, 'clients'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let data: LeadOpportunity[] = snapshot.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          name: d.name || d.companyName || 'Lead Sin Nombre',
-          companyName: d.companyName || d.company,
-          phone: d.phone || d.telefono || '+12135550192',
-          email: d.email,
-          source: d.source || 'meta_ads',
-          campaignName: d.campaignName || 'Campaña Meta Ads USA',
-          pipelineStage: d.pipelineStage || 'LEAD_IN',
-          assignedTLMK: d.assignedTLMK || d.setterName || 'Zaydeli De La Rosa',
-          contractValue: d.contractValue || d.amount || 3000,
-          healthScore: d.healthScore || 90,
-          isOverdue: Boolean(d.isOverdue),
-          appointment: d.appointment,
-          notes: d.notes || [],
-          createdAt: d.createdAt || new Date().toISOString(),
-          updatedAt: d.updatedAt || new Date().toISOString()
-        } as LeadOpportunity;
-      });
-
-      // Default sample leads if database has no records yet
-      if (data.length === 0) {
-        data = [
-          {
-            id: 'meta-lead-1',
-            name: 'Carlos Mendoza',
-            companyName: 'Mendoza Logistics LLC',
-            phone: '+1 (213) 489-3320', // California 213
-            email: 'carlos@mendozalog.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Crecimiento Empresarial California',
-            pipelineStage: 'LEAD_IN',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 4500,
-            healthScore: 95,
-            isOverdue: true,
-            createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_1',
-              author: 'Meta Lead Ads API',
-              text: 'Interesado en escalamiento de operaciones. Formulario completado en Instagram.',
-              createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-2',
-            name: 'Elena Rostova',
-            companyName: 'Empire Real Estate NY',
-            phone: '+1 (631) 890-4412', // New York 631
-            email: 'elena@empirerealty.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Inversionistas NY & NJ',
-            pipelineStage: 'CONTACTADO',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 8000,
-            healthScore: 88,
-            createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_2',
-              author: 'Meta Lead Ads API',
-              text: 'Preguntó por integración CRM y discador. Requiere llamada matutina.',
-              createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-3',
-            name: 'David Steinberg',
-            companyName: 'Denver Peaks Consulting',
-            phone: '+1 (720) 651-7890', // Colorado 720
-            email: 'david@denverpeaks.co',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Consultoría High Ticket',
-            pipelineStage: 'SEGUIMIENTO',
-            assignedTLMK: 'Marta García',
-            contractValue: 12000,
-            healthScore: 92,
-            createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_3',
-              author: 'Marta García',
-              text: 'Llamada inicial realizada. Muy receptivo, solicita propuesta y agendar reunión.',
-              createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-4',
-            name: 'Marcos Aurelio Santos',
-            companyName: 'Santos & Brothers Corp',
-            phone: '+1 (856) 412-9901', // New Jersey 856
-            email: 'marcos@santostrucking.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Soluciones Financieras NJ',
-            pipelineStage: 'CITA_AGENDADA',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 6500,
-            healthScore: 96,
-            appointment: {
-              date: new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0],
-              time: '11:00',
-              assignedAgent: 'Supervisor Comercial',
-              type: 'videollamada',
-              address: 'Google Meet / Zoom Virtual',
-              status: 'programada',
-              notes: 'Revisión de plan de servicios y cierre comercial.'
-            },
-            createdAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_4',
-              author: 'Zaydeli De La Rosa',
-              text: 'Cita coordinada con éxito para mañana a las 11:00 AM.',
-              createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString()
-            }]
-          }
+    let subscriptions: Array<() => void> = [];
+    let active = true;
+    const startListeners = async () => {
+      try {
+        const profile = await getDoc(doc(db, 'users', currentUser.uid));
+        if (!active) return;
+        const role = String(profile.data()?.role || '').toLowerCase();
+        const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(role);
+        const records = new Map<string, any>();
+        const publish = () => {
+          const data: LeadOpportunity[] = Array.from(records.values()).map(d => ({
+            id: d.id, name: d.name || d.companyName || 'Lead Sin Nombre', companyName: d.companyName || d.company,
+            phone: d.phone || d.telefono || '', email: d.email, source: d.source || 'meta_ads',
+            campaignName: d.campaignName || 'Sin campaña', pipelineStage: d.pipelineStage || 'LEAD_IN',
+            assignedTLMK: d.assignedTLMK || d.setterName || 'Sin asignar', contractValue: Number(d.contractValue ?? d.amount ?? 0),
+            healthScore: Number(d.healthScore ?? 0), isOverdue: Boolean(d.isOverdue), appointment: d.appointment,
+            notes: d.notes || [], createdAt: d.createdAt || new Date().toISOString(), updatedAt: d.updatedAt || new Date().toISOString()
+          } as LeadOpportunity));
+          setLeads(data); setLoading(false);
+        };
+        const queries = isAdmin ? [collection(db, 'clients')] : [
+          query(collection(db, 'clients'), where('createdBy', '==', currentUser.uid)),
+          query(collection(db, 'clients'), where('assignedTo', '==', currentUser.uid)),
+          query(collection(db, 'clients'), where('assignedManagerId', '==', currentUser.uid))
         ];
-      }
-
-      setLeads(data);
-      setLoading(false);
-    }, (error) => {
-      console.warn("Firestore listener handled gracefully:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+        subscriptions = queries.map(q => onSnapshot(q, snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') records.delete(change.doc.id);
+            else records.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+          }); publish();
+        }, error => { console.warn('Scoped pipeline listener failed:', error); setLoading(false); }));
+      } catch (error) { console.error('Pipeline profile lookup failed:', error); setLoading(false); }
+    };
+    void startListeners();
+    return () => { active = false; subscriptions.forEach(unsubscribe => unsubscribe()); };
   }, [currentUser, authLoading]);
 
   // Filtered Leads
@@ -563,129 +465,132 @@ export default function Pipeline() {
     if (newIdx < 0 || newIdx >= PIPELINE_COLUMNS.length) return;
 
     const newStage = PIPELINE_COLUMNS[newIdx].id;
-
-    // Confetti if won
-    if (newStage === 'CIERRE') {
-      confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
-    }
-
-    // Optimistic update
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipelineStage: newStage } : l));
-
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
         pipelineStage: newStage,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
-    } catch (e) {
-      console.warn("Local update kept:", e);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipelineStage: newStage } : l));
+      if (newStage === 'CIERRE') {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
+
+  
 
   const handleReassignTLMK = async (leadId: string, newTLMK: string) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedTLMK: newTLMK } : l));
+    if (!newTLMK.trim()) throw new Error('Selecciona un agente válido antes de reasignar.');
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
         assignedTLMK: newTLMK,
         setterName: newTLMK,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
-    } catch (e) {
-      console.warn("Local reassign kept:", e);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedTLMK: newTLMK } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
+
+  
 
   const handleCreateManualLead = async (newLead: Partial<LeadOpportunity>) => {
     try {
       const docRef = await addDoc(collection(db, 'clients'), {
         ...newLead,
+        createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
       setLeads(prev => [{ ...newLead, id: docRef.id } as LeadOpportunity, ...prev]);
-    } catch (e) {
-      const tempId = `lead_${Date.now()}`;
-      setLeads(prev => [{ ...newLead, id: tempId } as LeadOpportunity, ...prev]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'clients');
+      throw error;
     }
   };
 
+  
+
   const handleImportLeads = async (importedLeads: Partial<LeadOpportunity>[]) => {
-    const enriched = importedLeads.map((lead, idx) => ({
-      ...lead,
-      id: `imp_${Date.now()}_${idx}`
-    } as LeadOpportunity));
+    if (importedLeads.length === 0) return;
+    if (importedLeads.length > 450) {
+      throw new Error('La importación admite hasta 450 contactos por lote. Divide el CSV en archivos más pequeños.');
+    }
 
-    setLeads(prev => [...enriched, ...prev]);
-
-    // Save batch to Firestore
     try {
-      for (const lead of importedLeads) {
-        await addDoc(collection(db, 'clients'), {
+      const batch = writeBatch(db);
+      const importedWithIds: LeadOpportunity[] = importedLeads.map((lead) => {
+        const ref = doc(collection(db, 'clients'));
+        batch.set(ref, {
           ...lead,
+          createdBy: currentUser.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-      }
-    } catch (e) {
-      console.warn("Batch saved locally:", e);
+        return { ...lead, id: ref.id } as LeadOpportunity;
+      });
+      await batch.commit();
+      setLeads(prev => [...importedWithIds, ...prev]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'clients');
+      throw error;
     }
   };
+
+  
 
   const handleSaveLeadHeader = async (leadId: string, updatedData: Partial<LeadOpportunity>) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? {
-      ...l,
-      ...updatedData,
-      updatedAt: new Date().toISOString()
-    } : l));
-
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
+        ...updatedData,
+        updatedAt: serverTimestamp()
+      });
+      setLeads(prev => prev.map(l => l.id === leadId ? {
+        ...l,
         ...updatedData,
         updatedAt: new Date().toISOString()
-      });
-    } catch (err) {
-      console.warn("Error updating lead header in Firestore:", err);
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
 
+  
+
   const handleSaveAppointment = async (clientId: string, appointment: AppointmentData) => {
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      pipelineStage: 'CITA_AGENDADA',
-      appointment,
-      notes: [
-        {
-          id: `app_note_${Date.now()}`,
-          author: appointment.assignedAgent,
-          text: `Cita agendada para el ${appointment.date} a las ${appointment.time}. Modalidad: ${appointment.type}. Guardada en Agenda & Reuniones de la app.`,
-          createdAt: new Date().toISOString(),
-          disposition: 'CITA_AGENDADA'
-        },
-        ...(l.notes || [])
-      ]
-    } : l));
+    const targetLead = leads.find(l => l.id === clientId);
+    if (!targetLead) throw new Error('No se encontró la oportunidad seleccionada.');
+
+    const createdAt = new Date().toISOString();
+    const note = {
+      id: `app_note_${Date.now()}`,
+      author: appointment.assignedAgent || currentUser?.displayName || currentUser?.email || 'Agente',
+      text: `Cita agendada para el ${appointment.date} a las ${appointment.time}. Modalidad: ${appointment.type}.`,
+      createdAt,
+      disposition: 'CITA_AGENDADA' as const
+    };
 
     try {
-      const leadRef = doc(db, 'clients', clientId);
-      await updateDoc(leadRef, {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'clients', clientId), {
         pipelineStage: 'CITA_AGENDADA',
         appointment,
-        updatedAt: new Date().toISOString()
+        notes: [note, ...(targetLead.notes || [])],
+        updatedAt: serverTimestamp()
       });
-
-      // Sincronizar directamente en la colección appointments para Agenda & Reuniones
-      const targetLead = leads.find(l => l.id === clientId);
-      const appDocRef = doc(db, 'appointments', `app_${clientId}`);
-      await setDoc(appDocRef, {
+      batch.set(doc(db, 'appointments', `app_${clientId}`), {
         id: `app_${clientId}`,
         clientId,
-        clientName: targetLead?.name || 'Cliente Oportunidad',
-        clientPhone: targetLead?.phone || '',
-        clientCompany: targetLead?.companyName || targetLead?.company || '',
-        title: `Cita Comercial: ${targetLead?.name || 'Cliente'} (${appointment.type})`,
+        clientName: targetLead.name || 'Cliente',
+        clientPhone: targetLead.phone || '',
+        clientCompany: targetLead.companyName || targetLead.company || '',
+        title: `Cita Comercial: ${targetLead.name || 'Cliente'} (${appointment.type})`,
         date: appointment.date,
         time: appointment.time,
         assignedAgent: appointment.assignedAgent,
@@ -698,78 +603,94 @@ export default function Pipeline() {
         gpsCoordinates: appointment.gpsCoordinates || null,
         gpsVerified: Boolean(appointment.gpsVerified),
         source: 'marketing_pipeline',
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp()
       }, { merge: true });
-    } catch (e) {
-      console.warn(e);
+      await batch.commit();
+
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        pipelineStage: 'CITA_AGENDADA',
+        appointment,
+        notes: [note, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
     }
   };
+
+  
 
   const handleSaveGpsFeedback = async (clientId: string, updatedAppointment: AppointmentData) => {
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      pipelineStage: 'CITA_CUMPLIDA',
-      appointment: updatedAppointment,
-      notes: [
-        {
-          id: `gps_note_${Date.now()}`,
-          author: updatedAppointment.assignedAgent,
-          text: `Cita Cumplida y Verificada por GPS (${updatedAppointment.gpsCoordinates?.lat}, ${updatedAppointment.gpsCoordinates?.lng}). Feedback: "${updatedAppointment.clientFeedback?.comment}"`,
-          createdAt: new Date().toISOString()
-        },
-        ...(l.notes || [])
-      ]
-    } : l));
+    const targetLead = leads.find(l => l.id === clientId);
+    if (!targetLead) throw new Error('No se encontró la oportunidad seleccionada.');
+    if (!updatedAppointment.gpsCoordinates) throw new Error('No se recibieron coordenadas GPS para verificar la cita.');
 
-    try {
-      const leadRef = doc(db, 'clients', clientId);
-      await updateDoc(leadRef, {
-        pipelineStage: 'CITA_CUMPLIDA',
-        appointment: updatedAppointment,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Actualizar estado en appointments
-      const appDocRef = doc(db, 'appointments', `app_${clientId}`);
-      await setDoc(appDocRef, {
-        status: 'cumplida',
-        gpsVerified: true,
-        gpsCoordinates: updatedAppointment.gpsCoordinates || null,
-        clientFeedback: updatedAppointment.clientFeedback || null,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-
-  const handleAddNote = async (clientId: string, noteText: string) => {
-    const newNote = {
-      id: `note_${Date.now()}`,
-      author: selectedTLMK !== 'all' ? selectedTLMK : 'Zaydeli De La Rosa',
-      text: noteText,
+    const note = {
+      id: `gps_note_${Date.now()}`,
+      author: updatedAppointment.assignedAgent || currentUser?.displayName || currentUser?.email || 'Agente',
+      text: `Cita cumplida y verificada por GPS (${updatedAppointment.gpsCoordinates.lat}, ${updatedAppointment.gpsCoordinates.lng}). Feedback: "${updatedAppointment.clientFeedback?.comment || ''}"`,
       createdAt: new Date().toISOString()
     };
 
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      notes: [newNote, ...(l.notes || [])]
-    } : l));
-
     try {
-      const lead = leads.find(l => l.id === clientId);
-      if (lead) {
-        const leadRef = doc(db, 'clients', clientId);
-        await updateDoc(leadRef, {
-          notes: [newNote, ...(lead.notes || [])],
-          updatedAt: new Date().toISOString()
-        });
-      }
-    } catch (e) {
-      console.warn(e);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'clients', clientId), {
+        pipelineStage: 'CITA_CUMPLIDA',
+        appointment: updatedAppointment,
+        notes: [note, ...(targetLead.notes || [])],
+        updatedAt: serverTimestamp()
+      });
+      batch.set(doc(db, 'appointments', `app_${clientId}`), {
+        status: 'cumplida',
+        gpsVerified: true,
+        gpsCoordinates: updatedAppointment.gpsCoordinates,
+        clientFeedback: updatedAppointment.clientFeedback || null,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      await batch.commit();
+
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        pipelineStage: 'CITA_CUMPLIDA',
+        appointment: updatedAppointment,
+        notes: [note, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
     }
   };
+
+  
+
+  const handleAddNote = async (clientId: string, noteText: string) => {
+    const lead = leads.find(l => l.id === clientId);
+    if (!lead) throw new Error('No se encontró la oportunidad seleccionada.');
+    const newNote = {
+      id: `note_${Date.now()}`,
+      author: currentUser?.displayName || currentUser?.email || (selectedTLMK !== 'all' ? selectedTLMK : 'Agente'),
+      text: noteText.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await updateDoc(doc(db, 'clients', clientId), {
+        notes: [newNote, ...(lead.notes || [])],
+        updatedAt: serverTimestamp()
+      });
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        notes: [newNote, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
+    }
+  };
+
+  
 
   const handleCall = (phoneNumber: string) => {
     // Navigate to CallSystem with pre-dialed number

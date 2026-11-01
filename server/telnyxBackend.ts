@@ -64,14 +64,9 @@ export class TelnyxBackendService {
   }
 
   public static updateConfig(params: {
-    apiKey?: string;
     connectionId?: string;
     maxConcurrentCalls?: number;
   }) {
-    if (params.apiKey && params.apiKey.trim()) {
-      dynamicApiKey = params.apiKey.trim();
-      process.env.TELNYX_API_KEY = dynamicApiKey;
-    }
     if (params.connectionId && params.connectionId.trim()) {
       dynamicConnectionId = params.connectionId.trim();
       process.env.TELNYX_CONNECTION_ID = dynamicConnectionId;
@@ -305,20 +300,37 @@ export class TelnyxBackendService {
     }
 
     try {
-      const res = await fetch('https://api.telnyx.com/v2/phone_numbers?filter[status]=active&page[size]=50', {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const allNumbers: any[] = [];
+      let page = 1;
+      let totalPages = 1;
+      // Telnyx paginates the account inventory. Do not silently truncate the
+      // superadmin's caller-ID inventory at the first 50 DIDs.
+      while (page <= totalPages && page <= 100) {
+        const url = new URL('https://api.telnyx.com/v2/phone_numbers');
+        url.searchParams.set('filter[status]', 'active');
+        url.searchParams.set('page[size]', '50');
+        url.searchParams.set('page[number]', String(page));
+        const res = await fetch(url.toString(), {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        return { success: false, numbers: [], message: `Error Telnyx (${res.status}): ${errorText}` };
+        if (!res.ok) {
+          const errorText = await res.text();
+          return { success: false, numbers: [], message: `Error Telnyx (${res.status}): ${errorText}` };
+        }
+
+        const json = await res.json();
+        const batch = Array.isArray(json.data) ? json.data : [];
+        allNumbers.push(...batch);
+        const reportedPages = Number(json.meta?.page?.total_pages || json.meta?.total_pages || 0);
+        totalPages = reportedPages > 0 ? reportedPages : (batch.length === 50 ? page + 1 : page);
+        page += 1;
       }
 
-      const json = await res.json();
-      const numbers = (json.data || []).map((item: any) => ({
+      const numbers = allNumbers.map((item: any) => ({
         id: item.id,
         phone_number: item.phone_number,
         status: item.status,

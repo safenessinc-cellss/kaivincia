@@ -24,16 +24,16 @@ interface ZohoUtilityBillGeneratorProps {
 }
 
 const DEFAULT_BILL_DATA: UtilityBillData = {
-  id: 'UB-2026-904',
-  name: 'Zaydeli De La Rosa',
-  company: 'Kaivincia Corp',
-  address: '1428 West Slauson Ave, Los Angeles, CA 90047',
-  account: '9428-1156-32-1',
-  date: '2026-06-15',
-  amount: '154.20',
-  dueDate: '2026-07-10',
+  id: '',
+  name: '',
+  company: '',
+  address: '',
+  account: '',
+  date: '',
+  amount: '',
+  dueDate: '',
   status: 'draft',
-  notes: 'Verificación de dirección física para activación de troncal SIP en California.'
+  notes: ''
 };
 
 export default function ZohoUtilityBillGenerator({ className = '' }: ZohoUtilityBillGeneratorProps) {
@@ -41,18 +41,16 @@ export default function ZohoUtilityBillGenerator({ className = '' }: ZohoUtility
 
   const [bill, setBill] = useState<UtilityBillData>(DEFAULT_BILL_DATA);
   const [isGenerated, setIsGenerated] = useState(false);
+  const [integrationNotice, setIntegrationNotice] = useState('No hay integración oficial de proveedor de servicios. Este módulo no emite facturas ni comprobantes de domicilio.');
 
   const handlePrint = () => {
-    setBill(prev => ({ ...prev, status: prev.status === 'draft' ? 'generated' : prev.status }));
-    setIsGenerated(true);
-    setTimeout(() => {
-      window.print();
-    }, 150);
+    setIntegrationNotice('Generación bloqueada: un comprobante de servicios debe emitirse o verificarse directamente con el proveedor oficial.');
   };
 
   const handleReset = () => {
     setBill(DEFAULT_BILL_DATA);
     setIsGenerated(false);
+    setIntegrationNotice('No hay integración oficial de proveedor de servicios. Este módulo no emite facturas ni comprobantes de domicilio.');
   };
 
   const getStatusBadge = (status: UtilityBillData['status']) => {
@@ -72,6 +70,7 @@ export default function ZohoUtilityBillGenerator({ className = '' }: ZohoUtility
 
   return (
     <div className={`space-y-6 ${className}`}>
+      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">{integrationNotice}</div>
       {/* Estilos específicos para impresión */}
       <style>{`
         @media print {
@@ -124,6 +123,7 @@ export default function ZohoUtilityBillGenerator({ className = '' }: ZohoUtility
           <button
             type="button"
             onClick={handlePrint}
+              disabled
             className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
           >
             <Printer className="w-4 h-4" />

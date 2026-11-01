@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { requestGemini } from '../services/geminiApi';
 import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, setDoc, getDocs, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenAI } from '@google/genai';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 import { 
@@ -185,40 +185,27 @@ export default function Clients() {
     }
 
     setLoading(true);
-    // Query directly and sort client-side to avoid index issues and guarantee robust loading
-    const q = collection(db, 'clients');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      list.sort((a: any, b: any) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeB - timeA;
-      });
-      setClients(list);
-      setLoading(false);
-    }, (error) => {
-      console.warn("Clients listener handled:", error?.message);
-      setLoading(false);
-    });
-
-    const unsubCollabs = onSnapshot(collection(db, 'collaborators'), (snapshot) => {
-      setCollaborators(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.warn("Collaborators listener handled:", error?.message);
-    });
-
-    const unsubProspects = onSnapshot(collection(db, 'prospects'), (snapshot) => {
-      setProspects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.warn("Prospects listener handled:", error?.message);
-    });
-
-    return () => {
-      unsubscribe();
-      unsubCollabs();
-      unsubProspects();
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase());
+    const records = new Map<string, any>();
+    const publish = () => {
+      const list = Array.from(records.values()).sort((x: any, y: any) => (new Date(y.createdAt || 0).getTime() - new Date(x.createdAt || 0).getTime()));
+      setClients(list); setLoading(false);
     };
-  }, [currentUser, authLoading]);
+    const clientQueries = isAdmin ? [collection(db, 'clients')] : [
+      query(collection(db, 'clients'), where('createdBy', '==', currentUser.uid)),
+      query(collection(db, 'clients'), where('assignedTo', '==', currentUser.uid)),
+      query(collection(db, 'clients'), where('assignedManagerId', '==', currentUser.uid))
+    ];
+    const unsubClients = clientQueries.map(q => onSnapshot(q, snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'removed') records.delete(change.doc.id);
+        else records.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+      }); publish();
+    }, err => { console.warn('Scoped client query failed:', err.message); setLoading(false); }));
+    const unsubCollabs = isAdmin ? onSnapshot(collection(db, 'collaborators'), snap => setCollaborators(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : () => setCollaborators([]);
+    const unsubProspects = isAdmin ? onSnapshot(collection(db, 'prospects'), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : onSnapshot(query(collection(db, 'prospects'), where('ownerId', '==', currentUser.uid)), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsubClients.forEach(fn => fn()); unsubCollabs(); unsubProspects(); };
+  }, [currentUser, authLoading, currentUserData?.role]);
 
   useEffect(() => {
     if (authLoading || !currentUser || loading) return;
@@ -229,6 +216,7 @@ export default function Clients() {
         const opportunities: UpsellOpportunity[] = [];
 
         // 1. Detect from Academic Progress (Students who finished)
+        if (!['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase())) return;
         const academicSnap = await getDocs(collection(db, 'academic_progress'));
         const usersSnap = await getDocs(collection(db, 'users'));
         const usersMap = new Map(usersSnap.docs.map(d => [d.id, d.data()]));
@@ -333,6 +321,7 @@ export default function Clients() {
       await addDoc(collection(db, 'clients'), {
         ...newClient,
         companyName: newClient.company || newClient.name,
+        createdBy: currentUser?.uid,
         amount: Number(newClient.contractValue) || 0,
         pipelineStage: newClient.status === 'Prospecto' || newClient.status === 'Lead' ? 'LEAD_IN' : 'POST_VENTA',
         createdAt: new Date().toISOString()
@@ -519,42 +508,12 @@ export default function Clients() {
         }
 
         setImportStatus({ type: 'loading', message: 'Estructurando listado mediante Gemini IA...' });
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-          throw new Error("La clave de API de Gemini no está configurada.");
-        }
-
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Analiza el siguiente texto de un documento e identifica a los clientes y sus datos asociados.
-Devuelve únicamente un arreglo JSON en el formato exacto de un objeto que tiene una clave llamada "clients", cuyo valor es un arreglo de objetos de cliente.
-Cada objeto de cliente debe tener exactamente los siguientes nombres de campos en minúsculas:
-- "name": Nombre completo del contacto/cliente (por ejemplo, "Juan Pérez")
-- "company": Nombre de la empresa u organización (por ejemplo, "TechCorp")
-- "email": Correo electrónico válido
-- "phone": Número de de teléfono o contacto
-- "sector": Sector o industria (por ejemplo, "Tecnología", "Salud", "Servicios", "Finanzas")
-- "amount": Monto del contrato (un número real o entero, por ejemplo, 1200)
-- "status": Debe ser exactamente uno de estos valores: "Activo", "En Riesgo", "Lead", "Inactivo"
-- "billingModel": Debe ser exactamente uno de estos valores: "Fijo", "Variable", "Híbrido"
-- "pipelineStage": Etapa de venta (por ejemplo, "Propuesta", "Contacto Inicial", "Cerrado Ganado")
-
-Texto del documento:
-${textContent}
-
-Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluyas explicaciones ni bloques de código markdown, solo el JSON puro.`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
+        const result = await requestGemini<{ clients: Array<Record<string, unknown>> }>('client-import', {
+          consent: true,
+          textContent
         });
+        const parsedData = result;
 
-        const rawText = response.text || '';
-        let cleanText = rawText.trim();
-        if (cleanText.startsWith('```')) {
-          cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-        }
-
-        const parsedData = JSON.parse(cleanText);
         if (!parsedData.clients || !Array.isArray(parsedData.clients)) {
           throw new Error("La IA no pudo estructurar los datos del documento de manera correcta.");
         }
@@ -565,11 +524,11 @@ Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluy
           company: c.company || '',
           email: c.email || '',
           phone: c.phone || '',
-          sector: c.sector || 'Tecnología',
+          sector: c.sector || 'No especificado',
           amount: Number(c.amount) || 0,
-          status: c.status || 'Activo',
-          billingModel: c.billingModel || 'Fijo',
-          pipelineStage: c.pipelineStage || 'Propuesta'
+          status: c.status || 'Lead',
+          billingModel: c.billingModel || 'Variable',
+          pipelineStage: c.pipelineStage || 'Contacto Inicial'
         }));
 
         setImportRows(clientsList);
@@ -772,7 +731,7 @@ Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluy
         }
 
         if (mappedData.name) {
-          await addDoc(collection(db, 'clients'), mappedData);
+          await addDoc(collection(db, 'clients'), { ...mappedData, createdBy: currentUser?.uid });
           successCount++;
         }
       }
@@ -882,7 +841,7 @@ Devuelve exclusivamente el objeto JSON de la forma {"clients": [...]}. No incluy
 
   const filteredClients = clients.filter(c => {
     // Scoping por rol: Si es colaborador / ventas / tutor (no superadmin, ceo, admin o gestor), solo ve sus asignados
-    if (currentUserData && !['superadmin', 'admin', 'ceo', 'gestor'].includes(currentUserData.role)) {
+    if (currentUserData && !['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(currentUserData.role)) {
       const isAssigned = 
         c.assignedManagerId === currentUserData.uid || 
         c.assignedTo === currentUserData.uid ||

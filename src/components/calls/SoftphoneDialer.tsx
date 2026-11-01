@@ -3,7 +3,7 @@ import {
   Phone, PhoneOff, Mic, MicOff, Pause, Play, Disc, Volume2, VolumeX, X, Zap, Sparkles, AlertCircle, Maximize2, Minimize2, GripHorizontal, Copy, ClipboardPaste, RotateCcw, Radio, Check, RefreshCw, Settings, Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -22,6 +22,7 @@ import { isPrivilegedRole } from '../../constants/roles';
 
 interface SoftphoneDialerProps {
   mode?: 'embedded' | 'floating';
+  canManageTelephony?: boolean;
   initialPhoneNumber?: string;
   onCallStart?: (phoneNumber: string) => void;
   onCallEnd?: (record: Partial<CallRecord>) => void;
@@ -47,36 +48,16 @@ const DTMF_FREQUENCIES: Record<string, [number, number]> = {
 };
 
 const DEFAULT_PROVIDERS: VoipProvider[] = [
-  {
-    id: 'zadarma',
-    name: 'Zadarma (SIP Cloud)',
-    type: 'sip',
-    status: 'enabled',
-    costPerMinute: '$0.012',
-    credentials: { domain: 'sip.zadarma.com', username: '345678' }
-  },
-  {
-    id: 'telnyx',
-    name: 'Telnyx WebRTC',
-    type: 'api',
-    status: 'available',
-    costPerMinute: '$0.010'
-  },
-  {
-    id: 'twilio',
-    name: 'Twilio Voice',
-    type: 'sdk',
-    status: 'available',
-    costPerMinute: '$0.015'
-  }
+  { id: 'telnyx', name: 'Telnyx WebRTC', type: 'api', status: 'available', costPerMinute: '' }
 ];
+
+const isReservedDemoPhone = (value: string) => /^1\d{3}55501\d{2}$/.test(String(value || '').replace(/\D/g, ''));
 
 // Números de Caller ID: se cargan SOLO desde Telnyx (telnyx_phone_numbers en Firestore).
 // No hardcodear números aquí para evitar el error 403 "originator number is invalid".
-const REAL_TELNYX_CALLER_IDS: string[] = [];
-
 export default function SoftphoneDialer({
   mode = 'embedded',
+  canManageTelephony = false,
   initialPhoneNumber = '',
   onCallStart,
   onCallEnd,
@@ -171,8 +152,17 @@ export default function SoftphoneDialer({
   const [showConsole, setShowConsole] = useState(false);
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
-  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>(REAL_TELNYX_CALLER_IDS);
+  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
   const [selectedCallerId, setSelectedCallerId] = useState<string>('');
+  const [callerIdMode, setCallerIdMode] = useState<'auto' | 'manual'>(() => {
+    try {
+      return localStorage.getItem('kaivincia_caller_id_mode') === 'manual' ? 'manual' : 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+  const [preferredCallerId, setPreferredCallerId] = useState<string>('');
+  const [callerIdAutoReason, setCallerIdAutoReason] = useState('Línea predeterminada asignada');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -183,7 +173,7 @@ export default function SoftphoneDialer({
   const [telnyxTokenInput, setTelnyxTokenInput] = useState('');
   const [isSavingTelnyxToken, setIsSavingTelnyxToken] = useState(false);
   const [isGeneratingBackendToken, setIsGeneratingBackendToken] = useState(false);
-  const [currentWebRtcJwt, setCurrentWebRtcJwt] = useState(() => telnyxWebRTCService.getLoginToken());
+  const [currentWebRtcJwt, setCurrentWebRtcJwt] = useState('');
 
   // Sincronizar token en vivo con el servicio
   useEffect(() => {
@@ -193,33 +183,31 @@ export default function SoftphoneDialer({
     return unsub;
   }, []);
 
-  // Inicializar el cliente Telnyx automáticamente al cargar el componente
+  // Cada sesión obtiene su propio JWT desde el backend; nunca reutiliza el token
+  // compartido de otro operador ni lo persiste en settings/telnyx_config.
   useEffect(() => {
     let cancelled = false;
     const initTelnyx = async () => {
       if (authLoading || !user) return;
+      telnyxWebRTCService.clearSession();
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const result = await telnyxWebRTCService.fetchFreshTokenFromBackend();
         if (cancelled) return;
-        const token = telnyxWebRTCService.getLoginToken();
-        if (!token) {
-          console.log('[SoftphoneDialer] No hay JWT configurado aún. Usa "Configurar JWT" para inicializar Telnyx.');
-          return;
-        }
-        console.log('[SoftphoneDialer] Inicializando cliente Telnyx automáticamente...');
-        const result = await telnyxWebRTCService.initClient(token);
         if (result.success) {
-          console.log('[SoftphoneDialer] ✅ Cliente Telnyx inicializado:', result.message);
+          console.log('[SoftphoneDialer] Cliente Telnyx inicializado con JWT individual.');
         } else {
-          console.warn('[SoftphoneDialer] ⚠️ No se pudo inicializar Telnyx:', result.message);
+          console.warn('[SoftphoneDialer] No se pudo obtener el JWT individual:', result.message);
         }
       } catch (err: any) {
-        console.error('[SoftphoneDialer] Error inicializando Telnyx:', err);
+        if (!cancelled) console.error('[SoftphoneDialer] Error inicializando Telnyx:', err);
       }
     };
-    initTelnyx();
-    return () => { cancelled = true; };
-  }, [user, authLoading, userData?.role]);
+    void initTelnyx();
+    return () => {
+      cancelled = true;
+      telnyxWebRTCService.clearSession();
+    };
+  }, [user?.uid, authLoading, userData?.role]);
 
   // ============================================================
   // Renovación automática del JWT cada 24 horas
@@ -243,8 +231,8 @@ export default function SoftphoneDialer({
               console.log('[SoftphoneDialer] 🔄 Token por expirar, renovando...');
               const res = await telnyxWebRTCService.fetchFreshTokenFromBackend();
               if (res.success && res.token && isMounted) {
-                await telnyxWebRTCService.setLoginToken(res.token, true);
-                console.log('[SoftphoneDialer] ✅ Token renovado');
+                // fetchFreshTokenFromBackend already updates the active client in memory.
+                console.log('[SoftphoneDialer] ✅ Token individual renovado');
               }
             }
           } catch (e) {
@@ -263,9 +251,13 @@ export default function SoftphoneDialer({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [user, authLoading]);
+  }, [user, userData?.role, authLoading]);
 
   const handleSaveTelnyxToken = async () => {
+    if (!canManageTelephony) {
+      showToast('Solo un administrador de telefonía puede guardar un token compartido.');
+      return;
+    }
     const token = telnyxTokenInput.trim();
     if (!token) {
       showToast('Por favor introduce un JWT válido');
@@ -273,7 +265,7 @@ export default function SoftphoneDialer({
     }
     setIsSavingTelnyxToken(true);
     try {
-      await telnyxWebRTCService.setLoginToken(token, true);
+      await telnyxWebRTCService.setLoginToken(token, false);
       const testRes = await telnyxWebRTCService.initClient(token);
       showToast(testRes.message || 'login_token de Telnyx actualizado');
       setSipLogs(prev => [
@@ -331,18 +323,20 @@ export default function SoftphoneDialer({
 
     const updateCombined = () => setProviders([...voipList, ...esimList]);
 
-    const unsubVoip = onSnapshot(collection(db, 'voip_providers'), (snapshot) => {
+    let unsubVoip = () => {};
+    if (isPrivilegedRole(userData?.role)) unsubVoip = onSnapshot(collection(db, 'voip_providers'), (snapshot) => {
       if (!snapshot.empty) {
         voipList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoipProvider));
       }
       updateCombined();
     }, (err) => console.warn('Could not read voip_providers:', err));
 
-    const unsubEsim = onSnapshot(collection(db, 'esim_profiles'), (snapshot) => {
+    let unsubEsim = () => {};
+    if (isPrivilegedRole(userData?.role)) unsubEsim = onSnapshot(collection(db, 'esim_profiles'), (snapshot) => {
       if (!snapshot.empty) {
         esimList = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter((p: any) => p.isInternalLineActive !== false && p.status !== 'expired')
+          .filter((p: any) => !p.isDemo && p.isInternalLineActive !== false && p.status !== 'expired')
           .map((p: any) => ({
             id: `esim_${p.id}`,
             name: `📱 ${p.lineName || 'Línea eSIM'} (${p.extension || 'Ext. 101'})`,
@@ -361,48 +355,54 @@ export default function SoftphoneDialer({
 
     // ── Caller IDs: privilegiados ven todos; agentes solo los asignados ──────
     let assignmentData: any | null = null;
-    let allTelnyxNumbers: string[] = [];
+    let serverAssignedCallerIds: string[] = [];
+    let cancelled = false;
+    const isPrivilegedUser = isPrivilegedRole(userData?.role);
+
     const recomputeAuthorizedCallerIds = () => {
-      const isPrivileged = isPrivilegedRole(userData?.role);
-
-      if (isPrivileged) {
-        setAuthorizedCallerIds(allTelnyxNumbers);
-        setSelectedCallerId(allTelnyxNumbers[0] || '');
-        return;
-      }
-
-      const authorized: string[] = Array.isArray(assignmentData?.authorizedNumbers)
-        ? assignmentData.authorizedNumbers.filter(Boolean)
-        : [];
+      if (cancelled) return;
+      const authorized = serverAssignedCallerIds
+        .filter((number) => Boolean(number) && !isReservedDemoPhone(number));
       setAuthorizedCallerIds(authorized);
 
       const defaultId = assignmentData?.defaultCallerId;
-      if (defaultId && authorized.includes(defaultId)) {
-        setSelectedCallerId(defaultId);
-      } else {
-        setSelectedCallerId(authorized[0] || '');
-      }
+      const preferred = defaultId && authorized.includes(defaultId) ? defaultId : (authorized[0] || '');
+      setPreferredCallerId(preferred);
+      setCallerIdAutoReason('Línea predeterminada asignada');
+      setSelectedCallerId((current) => {
+        if (callerIdMode === 'auto' || !authorized.includes(current)) return preferred;
+        return current;
+      });
     };
 
-    const isPrivilegedUser = isPrivilegedRole(userData?.role);
+    // The backend is the source of truth for both full admin inventory and
+    // per-agent assignments; no client-side Firestore list can widen access.
+    const loadServerAssignedNumbers = async () => {
+      try {
+        const idToken = await user.getIdToken();
+        const response = await fetch('/api/telnyx-numbers', {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${idToken}` }
+        });
+        const payload = await response.json();
+        if (!response.ok || payload?.success !== true) {
+          throw new Error(payload?.error || 'No se pudieron verificar los números autorizados.');
+        }
+        serverAssignedCallerIds = Array.isArray(payload.numbers)
+          ? payload.numbers
+              .map((item: any) => item.phone_number || item.phoneNumber || '')
+              .filter((number: unknown): number is string => typeof number === 'string' && Boolean(number))
+          : [];
+      } catch (error) {
+        console.warn('Could not load server-authorized caller IDs:', error);
+        serverAssignedCallerIds = [];
+      }
+      recomputeAuthorizedCallerIds();
+    };
+    void loadServerAssignedNumbers();
 
-    let unsubNumbers: (() => void) | null = null;
-    if (isPrivilegedUser) {
-      unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
-        const dbNumbers = snapshot.docs
-          .map(d => d.data())
-          .filter((n: any) => n.status !== 'disabled' && n.phoneNumber)
-          .map((n: any) => n.phoneNumber)
-          .filter(Boolean);
-        allTelnyxNumbers = dbNumbers;
-        recomputeAuthorizedCallerIds();
-      }, (err) => {
-        console.warn('Could not read telnyx_phone_numbers:', err);
-        recomputeAuthorizedCallerIds();
-      });
-    }
-
-    const unsubAssignments = onSnapshot(collection(db, 'telnyx_agent_assignments'), (snapshot) => {
+    const assignmentsQuery = isPrivilegedUser ? collection(db, 'telnyx_agent_assignments') : query(collection(db, 'telnyx_agent_assignments'), where('agentId', '==', user.uid));
+    const unsubAssignments = onSnapshot(assignmentsQuery, (snapshot) => {
       if (!snapshot.empty) {
         const found = snapshot.docs.find(d => d.id === user.uid || d.data().agentEmail === user.email);
         if (found) {
@@ -427,26 +427,35 @@ export default function SoftphoneDialer({
     });
 
     return () => {
+      cancelled = true;
       unsubVoip(); unsubEsim(); unsubAssignments();
-      if (unsubNumbers) unsubNumbers();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, userData?.role, callerIdMode]);
 
-  // ── Auto-selección de Caller ID por código de área del destino ──────────
+  // ── Selección automática: preferencia asignada y coincidencia de área US ──
   useEffect(() => {
+    if (callerIdMode !== 'auto') return;
     const digits = String(phoneNumber || '').replace(/\D/g, '');
-    // Solo cuando el destino es un número US completo (11 dígitos: 1 + 10)
-    if (digits.length !== 11 || !digits.startsWith('1')) return;
-    const destArea = digits.slice(1, 4);
-    if (!destArea) return;
-    const match = authorizedCallerIds.find((cid) => {
+    const isUsNumber = digits.length === 11 && digits.startsWith('1');
+    const destArea = isUsNumber ? digits.slice(1, 4) : '';
+    const match = destArea ? authorizedCallerIds.find((cid) => {
       const cd = String(cid).replace(/\D/g, '');
-      return cd.startsWith('1') && cd.slice(1, 4) === destArea;
-    });
-    if (match && match !== selectedCallerId) {
-      setSelectedCallerId(match);
+      return cd.length === 11 && cd.startsWith('1') && cd.slice(1, 4) === destArea;
+    }) : undefined;
+    const nextCallerId = match || preferredCallerId || authorizedCallerIds[0] || '';
+    setCallerIdAutoReason(match
+      ? `Coincidencia de área ${destArea}`
+      : 'Línea predeterminada asignada');
+    if (nextCallerId && nextCallerId !== selectedCallerId) setSelectedCallerId(nextCallerId);
+  }, [callerIdMode, phoneNumber, authorizedCallerIds, preferredCallerId, selectedCallerId]);
+
+  const handleCallerIdModeChange = (mode: 'auto' | 'manual') => {
+    setCallerIdMode(mode);
+    try { localStorage.setItem('kaivincia_caller_id_mode', mode); } catch {}
+    if (mode === 'auto') {
+      setSelectedCallerId(preferredCallerId || authorizedCallerIds[0] || '');
     }
-  }, [phoneNumber, authorizedCallerIds]);
+  };
 
   const clearAllTimeouts = useCallback(() => {
     timeoutsRef.current.forEach(id => clearTimeout(id));
@@ -627,6 +636,8 @@ export default function SoftphoneDialer({
       contactPhone: phoneNumber,
       contactName: selectedClientName ? `${selectedClientName} (${phoneNumber})` : `Contacto ${phoneNumber}`,
       callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '',
+      callerIdMode,
+      callerIdSelectionReason: callerIdMode === 'auto' ? callerIdAutoReason : 'Selección manual del operador',
       duration: finalDuration,
       status: finalDuration > 0 ? 'completed' : 'missed',
       direction: 'outbound',
@@ -639,7 +650,7 @@ export default function SoftphoneDialer({
       agentEmail: auth.currentUser?.email || user?.email || 'agent@kaivincia.com',
       projectName: selectedProject || 'General',
       disposition: finalDuration > 0 ? 'Conectada / Éxito' : 'Sin contestar',
-      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
+      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Modo: ${callerIdMode} | Regla: ${callerIdMode === 'auto' ? callerIdAutoReason : 'Selección manual del operador'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
       isRecorded: isRecording || Boolean(agentAssignment?.recordCalls)
     };
 
@@ -666,28 +677,47 @@ export default function SoftphoneDialer({
   }, [duration, phoneNumber, selectedClientName, selectedCallerId, activeCarrierObj, selectedProject, isRecording, agentAssignment, onCallEnd, stopRingback, clearAllTimeouts, playHangupBeep, user]);
 
   const handleStartCall = async (targetPhone?: string) => {
-    const dialNum = targetPhone || phoneNumber;
-    if (!dialNum || dialNum.trim().length === 0) return;
+    const rawDialNum = targetPhone || phoneNumber;
+    if (!rawDialNum || rawDialNum.trim().length === 0) return;
 
-    const cleanDigits = dialNum.replace(/\D/g, '');
+    const cleanDigits = rawDialNum.replace(/\D/g, '');
+    // Telnyx outbound destinations should be normalized to E.164.
+    // This CRM's default local dialing context is the US (+1); explicit
+    // international prefixes are preserved and never guessed.
+    const dialNum = rawDialNum.includes('*') || rawDialNum.includes('#')
+      ? rawDialNum.trim()
+      : cleanDigits.length === 10
+        ? `+1${cleanDigits}`
+        : cleanDigits.length === 11 && cleanDigits.startsWith('1')
+          ? `+${cleanDigits}`
+          : rawDialNum.trim();
     if (cleanDigits.length < 8) {
       showToast(t('voip.min_digits', 'El número debe tener al menos 8 dígitos'));
       return;
     }
 
     // Validación de zona autorizada
-    const areaCode = cleanDigits.substring(0, 3);
-    if ((dialNum.startsWith('+1') || cleanDigits.length === 10 || cleanDigits.length === 11) && authorizedZones.length > 0) {
-      const isAuthorized = authorizedZones.some((zone: any) => zone.enabled && zone.areaCodes.includes(areaCode));
+    const isUsDestination = dialNum.startsWith('+1') || (cleanDigits.length === 10) || (cleanDigits.length === 11 && cleanDigits.startsWith('1'));
+    const areaCode = cleanDigits.length === 11 && cleanDigits.startsWith('1')
+      ? cleanDigits.slice(1, 4)
+      : cleanDigits.substring(0, 3);
+    if (isUsDestination && authorizedZones.length > 0) {
+      const isAuthorized = authorizedZones.some((zone: any) => zone.enabled && Array.isArray(zone.areaCodes) && zone.areaCodes.includes(areaCode));
       if (!isAuthorized) {
         showToast(`⛔ Zona no autorizada. Solo puedes llamar a: ${authorizedZones.map((z: any) => z.zoneName).join(', ')}`);
         return;
       }
     }
 
-    // Validar que haya un Caller ID seleccionado (viene de telnyx_phone_numbers)
-    if (!selectedCallerId) {
-      showToast('⚠️ No hay Caller ID seleccionado. Sincroniza números desde Telnyx en el admin.');
+    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
+    if (isTelnyxCarrier && !telnyxWebRTCService.getState().canMakeOutbound) {
+      showToast('⛔ Este operador no tiene habilitado el permiso de llamadas salientes.');
+      return;
+    }
+
+    // Validar que haya un Caller ID seleccionado y autorizado por el backend.
+    if (!selectedCallerId || !authorizedCallerIds.includes(selectedCallerId) || isReservedDemoPhone(selectedCallerId)) {
+      showToast('⛔ Caller ID no autorizado para este operador. Selecciona un número asignado por el administrador.');
       return;
     }
 
@@ -698,7 +728,6 @@ export default function SoftphoneDialer({
     setIsOnHold(false);
     setIsRecording(false);
 
-    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
     const telnyxJwt = telnyxWebRTCService.getLoginToken();
 
     setSipLogs(prev => [
@@ -730,19 +759,9 @@ export default function SoftphoneDialer({
         return;
       }
     } else {
-      startRingback();
-      onCallStart?.(dialNum);
-      const ringTimeout = setTimeout(() => {
-        stopRingback();
-        playConnectBeep();
-        setCallStatus('connected');
-        setSipLogs(prev => [
-          `[${new Date().toLocaleTimeString()}] SIP 200 OK -> Llamada simulada`,
-          ...prev.slice(0, 30)
-        ]);
-        callDurationIntervalRef.current = setInterval(() => setDuration(prev => prev + 1), 1000);
-      }, 3500);
-      timeoutsRef.current.push(ringTimeout);
+      showToast('Este proveedor no tiene una pasarela de llamadas conectada. No se inició ninguna llamada.');
+      setCallStatus('idle');
+      return;
     }
   };
 
@@ -886,10 +905,10 @@ export default function SoftphoneDialer({
           } catch {}
         }
       }}
-      className={`ios27-softphone bg-slate-950/95 backdrop-blur-xl text-white border border-slate-800 shadow-2xl transition-all ${
+      className={`ios27-softphone bg-white/95 backdrop-blur-2xl text-slate-900 border border-white/80 ring-1 ring-slate-200/70 shadow-xl transition-all ${
         isFloating
           ? isMobile
-            ? 'fixed bottom-0 left-0 right-0 w-full rounded-t-3xl rounded-b-none border-b-0 border-x-0 border-t border-slate-800 p-4 z-50 shadow-[0_-10px_35px_rgba(0,0,0,0.85)]'
+            ? 'fixed bottom-0 left-0 right-0 w-full rounded-t-3xl rounded-b-none border-b-0 border-x-0 border-t border-slate-200 p-4 z-50 shadow-[0_-10px_35px_rgba(0,0,0,0.85)]'
             : 'fixed bottom-6 right-6 z-50 w-84 sm:w-92 rounded-3xl p-3.5 sm:p-4 select-none shadow-[0_20px_40px_rgba(0,0,0,0.7)]'
           : 'relative rounded-3xl p-4 sm:p-6'
       } ${className}`}
@@ -916,14 +935,14 @@ export default function SoftphoneDialer({
               <GripHorizontal className="w-4 h-4" />
             </div>
           )}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[10px] font-mono shrink-0">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200 text-[10px] font-mono shrink-0">
             <span className={`w-2 h-2 rounded-full ${
               callStatus === 'idle' ? 'bg-emerald-400' :
               callStatus === 'calling' ? 'bg-cyan-400 animate-ping' :
               callStatus === 'connected' ? 'bg-emerald-400 animate-pulse' :
               callStatus === 'on_hold' ? 'bg-amber-400 animate-bounce' : 'bg-rose-400'
             }`} />
-            <span className="font-bold text-white uppercase text-[9px]">
+            <span className="font-bold text-slate-900 uppercase text-[9px]">
               {callStatus === 'idle' ? 'DISP' :
                callStatus === 'calling' ? 'LLAMANDO' :
                callStatus === 'connected' ? formatTimer(duration) :
@@ -931,16 +950,16 @@ export default function SoftphoneDialer({
             </span>
           </div>
           <div className="flex-1 flex items-center justify-center gap-1.5 px-1 min-w-0">
-            <span onClick={copyPhoneNumber} className="truncate font-mono text-xs font-bold text-white text-center cursor-pointer hover:text-cyan-300 transition-colors" title="Clic para copiar número">
+            <span onClick={copyPhoneNumber} className="truncate font-mono text-xs font-bold text-slate-900 text-center cursor-pointer hover:text-cyan-300 transition-colors" title="Clic para copiar número">
               {phoneNumber || <span className="text-slate-500 text-[11px]">Sin número</span>}
             </span>
             {phoneNumber && (
-              <button type="button" onClick={copyPhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0" title="Copiar número">
+              <button type="button" onClick={copyPhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-100/80 transition-colors cursor-pointer shrink-0" title="Copiar número">
                 <Copy className="w-3 h-3" />
               </button>
             )}
             {callStatus === 'idle' && (
-              <button type="button" onClick={pastePhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0" title="Pegar número">
+              <button type="button" onClick={pastePhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-100/80 transition-colors cursor-pointer shrink-0" title="Pegar número">
                 <ClipboardPaste className="w-3 h-3" />
               </button>
             )}
@@ -950,15 +969,15 @@ export default function SoftphoneDialer({
               <Phone className="w-3.5 h-3.5 fill-current" />
             </button>
           ) : (
-            <button type="button" onClick={handleHangup} className="p-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white transition-all cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.3)] active:scale-95 shrink-0" title="Colgar">
+            <button type="button" onClick={handleHangup} className="p-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-900 transition-all cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.3)] active:scale-95 shrink-0" title="Colgar">
               <PhoneOff className="w-3.5 h-3.5 fill-current" />
             </button>
           )}
-          <button type="button" onClick={() => toggleMinimized(false)} className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors cursor-pointer shrink-0" title="Expandir discador completo">
+          <button type="button" onClick={() => toggleMinimized(false)} className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors cursor-pointer shrink-0" title="Expandir discador completo">
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
           {isFloating && (
-            <button type="button" onClick={handleClose} className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 transition-colors cursor-pointer shrink-0" title="Cerrar discador flotante">
+            <button type="button" onClick={handleClose} className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-400 hover:text-rose-400 border border-slate-200 transition-colors cursor-pointer shrink-0" title="Cerrar discador flotante">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -967,13 +986,13 @@ export default function SoftphoneDialer({
         <>
           {isFloating && (
             <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
-              <button type="button" onClick={() => toggleMinimized(true)} className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title="Minimizar discador">
+              <button type="button" onClick={() => toggleMinimized(true)} className="p-1.5 text-slate-400 hover:text-slate-900 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title="Minimizar discador">
                 <Minimize2 className="w-3.5 h-3.5" />
               </button>
-              <button type="button" onClick={() => setIsFloatingExpanded(!isFloatingExpanded)} className="p-1.5 text-slate-400 hover:text-cyan-400 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title={isFloatingExpanded ? 'Contraer configuración' : 'Expandir configuración'}>
+              <button type="button" onClick={() => setIsFloatingExpanded(!isFloatingExpanded)} className="p-1.5 text-slate-400 hover:text-cyan-400 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title={isFloatingExpanded ? 'Contraer configuración' : 'Expandir configuración'}>
                 <Sparkles className="w-3.5 h-3.5" />
               </button>
-              <button type="button" onClick={handleClose} className="p-1.5 text-slate-400 hover:text-rose-400 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title="Cerrar marcador">
+              <button type="button" onClick={handleClose} className="p-1.5 text-slate-400 hover:text-rose-400 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title="Cerrar marcador">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -990,7 +1009,7 @@ export default function SoftphoneDialer({
                 <Phone className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-tight italic flex items-center gap-1.5">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight italic flex items-center gap-1.5">
                   <span>{t('voip.softphone_title', 'Softphone WebRTC')}</span>
                   {isFloating && (
                     <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
@@ -1002,7 +1021,7 @@ export default function SoftphoneDialer({
                   <p className="text-[10px] text-slate-400 font-medium truncate max-w-[170px] sm:max-w-none">
                     {activeCarrierObj?.name || 'Telnyx WebRTC'} · OPUS
                   </p>
-                  {(selectedCarrier === 'telnyx' || activeCarrierObj?.name?.includes('Telnyx')) && (
+                  {canManageTelephony && (selectedCarrier === 'telnyx' || activeCarrierObj?.name?.includes('Telnyx')) && (
                     <button type="button" onClick={() => { setTelnyxTokenInput(currentWebRtcJwt || ''); setIsTelnyxTokenModalOpen(true); }} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold transition-all cursor-pointer ${currentWebRtcJwt ? 'bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/60' : 'bg-amber-950/70 text-amber-300 border border-amber-500/30 hover:bg-amber-900/60 animate-pulse'}`} title="Configurar o actualizar login_token (JWT) de Telnyx WebRTC">
                       <Radio className="w-2.5 h-2.5 text-cyan-400" />
                       <span>{currentWebRtcJwt ? 'JWT Activo' : 'Configurar JWT'}</span>
@@ -1014,7 +1033,7 @@ export default function SoftphoneDialer({
 
             {!isFloating && (
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => toggleDialerMode(dialerMode === 'compact' ? 'full' : 'compact')} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer" title={dialerMode === 'compact' ? 'Mostrar configuración completa' : 'Modo compacto'}>
+                <button type="button" onClick={() => toggleDialerMode(dialerMode === 'compact' ? 'full' : 'compact')} className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-colors cursor-pointer" title={dialerMode === 'compact' ? 'Mostrar configuración completa' : 'Modo compacto'}>
                   {dialerMode === 'compact' ? <Settings className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
                 </button>
                 {hasValidSipCredentials ? (
@@ -1028,7 +1047,7 @@ export default function SoftphoneDialer({
                     Pendiente
                   </span>
                 )}
-                <button type="button" onClick={handleDemoTestCall} disabled={callStatus !== 'idle'} className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[9px] font-bold flex items-center gap-1 transition-all disabled:opacity-40 cursor-pointer active:scale-95">
+                <button type="button" onClick={handleDemoTestCall} disabled={callStatus !== 'idle'} className="px-2 py-0.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold flex items-center gap-1 transition-all disabled:opacity-40 cursor-pointer active:scale-95">
                   <Sparkles className="w-2.5 h-2.5 text-amber-400" />
                   <span>Demo</span>
                 </button>
@@ -1055,6 +1074,9 @@ export default function SoftphoneDialer({
                 authorizedCallerIds={authorizedCallerIds}
                 selectedCallerId={selectedCallerId}
                 onSelectCallerId={setSelectedCallerId}
+                callerIdMode={callerIdMode}
+                onCallerIdModeChange={handleCallerIdModeChange}
+                callerIdAutoReason={callerIdAutoReason}
                 selectedProject={selectedProject}
                 onSelectProject={setSelectedProject}
                 selectedClientName={selectedClientName}
@@ -1081,7 +1103,7 @@ export default function SoftphoneDialer({
                   <span>{t('voip.call', 'Llamar')}</span>
                 </button>
                 {isFloating && (
-                  <button type="button" onClick={handleDemoTestCall} className="p-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition-all cursor-pointer" title="Llamada de prueba">
+                  <button type="button" onClick={handleDemoTestCall} className="p-2.5 bg-white hover:bg-slate-100 text-amber-400 border border-slate-200 rounded-xl transition-all cursor-pointer" title="Llamada de prueba">
                     <Sparkles className="w-4 h-4" />
                   </button>
                 )}
@@ -1089,19 +1111,19 @@ export default function SoftphoneDialer({
             ) : (
               <div className="space-y-2">
                 <div className="grid grid-cols-4 gap-1.5">
-                  <button type="button" onClick={toggleMute} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isMuted ? 'bg-rose-500/20 border-rose-500/40 text-rose-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isMuted ? 'Activar micrófono (M)' : 'Silenciar (M)'}>
+                  <button type="button" onClick={toggleMute} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isMuted ? 'bg-rose-500/20 border-rose-500/40 text-rose-300' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isMuted ? 'Activar micrófono (M)' : 'Silenciar (M)'}>
                     {isMuted ? <MicOff className="w-3.5 h-3.5 text-rose-400" /> : <Mic className="w-3.5 h-3.5" />}
                     <span>{isMuted ? 'Muted' : 'Mute'}</span>
                   </button>
-                  <button type="button" onClick={toggleHold} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isOnHold ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isOnHold ? 'Reanudar llamada (H)' : 'Poner en espera (H)'}>
+                  <button type="button" onClick={toggleHold} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isOnHold ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isOnHold ? 'Reanudar llamada (H)' : 'Poner en espera (H)'}>
                     {isOnHold ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5" />}
                     <span>{isOnHold ? 'Reanudar' : 'Hold'}</span>
                   </button>
-                  <button type="button" onClick={toggleRecord} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isRecording ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isRecording ? 'Detener grabación' : 'Grabar llamada'}>
-                    <Disc className={`w-3.5 h-3.5 ${isRecording ? 'text-rose-400' : 'text-slate-300'}`} />
+                  <button type="button" onClick={toggleRecord} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isRecording ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isRecording ? 'Detener grabación' : 'Grabar llamada'}>
+                    <Disc className={`w-3.5 h-3.5 ${isRecording ? 'text-rose-400' : 'text-slate-600'}`} />
                     <span>{isRecording ? 'REC' : 'Grabar'}</span>
                   </button>
-                  <button type="button" onClick={() => setIsSpeaker(!isSpeaker)} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isSpeaker ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`} title="Altavoz">
+                  <button type="button" onClick={() => setIsSpeaker(!isSpeaker)} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isSpeaker ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'}`} title="Altavoz">
                     {isSpeaker ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
                     <span>Audio</span>
                   </button>
@@ -1121,42 +1143,42 @@ export default function SoftphoneDialer({
       <VoipProviderModal isOpen={isProviderModalOpen} onClose={() => { setIsProviderModalOpen(false); setProviderToEdit(null); }} provider={providerToEdit} allProviders={providers} onSaved={(saved) => { setSelectedCarrier(saved.id); }} />
 
       <AnimatePresence>
-        {isTelnyxTokenModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+        {canManageTelephony && isTelnyxTokenModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/25 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                     <Radio className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-tight">Telnyx WebRTC — login_token (JWT)</h4>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Telnyx WebRTC — login_token (JWT)</h4>
                     <span className="text-[10px] text-slate-400 font-mono">/crm/calls · SDK TelnyxRTC</span>
                   </div>
                 </div>
-                <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+                <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Token JWT Actual:</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Token JWT Actual:</label>
                   {currentWebRtcJwt ? (
                     <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded">● {currentWebRtcJwt.slice(0, 8)}...{currentWebRtcJwt.slice(-6)}</span>
                   ) : (
                     <span className="text-[10px] font-mono text-amber-400 font-bold bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">No configurado</span>
                   )}
                 </div>
-                <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 resize-none" />
-                <p className="text-[10px] text-slate-400">Este token se guardará en Firestore (<code className="text-cyan-400 font-mono">settings/telnyx_config</code>) y se aplicará de inmediato al cliente WebRTC en esta sesión y para todos los agentes del CRM.</p>
+                <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-mono text-slate-900 focus:outline-none focus:border-cyan-400 resize-none" />
+                <p className="text-[10px] text-slate-400">El token manual solo se aplicará a esta sesión y no se guardará en Firestore. El flujo normal utiliza un JWT individual emitido por el backend para cada operador.</p>
               </div>
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-200">
                 <button type="button" onClick={handleGenerateBackendTelnyxToken} disabled={isGeneratingBackendToken} className="w-full sm:w-auto px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50" title="Generar automáticamente desde /api/telnyx-token">
                   <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingBackendToken ? 'animate-spin' : ''}`} />
                   <span>{isGeneratingBackendToken ? 'Generando...' : 'Generar vía API Backend'}</span>
                 </button>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="px-3.5 py-2 text-xs text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer">Cancelar</button>
+                  <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="px-3.5 py-2 text-xs text-slate-400 hover:text-slate-900 rounded-xl transition-colors cursor-pointer">Cancelar</button>
                   <button type="button" onClick={handleSaveTelnyxToken} disabled={isSavingTelnyxToken || !telnyxTokenInput.trim()} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
                     <span>{isSavingTelnyxToken ? 'Guardando...' : 'Actualizar login_token'}</span>

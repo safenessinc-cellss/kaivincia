@@ -1,105 +1,136 @@
+import { adminDb  , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
-export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
+const VOIP_ROLES = new Set([
+  ...PRIVILEGED_ROLES, 'supervisor', 'agent', 'collaborator'
+]);
+const normalizeRole = (value: unknown) => {
+  const raw = String(value || '').toLowerCase().trim();
+  return ({ sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
+};
 
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 204;
-    res.end();
+export default async function handler(req: any, res: any) {
+  res.setHeader('Cache-Control', 'no-store, private');
+  res.setHeader('Vary', 'Authorization');
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'GET') {
+    res.statusCode = 405;
+    res.setHeader('Allow', 'GET, OPTIONS');
+    res.end(JSON.stringify({ success: false, numbers: [], error: 'Method Not Allowed' }));
     return;
   }
 
-  if (req.method !== 'GET') {
-    res.statusCode = 405;
+  if (!isFirebaseAdminConfigured) {
+    res.statusCode = 503;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    res.end(JSON.stringify({ success: false, error: 'Firebase Admin no está configurado para este entorno.' }));
     return;
   }
 
   try {
-    const authHeader =
-      req.headers['authorization'] || req.headers['Authorization'];
-
-    console.log(
-      '[telnyx-numbers] Auth header:',
-      authHeader ? `${String(authHeader).substring(0, 40)}...` : 'AUSENTE'
-    );
-
-    if (!authHeader) {
-      console.error('[telnyx-numbers] ❌ No hay header Authorization');
-      res.statusCode = 401;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          success: false,
-          numbers: [],
-          error: 'Falta header Authorization',
-        })
-      );
-      return;
-    }
-
-    console.log(
-      '[telnyx-numbers] TelnyxBackendService:',
-      typeof TelnyxBackendService,
-      TelnyxBackendService ? '✅ existe' : '❌ undefined'
-    );
-
-    if (!TelnyxBackendService) {
-      console.error('[telnyx-numbers] ❌ TelnyxBackendService no importado');
-      res.statusCode = 500;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          success: false,
-          numbers: [],
-          error: 'Error de importación del servicio',
-        })
-      );
-      return;
-    }
-
-    console.log('[telnyx-numbers] Llamando a verifyAuthToken...');
-    const authUser = await TelnyxBackendService.verifyAuthToken(
-      authHeader as string
-    );
-
-    console.log(
-      '[telnyx-numbers] Resultado verifyAuthToken:',
-      authUser ? `✅ uid=${authUser.uid}` : '❌ null'
-    );
-
+    const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+    const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
     if (!authUser?.uid) {
       res.statusCode = 401;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(
-        JSON.stringify({
-          success: false,
-          numbers: [],
-          error: 'No autorizado. Token de Firebase inválido o ausente.',
-        })
-      );
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'Sesión no válida.' }));
       return;
     }
 
-    console.log('[telnyx-numbers] Usuario autenticado. Obteniendo números...');
-    const result = await TelnyxBackendService.getAccountPhoneNumbers();
+    const profileSnap = await adminDb.collection('users').doc(authUser.uid).get();
+    const profile = profileSnap.data() || {};
+    const role = normalizeRole(profile.role);
+    // Number inventory access follows the same voip_calls permission as the
+    // softphone route. telephony_config remains reserved for provider settings.
+    const permissionGranted = await hasVoipPermission(authUser.uid, profile, role);
+    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role) || !permissionGranted) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'Cuenta sin autorización para telefonía.' }));
+      return;
+    }
 
-    res.statusCode = result.success ? 200 : 400;
+    if (PRIVILEGED_ROLES.has(role)) {
+      const result = await TelnyxBackendService.getAccountPhoneNumbers();
+      res.statusCode = result.success ? 200 : 502;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(result));
+      return;
+    }
+
+    const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
+    const operator = operatorSnap.data() || {};
+    if (!operatorSnap.exists || operator.activo !== true) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'El operador no está activo.' }));
+      return;
+    }
+    if (operator.permiteSalientes !== true || !operator.telnyxCredentialId) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'El operador no tiene permiso de salida o credencial SIP asignada.' }));
+      return;
+    }
+    const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(String(operator.telnyxCredentialId)).get();
+    const credential = credentialSnap.data() || {};
+    const assignedUid = credential.assignedTo || credential.operadorUid || null;
+    if (!credentialSnap.exists || assignedUid !== authUser.uid || credential.status !== 'active' || credential.activo !== true) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'La credencial SIP no está activa y asignada a este operador.' }));
+      return;
+    }
+
+    const assignmentDoc = await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
+    const assignmentQuery = await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get();
+    const assignment = assignmentDoc.exists ? (assignmentDoc.data() || {}) : (assignmentQuery.docs[0]?.data() || {});
+    const assignedPhones: string[] = Array.isArray(assignment.authorizedNumbers)
+      ? assignment.authorizedNumbers.filter((value: unknown): value is string => typeof value === 'string')
+      : [];
+    const assignedIds: string[] = Array.isArray(operator.numerosAsignados)
+      ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
+      : [];
+    const inventory = await adminDb.collection('telnyx_phone_numbers').get();
+    const numbers = inventory.docs.filter((snap: any) => {
+      const data = snap.data() || {};
+      const phone = data.phoneNumber || data.phone_number || '';
+      const status = String(data.status || '').toLowerCase();
+      const isUsable = !['disabled', 'deleted', 'inactive', 'released'].includes(status);
+      return isUsable && (assignedIds.includes(snap.id) || assignedPhones.includes(phone));
+    })
+      .filter((snap: any) => snap.exists)
+      .map((snap: any) => {
+        const data = snap.data() || {};
+        return {
+          id: snap.id,
+          phone_number: data.phoneNumber || data.phone_number || '',
+          status: data.status || 'unknown',
+          connection_id: data.connectionId || data.connection_id || undefined
+        };
+      })
+      .filter((number: any) => Boolean(number.phone_number));
+
+    res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(result));
-  } catch (err: any) {
-    console.error('[telnyx-numbers] ❌ Error inesperado:', err);
+    res.end(JSON.stringify({ success: true, numbers }));
+  } catch (error: any) {
+    console.error('[telnyx-numbers] Request failed:', error?.message || 'unknown error');
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
-    res.end(
-      JSON.stringify({
-        success: false,
-        numbers: [],
-        error: err.message || 'Error al obtener números',
-      })
-    );
+    res.end(JSON.stringify({ success: false, numbers: [], error: 'No fue posible consultar los números telefónicos.' }));
   }
 }
+
+
+async function hasVoipPermission(uid: string, profile: any, role: string): Promise<boolean> {
+  if (PRIVILEGED_ROLES.has(role)) return true;
+  const override = profile.permissions?.voip_calls;
+  if (typeof override === 'boolean') return override;
+  const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
+  const matrix = matrixSnap.data()?.matrix || {};
+  const roleMatrix = matrix[role] || (role === 'agent' ? matrix.sales : undefined);
+  const matrixValue = roleMatrix?.voip_calls;
+  if (typeof matrixValue === 'boolean') return matrixValue;
+  return ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'].includes(role);
+}
+

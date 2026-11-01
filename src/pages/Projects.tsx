@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { collection, onSnapshot, addDoc, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, query, where } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { motion, AnimatePresence } from 'motion/react';
@@ -59,18 +59,20 @@ export default function Projects() {
   });
 
   useEffect(() => {
-    let unsubProjects: (() => void) | null = null;
-    let unsubLogs: (() => void) | null = null;
-    let unsubClients: (() => void) | null = null;
+    let unsubProjects: Array<() => void> = [];
+    let unsubLogs: Array<() => void> = [];
+    let unsubClients: Array<() => void> = [];
 
     const unsubAuth = onAuthStateChanged(auth, (currentUser) => {
-      if (unsubProjects) unsubProjects();
-      if (unsubLogs) unsubLogs();
-      if (unsubClients) unsubClients();
+      unsubProjects.forEach(fn => fn()); unsubProjects = [];
+      unsubLogs.forEach(fn => fn()); unsubLogs = [];
+      unsubClients.forEach(fn => fn()); unsubClients = [];
 
       if (!currentUser) return;
+      const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
 
-      unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
+      const projectQuery = isAdmin ? collection(db, 'projects') : query(collection(db, 'projects'), where('createdBy', '==', currentUser.uid));
+      unsubProjects = [onSnapshot(projectQuery, (snapshot) => {
         const projectsData = snapshot.docs.map(doc => {
           const data = doc.data();
           // Lógica de "En Riesgo" automática
@@ -90,32 +92,34 @@ export default function Projects() {
           return { id: doc.id, ...data, status, spent, totalHours };
         });
 
-        if (projectsData.length === 0) {
-          setProjects([
-            { id: '1', name: 'Generación Leads USA', client: 'TechSolutions', status: 'En ejecución', health: 'En tiempo', progress: 65, roi: '300%', budget: 5000, startDate: '2026-01-15', healthTrace: [10, 15, 12, 18, 22, 20, 25] },
-            { id: '2', name: 'Onboarding Global Corp', client: 'Global Corp', status: 'Planificación', health: 'Retrasado leve', progress: 15, roi: '150%', budget: 12000, startDate: '2026-03-01', healthTrace: [5, 4, 3, 4, 5, 6, 8] },
-            { id: 'erp-1', name: 'Implementación ERP', client: 'TechSolutions', status: 'En riesgo', health: 'Crítico', progress: 40, roi: '200%', budget: 8000, startDate: '2026-02-10', healthTrace: [15, 25, 35, 45, 55, 65, 80] },
-          ]);
-        } else {
-          setProjects(projectsData);
-        }
-      }, (error) => handleFirestoreError(error, OperationType.GET, 'projects'));
+        setProjects(projectsData);
+      }, (error) => handleFirestoreError(error, OperationType.GET, 'projects'))];
 
-      unsubLogs = onSnapshot(query(collection(db, 'time_logs'), orderBy('date', 'desc')), (snapshot) => {
+      const logQuery = isAdmin ? collection(db, 'time_logs') : query(collection(db, 'time_logs'), where('userUid', '==', currentUser.uid));
+      unsubLogs = [onSnapshot(logQuery, (snapshot) => {
         const logsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTimeLogs(logsData);
-      }, (error) => handleFirestoreError(error, OperationType.GET, 'time_logs'));
+      }, (error) => handleFirestoreError(error, OperationType.GET, 'time_logs'))];
 
-      unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
-        const clientsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setClients(clientsData);
-      }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
+      const clientQueries = isAdmin ? [collection(db, 'clients')] : [
+        query(collection(db, 'clients'), where('createdBy', '==', currentUser.uid)),
+        query(collection(db, 'clients'), where('assignedTo', '==', currentUser.uid)),
+        query(collection(db, 'clients'), where('assignedManagerId', '==', currentUser.uid))
+      ];
+      const clientRecords = new Map<string, any>();
+      unsubClients = clientQueries.map(clientQuery => onSnapshot(clientQuery, (snapshot) => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') clientRecords.delete(change.doc.id);
+          else clientRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+        });
+        setClients(Array.from(clientRecords.values()));
+      }, (error) => handleFirestoreError(error, OperationType.GET, 'clients')));
     });
 
     return () => {
-      if (unsubProjects) unsubProjects();
-      if (unsubLogs) unsubLogs();
-      if (unsubClients) unsubClients();
+      unsubProjects.forEach(fn => fn());
+      unsubLogs.forEach(fn => fn());
+      unsubClients.forEach(fn => fn());
       unsubAuth();
     };
   }, [timeLogs.length]);
@@ -137,6 +141,7 @@ export default function Projects() {
     try {
       const project = {
         ...newProject,
+        createdBy: auth.currentUser?.uid,
         budget: Number(newProject.budget),
         progress: 0,
         health: 'En tiempo',

@@ -15,15 +15,18 @@ export default function Accounting() {
 
   return (
     <div className="space-y-6">
+      <div role="status" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+        DEMOSTRACIÓN: los importes y métricas de esta pantalla son valores de ejemplo; no están conectados a facturas, bancos, nómina ni a un libro contable real.
+      </div>
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Contabilidad y Costos</h2>
-          <p className="text-sm text-gray-500 mt-1">Centro de Control Financiero y Rentabilidad Real</p>
+          <p className="text-sm text-gray-500 mt-1">Vista de demostración — sin conexión contable</p>
         </div>
         <div className="flex gap-3">
           <div className="bg-white border border-gray-200 px-4 py-2 rounded-lg flex items-center gap-2">
             <span className="text-sm font-medium text-gray-500">Moneda:</span>
-            <select className="text-sm font-bold text-gray-900 border-none bg-transparent focus:ring-0 p-0">
+            <select disabled title="Selector no conectado a datos contables" className="text-sm font-bold text-gray-500 border-none bg-gray-100 focus:ring-0 p-0 cursor-not-allowed">
               <option>USD ($)</option>
               <option>BRL (R$)</option>
             </select>
@@ -34,23 +37,23 @@ export default function Accounting() {
       {/* Mini Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total por Cobrar</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total por Cobrar (DEMO)</p>
           <p className="text-xl font-bold text-green-600">$12,450</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total por Pagar</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total por Pagar (DEMO)</p>
           <p className="text-xl font-bold text-red-600">$4,200</p>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Flujo Neto Proyectado</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Flujo Neto (DEMO)</p>
           <p className="text-xl font-bold text-blue-600">$8,250</p>
         </div>
         <div className="bg-red-50 p-4 rounded-xl shadow-sm border border-red-100">
-          <p className="text-xs text-red-600 uppercase tracking-wider mb-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Facturas Vencidas</p>
+          <p className="text-xs text-red-600 uppercase tracking-wider mb-1 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> Facturas Vencidas (DEMO)</p>
           <p className="text-xl font-bold text-red-700">3</p>
         </div>
         <div className="bg-cyan-500/10 p-4 rounded-xl shadow-sm border border-yellow-100">
-          <p className="text-xs text-yellow-700 uppercase tracking-wider mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/> Impuestos Próximos</p>
+          <p className="text-xs text-yellow-700 uppercase tracking-wider mb-1 flex items-center gap-1"><Calendar className="w-3 h-3"/> Impuestos Próximos (DEMO)</p>
           <p className="text-xl font-bold text-yellow-800">En 5 días</p>
         </div>
       </div>

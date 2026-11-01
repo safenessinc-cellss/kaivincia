@@ -21,7 +21,7 @@ import {
   BarChart2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, limit } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { db } from '../../firebase';
@@ -37,7 +37,7 @@ interface CallHistoryTableProps {
 
 export default function CallHistoryTable({ onSelectCall, onTriggerCall, className = '' }: CallHistoryTableProps) {
   const { t } = useLanguage();
-  const { user, loading: authLoading } = useAuth();
+  const { user, userData, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   const [calls, setCalls] = useState<CallRecord[]>([]);
@@ -60,7 +60,10 @@ export default function CallHistoryTable({ onSelectCall, onTriggerCall, classNam
     if (authLoading || !user) return;
 
     setLoading(true);
-    const q = query(collection(db, 'voip_call_history'), orderBy('startedAt', 'desc'), limit(200));
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
+    const q = isAdmin
+      ? query(collection(db, 'voip_call_history'), orderBy('startedAt', 'desc'), limit(200))
+      : query(collection(db, 'voip_call_history'), where('agentId', '==', user.uid), orderBy('startedAt', 'desc'), limit(200));
 
     const unsub = onSnapshot(q, (snapshot) => {
       if (!snapshot.empty) {
@@ -68,9 +71,9 @@ export default function CallHistoryTable({ onSelectCall, onTriggerCall, classNam
           const d = doc.data();
           return {
             id: doc.id,
-            agentId: d.agentId || 'agent_1',
-            agentName: d.agentName || d.agent || 'Agente Kaivincia',
-            agentEmail: d.agentEmail || 'agent@kaivincia.com',
+            agentId: d.agentId || user.uid,
+            agentName: d.agentName || d.agent || userData?.displayName || userData?.name || 'Agente',
+            agentEmail: d.agentEmail || user.email || '',
             contactId: d.contactId || d.clientId || '',
             contactName: d.contactName || d.name || d.target || d.number || 'Contacto Desconocido',
             contactPhone: d.contactPhone || d.number || '',
@@ -90,61 +93,7 @@ export default function CallHistoryTable({ onSelectCall, onTriggerCall, classNam
         });
         setCalls(records);
       } else {
-        // Mock inicial seguro si la colección está vacía
-        setCalls([
-          {
-            id: 'call_demo_1',
-            agentId: 'ag_1',
-            agentName: 'Marta García',
-            agentEmail: 'marta@kaivincia.com',
-            contactId: 'lead_101',
-            contactName: 'Juan Pérez (CEO)',
-            contactPhone: '+1 (323) 555-0199',
-            direction: 'outbound',
-            status: 'completed',
-            duration: 165,
-            durationFormatted: '02:45',
-            startedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
-            recordingUrl: 'https://actions.google.com/sounds/v1/ambiences/office_murmur.ogg',
-            provider: 'Zadarma',
-            sentiment: 'positive',
-            notes: 'Interesado en licenciamiento corporativo.'
-          },
-          {
-            id: 'call_demo_2',
-            agentId: 'ag_2',
-            agentName: 'Carlos Ruiz',
-            agentEmail: 'carlos@kaivincia.com',
-            contactId: 'lead_102',
-            contactName: 'TechSolutions Inc.',
-            contactPhone: '+34 912 345 678',
-            direction: 'inbound',
-            status: 'completed',
-            duration: 730,
-            durationFormatted: '12:10',
-            startedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-            provider: 'Zoho Voice',
-            sentiment: 'neutral',
-            notes: 'Consulta técnica sobre integración SIP.'
-          },
-          {
-            id: 'call_demo_3',
-            agentId: 'ag_3',
-            agentName: 'Ana Silva',
-            agentEmail: 'ana@kaivincia.com',
-            contactId: '',
-            contactName: 'Miguel Rojas',
-            contactPhone: '+54 9 11 9876 5432',
-            direction: 'outbound',
-            status: 'missed',
-            duration: 0,
-            durationFormatted: '00:00',
-            startedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
-            provider: 'Twilio',
-            sentiment: 'negative',
-            notes: 'No contestó llamada tras 4 repiques.'
-          }
-        ]);
+        setCalls([]);
       }
       setLoading(false);
     }, (err) => {
@@ -153,7 +102,7 @@ export default function CallHistoryTable({ onSelectCall, onTriggerCall, classNam
     });
 
     return () => unsub();
-  }, [user, authLoading]);
+  }, [user, userData?.role, userData?.displayName, userData?.name, authLoading]);
 
   // Utilidad para parsear string mm:ss a segundos
   function parseDurationStringToSec(dur: any): number {

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { X, UploadCloud, FileSpreadsheet, Check, AlertCircle, Database, Sparkles } from 'lucide-react';
+import { X, UploadCloud, FileSpreadsheet, Check, AlertCircle, Database } from 'lucide-react';
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import { LeadOpportunity } from '../../types/crm';
 
 interface Props {
@@ -15,8 +14,8 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
   const [parsedData, setParsedData] = useState<Partial<LeadOpportunity>[]>([]);
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [defaultCampaign, setDefaultCampaign] = useState('Meta Ads - Campaña High Ticket USA');
-  const [assignedTLMK, setAssignedTLMK] = useState(tlmkList[0] || 'Zaydeli De La Rosa');
+  const defaultCampaign = 'Campaña sin especificar';
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -24,182 +23,82 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setFileName(file.name);
-
-    if (file.name.endsWith('.csv')) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          mapRowsToLeads(results.data);
-        }
-      });
-    } else {
-      // Excel reader
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws);
-        mapRowsToLeads(data);
-      };
-      reader.readAsBinaryString(file);
+    setError(null);
+    setFileName('');
+    setParsedData([]);
+    if (file.size > 5 * 1024 * 1024) {
+      setError('El archivo supera el límite de 5 MB.');
+      e.target.value = '';
+      return;
     }
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('Por seguridad, la importación Excel está temporalmente deshabilitada. Convierte el archivo a CSV y vuelve a intentarlo.');
+      e.target.value = '';
+      return;
+    }
+
+    setFileName(file.name);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const parseWarning = results.errors.length > 0
+          ? `El CSV contiene ${results.errors.length} advertencias de lectura. Revisa los datos antes de importar.`
+          : undefined;
+        mapRowsToLeads(results.data as any[], parseWarning);
+      },
+      error: (parseError) => setError(parseError.message || 'No se pudo leer el archivo CSV.')
+    });
   };
 
-  const mapRowsToLeads = (rows: any[]) => {
-    const mapped: Partial<LeadOpportunity>[] = rows.map((r, idx) => {
-      // Find possible column names
-      const name = r.name || r.Nombre || r.full_name || r.Cliente || r.contacto || `Lead Meta #${idx + 1}`;
-      const phone = String(r.phone || r.telefono || r.celular || r.mobile || r.Telefono || '').trim();
-      const email = r.email || r.correo || r.Email || '';
-      const company = r.company || r.empresa || r.Company || '';
-      const campaign = r.campaign || r.campaign_name || r.campana || defaultCampaign;
-      const tlmk = r.tlmk || r.agente || tlmkList[idx % tlmkList.length] || assignedTLMK;
+  const mapRowsToLeads = (rows: any[], parseWarning?: string) => {
+    const now = new Date().toISOString();
+    const mapped = rows.reduce<Partial<LeadOpportunity>[]>((acc, row, idx) => {
+      const name = String(row.name || row.Nombre || row.full_name || row.Cliente || row.contacto || '').trim();
+      if (!name) return acc;
 
-      return {
+      const phone = String(row.phone || row.telefono || row.celular || row.mobile || row.Telefono || '').trim();
+      const email = String(row.email || row.correo || row.Email || '').trim();
+      const company = String(row.company || row.empresa || row.Company || '').trim();
+      const campaign = String(row.campaign || row.campaign_name || row.campana || defaultCampaign).trim();
+      const requestedAgent = String(row.tlmk || row.agente || '').trim();
+      // Never distribute leads arbitrarily across agents. Only accept an
+      // explicitly supplied agent that exists in the authorized agent list.
+      const assignedAgent = requestedAgent && tlmkList.includes(requestedAgent)
+        ? requestedAgent
+        : '';
+      const rawValue = Number(row.value ?? row.monto ?? 0);
+
+      acc.push({
         name,
-        phone: phone || '+12135550000',
+        phone,
         email: email || undefined,
         companyName: company || undefined,
         source: 'meta_ads',
-        campaignName: campaign,
+        campaignName: campaign || 'Campaña sin especificar',
         pipelineStage: 'LEAD_IN',
-        assignedTLMK: tlmk,
-        contractValue: Number(r.value || r.monto || 1500),
-        healthScore: 90,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        assignedTLMK: assignedAgent,
+        contractValue: Number.isFinite(rawValue) ? rawValue : 0,
+        healthScore: 0,
+        createdAt: now,
+        updatedAt: now,
         notes: [{
-          id: `note_imp_${Date.now()}_${idx}`,
-          author: 'Sistema Meta Lead Ads',
-          text: `Contacto capturado desde campaña publicitaria: "${campaign}"`,
-          createdAt: new Date().toISOString()
+          id: `note_import_${Date.now()}_${idx}`,
+          author: 'Importación CSV',
+          text: `Contacto importado desde archivo CSV. Campaña: ${campaign || 'no especificada'}`,
+          createdAt: now
         }]
-      };
-    });
+      });
+      return acc;
+    }, []);
 
+    if (mapped.length === 0) {
+      setParsedData([]);
+      setError('No se encontraron filas con un nombre de contacto válido. Revisa la columna Nombre.');
+      return;
+    }
     setParsedData(mapped);
-  };
-
-  const loadPresetMetaData = () => {
-    setFileName('Campana_Meta_Ads_California_NY.csv (Base de Datos Oficial)');
-    const preset: Partial<LeadOpportunity>[] = [
-      {
-        name: 'Carlos Mendoza',
-        companyName: 'Mendoza Logistics LLC',
-        phone: '+1 (213) 489-3320', // California 213
-        email: 'carlos@mendozalog.com',
-        source: 'meta_ads',
-        campaignName: 'Meta Ads: Crecimiento Empresarial California',
-        pipelineStage: 'LEAD_IN',
-        assignedTLMK: 'Zaydeli De La Rosa',
-        contractValue: 4500,
-        healthScore: 95,
-        isOverdue: true, // Mark as overdue to show alert
-        createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: [{
-          id: 'n_1',
-          author: 'Meta Lead Ads API',
-          text: 'Interesado en escalamiento de operaciones. Formulario completado en Instagram.',
-          createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
-        }]
-      },
-      {
-        name: 'Elena Rostova',
-        companyName: 'Empire Real Estate NY',
-        phone: '+1 (631) 890-4412', // New York 631
-        email: 'elena@empirerealty.com',
-        source: 'meta_ads',
-        campaignName: 'Meta Ads: Inversionistas NY & NJ',
-        pipelineStage: 'LEAD_IN',
-        assignedTLMK: 'Zaydeli De La Rosa',
-        contractValue: 8000,
-        healthScore: 88,
-        createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: [{
-          id: 'n_2',
-          author: 'Meta Lead Ads API',
-          text: 'Preguntó por integración CRM y discador. Requiere llamada matutina.',
-          createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
-        }]
-      },
-      {
-        name: 'David Steinberg',
-        companyName: 'Denver Peaks Consulting',
-        phone: '+1 (720) 651-7890', // Colorado 720
-        email: 'david@denverpeaks.co',
-        source: 'meta_ads',
-        campaignName: 'Meta Ads: Consultoría High Ticket',
-        pipelineStage: 'CONTACTADO',
-        assignedTLMK: 'Marta García',
-        contractValue: 12000,
-        healthScore: 92,
-        createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: [{
-          id: 'n_3',
-          author: 'Marta García',
-          text: 'Llamada inicial realizada. Muy receptivo, solicita propuesta y agendar reunión.',
-          createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString()
-        }]
-      },
-      {
-        name: 'Marcos Aurelio Santos',
-        companyName: 'Santos & Brothers Corp',
-        phone: '+1 (856) 412-9901', // New Jersey 856
-        email: 'marcos@santostrucking.com',
-        source: 'meta_ads',
-        campaignName: 'Meta Ads: Soluciones Financieras NJ',
-        pipelineStage: 'CITA_AGENDADA',
-        assignedTLMK: 'Zaydeli De La Rosa',
-        contractValue: 6500,
-        healthScore: 96,
-        appointment: {
-          date: new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0],
-          time: '11:00',
-          assignedAgent: 'Supervisor Comercial',
-          type: 'videollamada',
-          address: 'Google Meet / Zoom Virtual',
-          status: 'programada',
-          notes: 'Revisión de plan de servicios y cierre comercial.'
-        },
-        createdAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: [{
-          id: 'n_4',
-          author: 'Zaydeli De La Rosa',
-          text: 'Cita coordinada con éxito para mañana a las 11:00 AM.',
-          createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString()
-        }]
-      },
-      {
-        name: 'Jessica Valenzuela',
-        companyName: 'Pacific Health Solutions',
-        phone: '+1 (562) 330-8819', // California 562
-        email: 'jessica@pacifichealth.org',
-        source: 'meta_ads',
-        campaignName: 'Meta Ads: Sector Salud California',
-        pipelineStage: 'LEAD_IN',
-        assignedTLMK: 'Carlos Méndez',
-        contractValue: 5000,
-        healthScore: 85,
-        createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
-        updatedAt: new Date().toISOString(),
-        notes: [{
-          id: 'n_5',
-          author: 'Meta Lead Ads API',
-          text: 'Registro vía anuncio de Facebook Leads.',
-          createdAt: new Date(Date.now() - 2 * 3600 * 1000).toISOString()
-        }]
-      }
-    ];
-
-    setParsedData(preset);
+    setError(parseWarning || null);
   };
 
   const handleConfirmImport = async () => {
@@ -209,7 +108,7 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
       await onImport(parsedData);
       onClose();
     } catch (e) {
-      console.error("Error importing leads:", e);
+      setError(e instanceof Error ? e.message : 'No se pudo completar la importación.');
     } finally {
       setLoading(false);
     }
@@ -237,43 +136,32 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
         </div>
 
         <div className="p-6 space-y-5">
-          {/* Preset generator button */}
-          <div className="bg-gradient-to-r from-blue-950/40 to-cyan-950/40 border border-blue-800/40 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-1.5 text-xs font-black text-cyan-400 uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5" /> Base de Campañas Meta USA
-              </div>
-              <p className="text-[11px] text-slate-300 mt-0.5">
-                Carga automáticamente 5 contactos listos de campañas de Facebook con DIDs de California, NY, Denver y NJ.
-              </p>
-            </div>
-            <button
-              onClick={loadPresetMetaData}
-              className="shrink-0 px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(6,182,212,0.3)] cursor-pointer"
-            >
-              Cargar Base Meta
-            </button>
-          </div>
-
           {/* Upload Area */}
           <div className="border-2 border-dashed border-slate-700 hover:border-[#00F0FF] rounded-2xl p-6 text-center transition-all bg-slate-900/30">
             <input
               type="file"
               id="meta-file-upload"
-              accept=".csv, .xlsx, .xls"
+              accept=".csv,text/csv"
               onChange={handleFileUpload}
               className="hidden"
             />
             <label htmlFor="meta-file-upload" className="cursor-pointer flex flex-col items-center">
               <FileSpreadsheet className="w-10 h-10 text-slate-500 mb-2 hover:text-[#00F0FF] transition-colors" />
               <span className="text-xs font-bold text-white mb-1">
-                {fileName ? fileName : 'Selecciona o arrastra tu archivo CSV o Excel de Meta Ads'}
+                {fileName ? fileName : 'Selecciona un archivo CSV de Meta Ads (máximo 5 MB)'}
               </span>
               <span className="text-[10px] text-slate-400 font-mono">
-                Columnas admitidas: Nombre, Teléfono, Empresa, Email, Campaña
+                Columnas admitidas: Nombre, Teléfono, Empresa, Email, Campaña. Excel temporalmente deshabilitado.
               </span>
             </label>
           </div>
+
+          {error && (
+            <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-[11px] text-rose-200">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{error}</span>
+            </div>
+          )}
 
           {/* Preview list */}
           {parsedData.length > 0 && (
@@ -295,7 +183,7 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
                       <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                         {lead.campaignName}
                       </span>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Asignado a: <strong className="text-white">{lead.assignedTLMK}</strong></p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Asignación: <strong className="text-white">{lead.assignedTLMK || 'Sin asignar'}</strong></p>
                     </div>
                   </div>
                 ))}

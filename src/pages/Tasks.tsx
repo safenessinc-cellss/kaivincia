@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { useGlobalContext } from '../contexts/GlobalContext';
 import { CheckCircle2, Circle, Plus, Calendar as CalendarIcon, List, Users, X, Clock, AlertTriangle, PlayCircle, ShieldAlert } from 'lucide-react';
 import { format, parseISO, isSameDay, isBefore, isAfter, addDays, startOfDay, differenceInDays } from 'date-fns';
 
 export default function Tasks() {
   const { user, loading: authLoading } = useAuth();
+  const { users: globalUsers, clients: globalClients, tasks: globalTasks } = useGlobalContext();
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -46,51 +48,28 @@ export default function Tasks() {
       return;
     }
 
-    // Fetch Tasks without orderBy to avoid index errors, sorting in-memory instead
-    const qTasks = collection(db, 'tasks');
-    const unsubTasks = onSnapshot(qTasks, (snapshot) => {
-      const rawTasks: any[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      const priorityWeights = { Alta: 3, Media: 2, Baja: 1 };
-      const sorted = rawTasks.sort((a, b) => {
-        // Sort by priority desc
-        const pA = priorityWeights[a.priority as keyof typeof priorityWeights] || 0;
-        const pB = priorityWeights[b.priority as keyof typeof priorityWeights] || 0;
-        if (pB !== pA) return pB - pA;
-        
-        // Sort by dueDate asc
-        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-        return dateA - dateB;
+    const profile = globalUsers.find(item => item.id === user.uid);
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(profile?.role || '').toLowerCase());
+    const projectQuery = isAdmin ? collection(db, 'projects') : query(collection(db, 'projects'), where('createdBy', '==', user.uid));
+    const projectRecords = new Map<string, any>();
+    const unsubProjects = onSnapshot(projectQuery, snapshot => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') projectRecords.delete(change.doc.id);
+        else projectRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
       });
-      setTasks(sorted);
+      setProjects(Array.from(projectRecords.values()));
       setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'tasks');
-      setLoading(false);
-    });
-
-    // Fetch Users for assignment
-    const unsubUsers = onSnapshot(query(collection(db, 'users')), (snapshot) => {
-      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
-
-    // Fetch Projects
-    const unsubProjects = onSnapshot(collection(db, 'projects'), (snapshot) => {
-      setProjects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'projects'));
-
-    // Fetch Clients
-    const unsubClients = onSnapshot(collection(db, 'clients'), (snapshot) => {
-      setClients(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
-
+    }, error => { handleFirestoreError(error, OperationType.GET, 'projects'); setLoading(false); });
     return () => {
-      unsubTasks();
-      unsubUsers();
       unsubProjects();
-      unsubClients();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, globalUsers]);
+
+  useEffect(() => {
+    setTasks(globalTasks);
+    setUsers(globalUsers);
+    setClients(globalClients);
+  }, [globalTasks, globalUsers, globalClients]);
 
   const hasMora = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);

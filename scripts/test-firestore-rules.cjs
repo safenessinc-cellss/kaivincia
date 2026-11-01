@@ -1,0 +1,345 @@
+const fs = require('node:fs');
+const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
+const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, deleteDoc, Timestamp, serverTimestamp } = require('firebase/firestore');
+
+const projectId = 'demo-kaivincia-security';
+const rules = fs.readFileSync('firestore.rules', 'utf8');
+const ticketMessageTimestamp = Timestamp.fromDate(new Date('2026-11-01T09:00:00.000Z'));
+
+async function main() {
+  const env = await initializeTestEnvironment({ projectId, firestore: { rules } });
+  try {
+    await env.withSecurityRulesDisabled(async context => {
+      const db = context.firestore();
+      const profiles = [
+        ['alice', { role: 'agent', status: 'approved' }],
+        ['bob', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: false } }],
+        ['pending', { role: 'agent', status: 'pending' }],
+        ['hr', { role: 'rrhh', status: 'approved' }],
+        ['owner', { role: 'owner', status: 'approved' }],
+        ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
+        ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
+        ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
+        ['pending-admin', { role: 'admin', status: 'pending', email: 'pending-admin@example.test' }],
+        ['missing-status-admin', { role: 'admin', email: 'missing-status-admin@example.test' }],
+        ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
+        ['support-agent', { role: 'agent', status: 'approved', email: 'support-agent@example.test', permissions: { helpdesk_manage: true } }],
+        ['superadmin', { role: 'superadmin', status: 'approved' }],
+        ['superadmin-denied', { role: 'superadmin', status: 'approved', permissions: { voip_calls: false, telephony_config: false } }],
+        ['pending-superadmin', { role: 'superadmin', status: 'pending' }],
+        ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
+        ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
+        ['manager', { role: 'ceo', status: 'approved' }]
+      ];
+      for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
+      await setDoc(doc(db, 'settings', 'rbac_matrix'), {
+        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false } }
+      });
+      await setDoc(doc(db, 'company_profiles', 'alice'), { ownerUid: 'alice', email: 'alice@example.test', status: 'pending' });
+      await setDoc(doc(db, 'clients', 'alice-client'), { name: 'Alice Client', createdBy: 'alice', assignedTo: 'alice' });
+      await setDoc(doc(db, 'clients', 'bob-client'), { name: 'Bob Client', createdBy: 'bob', assignedTo: 'bob' });
+      await setDoc(doc(db, 'clients', 'alice-client', 'notes', 'note-1'), { text: 'private note' });
+      await setDoc(doc(db, 'tasks', 'alice-task'), { title: 'Alice task', createdBy: 'alice', assignedTo: 'alice' });
+      await setDoc(doc(db, 'omnichannel_threads', 'alice-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'alice', name: 'Alice conversation' });
+      await setDoc(doc(db, 'chat_messages', 'private-message'), { type: 'private', senderId: 'alice', targetId: 'bob', text: 'private' });
+      await setDoc(doc(db, 'chat_messages', 'general-message'), { type: 'groups', targetId: 'general', senderId: 'alice', text: 'general' });
+      await setDoc(doc(db, 'chat_messages', 'devops-message'), { type: 'groups', targetId: 'dev-ops', senderId: 'admin', text: 'internal' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-general-message'), { channelId: 'general', senderId: 'alice', text: 'legacy general' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-null-type-message'), { type: null, targetId: null, channelId: 'general', senderId: 'alice', text: 'legacy null fields' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-devops-message'), { channelId: 'dev-ops', senderId: 'admin', text: 'legacy internal' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-client-message'), { channelId: 'alice-client', senderId: 'alice', text: 'legacy client' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-private-message'), { senderId: 'alice', targetId: 'bob', text: 'legacy private' });
+      await setDoc(doc(db, 'telnyx_sip_credentials', 'alice-sip'), { assignedTo: 'alice', secret: 'test-only' });
+      await setDoc(doc(db, 'voip_call_history', 'alice-call'), { agentId: 'alice', contactPhone: '+15555550100' });
+      await setDoc(doc(db, 'esim_profiles', 'admin-esim'), { isDemo: false, phone: '+15555550101' });
+      await setDoc(doc(db, 'telnyx_phone_numbers', 'admin-number'), { phoneNumber: '+15555550102' });
+      await setDoc(doc(db, 'telnyx_agent_assignments', 'alice'), { agentId: 'alice', authorizedNumbers: ['+15555550102'] });
+      await setDoc(doc(db, 'voip_providers', 'telnyx'), { name: 'Telnyx', apiKey: 'test-only' });
+      await setDoc(doc(db, 'settings', 'telnyx_config'), { login_token: 'test-only-jwt' });
+      await setDoc(doc(db, 'support_tickets', 'alice-ticket'), {
+        userId: 'alice', userEmail: 'alice@example.test', subject: 'Login issue',
+        description: 'Cannot log in', priority: 'medium', status: 'open',
+        assignedTo: null, assignedToEmail: null,
+        messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message', createdAt: ticketMessageTimestamp }],
+        createdAt: '2026-11-01'
+      });
+      await setDoc(doc(db, 'support_tickets', 'bob-ticket'), {
+        userId: 'bob', userEmail: 'bob@example.test', subject: 'Billing issue',
+        description: 'Need invoice', priority: 'low', status: 'open',
+        assignedTo: null, assignedToEmail: null, messages: [], createdAt: '2026-11-01'
+      });
+      await setDoc(doc(db, 'candidates', 'candidate-1'), { name: 'Candidate One', email: 'candidate@example.test', status: 'Nuevo' });
+      await setDoc(doc(db, 'jobs', 'job-1'), { title: 'HR Analyst', department: 'People', status: 'active' });
+      await setDoc(doc(db, 'jobs', 'closed-job'), { title: 'Closed role', department: 'People', status: 'closed' });
+      await setDoc(doc(db, 'attendance_logs', 'alice-attendance'), { userId: 'alice', type: 'in', timestamp: '2026-11-01T09:00:00Z' });
+      await setDoc(doc(db, 'absence_requests', 'alice-absence'), { userId: 'alice', status: 'pending', reason: 'Personal', startDate: '2026-11-02', endDate: '2026-11-02' });
+      await setDoc(doc(db, 'attendance_logs', 'alice-legacy-attendance'), { userUid: 'alice', type: 'out', timestamp: '2026-10-31T18:00:00Z' });
+      await setDoc(doc(db, 'absence_requests', 'alice-legacy-absence'), { userUid: 'alice', status: 'pending', reason: 'Legacy request', startDate: '2026-11-02', endDate: '2026-11-02' });
+    });
+
+    const alice = env.authenticatedContext('alice', { email: 'alice@example.test' }).firestore();
+    const bob = env.authenticatedContext('bob', { email: 'bob@example.test' }).firestore();
+    const pending = env.authenticatedContext('pending').firestore();
+    const hr = env.authenticatedContext('hr', { email: 'hr@example.test' }).firestore();
+    const owner = env.authenticatedContext('owner', { email: 'owner@example.test' }).firestore();
+    const hrDenied = env.authenticatedContext('hr-denied').firestore();
+    const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
+    const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
+    const pendingAdmin = env.authenticatedContext('pending-admin', { email: 'pending-admin@example.test' }).firestore();
+    const missingStatusAdmin = env.authenticatedContext('missing-status-admin', { email: 'missing-status-admin@example.test' }).firestore();
+    const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
+    const supportAgent = env.authenticatedContext('support-agent', { email: 'support-agent@example.test' }).firestore();
+    const superadmin = env.authenticatedContext('superadmin').firestore();
+    const superadminDenied = env.authenticatedContext('superadmin-denied').firestore();
+    const pendingSuperadmin = env.authenticatedContext('pending-superadmin').firestore();
+    const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
+    const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
+    const agentNoVoip = env.authenticatedContext('agent-no-voip').firestore();
+    const manager = env.authenticatedContext('manager').firestore();
+    const anonymous = env.unauthenticatedContext().firestore();
+
+    await assertFails(getDoc(doc(anonymous, 'company_profiles', 'alice')));
+    await assertFails(getDoc(doc(alice, 'company_profiles', 'alice')));
+    await assertSucceeds(getDoc(doc(admin, 'company_profiles', 'alice')));
+    await assertFails(getDoc(doc(pendingAdmin, 'company_profiles', 'alice')));
+    await assertFails(getDoc(doc(missingStatusAdmin, 'company_profiles', 'alice')));
+    await assertFails(getDocs(collection(pendingAdmin, 'clients')));
+    await assertFails(getDocs(collection(missingStatusAdmin, 'clients')));
+    await assertFails(setDoc(doc(anonymous, 'company_profiles', 'public-profile'), { name: 'Public' }));
+    await assertSucceeds(getDoc(doc(alice, 'clients', 'alice-client')));
+    await assertSucceeds(setDoc(doc(alice, 'clients', 'alice-new-client'), { name: 'New client', createdBy: 'alice' }));
+    await assertFails(setDoc(doc(bob, 'clients', 'forged-client'), { name: 'Forged', createdBy: 'alice' }));
+    await assertFails(setDoc(doc(alice, 'clients', 'shared-client'), { name: 'Shared', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(admin, 'clients', 'admin-assigned-client'), { name: 'Admin assigned', createdBy: 'admin', assignedTo: 'bob' }));
+    await assertFails(setDoc(doc(pending, 'tasks', 'pending-task'), { title: 'Pending', createdBy: 'pending', assignedTo: 'pending' }));
+    await assertFails(setDoc(doc(alice, 'tasks', 'shared-task'), { title: 'Shared', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(admin, 'tasks', 'admin-assigned-task'), { title: 'Admin assigned', createdBy: 'admin', assignedTo: 'bob' }));
+    await assertFails(updateDoc(doc(alice, 'tasks', 'alice-task'), { assignedTo: 'bob' }));
+    await assertFails(getDoc(doc(alice, 'clients', 'bob-client')));
+    await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedTo: 'bob' }));
+    await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedManagerId: 'bob' }));
+    await assertSucceeds(updateDoc(doc(admin, 'clients', 'alice-client'), { assignedTo: 'bob' }));
+    await assertSucceeds(getDocs(query(collection(alice, 'clients'), where('createdBy', '==', 'alice'))));
+    await assertFails(getDocs(collection(alice, 'clients')));
+    await assertSucceeds(getDoc(doc(alice, 'tasks', 'alice-task')));
+    await assertFails(getDoc(doc(bob, 'tasks', 'alice-task')));
+    await assertSucceeds(getDoc(doc(alice, 'omnichannel_threads', 'alice-thread')));
+    await assertFails(getDoc(doc(bob, 'omnichannel_threads', 'alice-thread')));
+    await assertFails(updateDoc(doc(alice, 'omnichannel_threads', 'alice-thread'), { assignedTo: 'bob' }));
+    await assertFails(setDoc(doc(alice, 'omnichannel_threads', 'shared-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(alice, 'omnichannel_threads', 'alice-new-thread'), { ownerId: 'alice', createdBy: 'alice', assignedTo: 'alice' }));
+    await assertSucceeds(setDoc(doc(alice, 'omnichannel_threads', 'alice-thread', 'messages', 'own-message'), { senderId: 'alice', text: 'own' }));
+    await assertFails(setDoc(doc(alice, 'omnichannel_threads', 'alice-thread', 'messages', 'forged-message'), { senderId: 'bob', text: 'forged' }));
+    await assertFails(getDoc(doc(pending, 'clients', 'alice-client')));
+    await assertFails(getDoc(doc(pending, 'clients', 'alice-client', 'notes', 'note-1')));
+
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'private-message')));
+    await assertSucceeds(getDoc(doc(bob, 'chat_messages', 'private-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'general-message')));
+    await assertFails(getDoc(doc(alice, 'chat_messages', 'devops-message')));
+    await assertFails(setDoc(doc(alice, 'chat_messages', 'devops-forged'), { type: 'groups', targetId: 'dev-ops', senderId: 'alice' }));
+    await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
+    await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
+    await assertSucceeds(getDoc(doc(owner, 'chat_messages', 'devops-message')));
+    await assertSucceeds(getDocs(query(collection(alice, 'chat_messages'), where('type', '==', 'groups'), where('targetId', '==', 'general'))));
+    await assertSucceeds(getDocs(query(collection(alice, 'chat_messages'), where('channelId', '==', 'general'))));
+    await assertFails(getDocs(query(collection(alice, 'chat_messages'), where('type', '==', 'groups'), where('targetId', '==', 'dev-ops'))));
+    await assertSucceeds(getDocs(query(collection(admin, 'chat_messages'), where('channelId', '==', 'dev-ops'))));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-general-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-null-type-message')));
+    await assertFails(getDoc(doc(alice, 'chat_messages', 'legacy-devops-message')));
+    await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'legacy-devops-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-client-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-private-message')));
+    await assertSucceeds(getDoc(doc(bob, 'chat_messages', 'legacy-private-message')));
+    await assertFails(getDoc(doc(pending, 'chat_messages', 'legacy-general-message')));
+    await assertFails(setDoc(doc(alice, 'chat_messages', 'legacy-devops-forged'), { channelId: 'dev-ops', senderId: 'alice' }));
+
+    await assertFails(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(getDoc(doc(manager, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(getDoc(doc(adminNoTelephony, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
+    await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDocs(query(collection(alice, 'voip_call_history'), where('agentId', '==', 'alice'))));
+    await assertFails(getDocs(query(collection(alice, 'voip_call_history'), where('agentId', '==', 'bob'))));
+    await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(getDoc(doc(manager, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(setDoc(doc(alice, 'voip_call_history', 'alice-call-own'), { agentId: 'alice', contactPhone: '+15555550101', direction: 'outbound' }));
+    await assertFails(setDoc(doc(alice, 'voip_call_history', 'alice-call-spoofed'), { agentId: 'bob', contactPhone: '+15555550102', direction: 'outbound' }));
+    await assertFails(setDoc(doc(admin, 'voip_call_history', 'admin-call-spoofed'), { agentId: 'alice', contactPhone: '+15555550103', direction: 'outbound' }));
+    await assertSucceeds(setDoc(doc(admin, 'voip_call_history', 'admin-call-own'), { agentId: 'admin', contactPhone: '+15555550104', direction: 'outbound' }));
+    await assertFails(getDoc(doc(manager, 'voip_providers', 'telnyx')));
+    await assertFails(getDoc(doc(manager, 'settings', 'telnyx_config')));
+    await assertFails(getDoc(doc(adminNoTelephony, 'settings', 'telnyx_config')));
+    await assertFails(getDoc(doc(agentNoVoip, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(getDoc(doc(admin, 'voip_providers', 'telnyx')));
+    await assertSucceeds(getDoc(doc(admin, 'settings', 'telnyx_config')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'settings', 'telnyx_config')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'telnyx_phone_numbers', 'admin-number')));
+    await assertSucceeds(getDoc(doc(superadminDenied, 'settings', 'rbac_matrix')));
+    await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
+    await assertFails(updateDoc(doc(manager, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
+    await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
+    await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(getDoc(doc(alice, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(agentNoVoip, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(bob, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(alice, 'esim_profiles', 'admin-esim')));
+    await assertSucceeds(getDoc(doc(admin, 'esim_profiles', 'admin-esim')));
+    await assertFails(getDoc(doc(alice, 'telnyx_phone_numbers', 'admin-number')));
+    await assertSucceeds(getDoc(doc(admin, 'telnyx_phone_numbers', 'admin-number')));
+    // Helpdesk lifecycle: customers can reply only on their own open ticket;
+    // they cannot close, reprioritize or reassign it.
+    await assertSucceeds(getDocs(query(collection(alice, 'support_tickets'), where('userId', '==', 'alice'))));
+    await assertFails(getDocs(collection(alice, 'support_tickets')));
+    await assertSucceeds(getDoc(doc(alice, 'support_tickets', 'alice-ticket')));
+    await assertFails(getDoc(doc(alice, 'support_tickets', 'bob-ticket')));
+    await assertSucceeds(setDoc(doc(alice, 'support_tickets', 'new-ticket'), {
+      userId: 'alice', userEmail: 'alice@example.test', subject: 'New request',
+      description: 'Need account access', priority: 'medium', status: 'open',
+      assignedTo: null, assignedToEmail: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Need account access', createdAt: Timestamp.now() }]
+    }));
+    await assertFails(setDoc(doc(alice, 'support_tickets', 'spoofed-ticket'), {
+      userId: 'alice', userEmail: 'bob@example.test', subject: 'Spoofed request',
+      description: 'Trying to impersonate', priority: 'medium', status: 'open',
+      assignedTo: null, assignedToEmail: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      messages: [{ senderId: 'alice', senderEmail: 'bob@example.test', text: 'Trying to impersonate', createdAt: Timestamp.now() }]
+    }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { status: 'closed', updatedAt: 'now' }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { priority: 'critical', updatedAt: 'now' }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', updatedAt: 'now' }));
+    const originalTicketMessage = { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message' };
+    await assertSucceeds(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
+      messages: [ { ...originalTicketMessage, createdAt: ticketMessageTimestamp }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Additional details', createdAt: Timestamp.now() } ],
+      updatedAt: serverTimestamp()
+    }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
+      messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Rewritten history', createdAt: Timestamp.now() }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Forged append', createdAt: Timestamp.now() }],
+      updatedAt: serverTimestamp()
+    }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { description: 'Changed original report' }));
+    await assertFails(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', assignedToEmail: 'bob@example.test', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { assignedTo: 'admin', assignedToEmail: 'admin@example.test', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress', updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(adminNoHelpdesk, 'support_tickets', 'bob-ticket')));
+    await assertFails(updateDoc(doc(adminNoHelpdesk, 'support_tickets', 'alice-ticket'), { status: 'closed' }));
+    await assertSucceeds(getDoc(doc(supportAgent, 'support_tickets', 'alice-ticket')));
+    await assertFails(getDoc(doc(supportAgent, 'users', 'alice')));
+    await assertSucceeds(updateDoc(doc(supportAgent, 'support_tickets', 'alice-ticket'), { status: 'resolved', updatedAt: serverTimestamp() }));
+    await assertFails(deleteDoc(doc(admin, 'support_tickets', 'alice-ticket')));
+
+    // HR can read and manage recruitment/attendance data, but cannot grant
+    // application roles, permissions or account approval.
+    await assertSucceeds(getDoc(doc(hr, 'users', 'alice')));
+    await assertFails(updateDoc(doc(hr, 'users', 'alice'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(hr, 'users', 'alice'), { status: 'active' }));
+    await assertFails(updateDoc(doc(admin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(setDoc(doc(admin, 'users', 'new-user'), { role: 'agent', status: 'pending' }));
+    await assertSucceeds(updateDoc(doc(superadmin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(pendingSuperadmin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(admin, 'settings', 'rbac_matrix'), { matrix: {} }));
+    await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
+    await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
+    await assertSucceeds(getDoc(doc(owner, 'candidates', 'candidate-1')));
+    await assertSucceeds(getDoc(doc(owner, 'attendance_logs', 'alice-attendance')));
+    await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
+    await assertFails(getDoc(doc(anonymous, 'jobs', 'job-1')));
+    await assertSucceeds(getDoc(doc(hr, 'jobs', 'job-1')));
+    await assertSucceeds(setDoc(doc(anonymous, 'candidates', 'public-application'), {
+      name: 'Public Applicant', email: 'applicant@example.test', phone: '+15555550111',
+      city: 'New York', linkedin: '', role: 'HR Analyst', experience: 'Three years',
+      jobId: 'job-1', skills: ['Recruitment'], status: 'Nuevo', hasPhoto: false,
+      hasResume: true, resumeFileName: 'resume.pdf', resumeText: 'Applicant CV content',
+      createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(anonymous, 'candidates', 'closed-job-application'), {
+      name: 'Public Applicant', email: 'applicant@example.test', phone: '+15555550111',
+      city: 'New York', linkedin: '', role: 'HR Analyst', experience: 'Three years',
+      jobId: 'closed-job', skills: ['Recruitment'], status: 'Nuevo', hasPhoto: false,
+      hasResume: true, resumeFileName: 'resume.pdf', resumeText: 'Applicant CV content',
+      createdAt: serverTimestamp()
+    }));
+    await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
+    await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista', hrNotes: 'Revisión inicial completada.' }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { hrNotes: 'x'.repeat(5001) }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { aiScore: 100 }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { userId: 'hr' }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Contratado automáticamente' }));
+    await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
+    await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-attendance')));
+    await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-legacy-attendance')));
+    await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-legacy-attendance')));
+    await assertFails(getDocs(query(collection(bob, 'attendance_logs'), where('userUid', '==', 'alice'))));
+    await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-attendance')));
+    await assertFails(getDoc(doc(hrDenied, 'attendance_logs', 'alice-attendance')));
+    await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
+    await assertFails(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
+    await assertFails(setDoc(doc(alice, 'attendance_logs', 'backdated-attendance'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'in',
+      timestamp: '2020-01-01T09:00:00.000Z', source: 'web'
+    }));
+    await assertSucceeds(setDoc(doc(alice, 'attendance_logs', 'server-timestamp-attendance'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'in',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
+    await assertSucceeds(setDoc(doc(alice, 'attendance_logs', 'server-timestamp-checkout'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'out',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
+    await assertFails(setDoc(doc(alice, 'attendance_logs', 'spoofed-attendance'), {
+      userId: 'bob', userName: 'alice@example.test', type: 'in',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
+    await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-absence')));
+    await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-legacy-absence')));
+    await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-legacy-absence')));
+    await assertFails(getDocs(query(collection(bob, 'absence_requests'), where('userUid', '==', 'alice'))));
+    await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-absence')));
+    await assertFails(getDoc(doc(hrDenied, 'absence_requests', 'alice-absence')));
+    await assertFails(updateDoc(doc(alice, 'absence_requests', 'alice-absence'), {
+      status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: 'alice', reviewerEmail: 'alice@example.test'
+    }));
+    await assertSucceeds(getDoc(doc(hr, 'absence_requests', 'alice-absence')));
+    await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), {
+      status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: 'hr', reviewerEmail: 'hr@example.test'
+    }));
+    await assertFails(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), { userId: 'hr' }));
+    await assertSucceeds(setDoc(doc(alice, 'absence_requests', 'alice-new-absence'), {
+      type: 'Día Libre', startDate: '2026-11-03', endDate: '2026-11-04',
+      reason: 'Personal', userId: 'alice', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(alice, 'absence_requests', 'invalid-date-absence'), {
+      type: 'Día Libre', startDate: '2026-11-05', endDate: '2026-11-04',
+      reason: 'Invalid range', userId: 'alice', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(alice, 'absence_requests', 'forged-absence'), {
+      type: 'Día Libre', startDate: '2026-11-03', endDate: '2026-11-04',
+      reason: 'Forged owner', userId: 'bob', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
+    await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
+    await assertSucceeds(setDoc(doc(alice, 'audit_logs', 'alice-event'), { actorUid: 'alice', action: 'TEST' }));
+    await assertFails(setDoc(doc(alice, 'audit_logs', 'forged-event'), { actorUid: 'bob', action: 'FORGED' }));
+
+    await assertSucceeds(getDocs(collection(admin, 'clients')));
+
+    // Only the explicitly designated owner account may delete a CRM user profile.
+    await assertFails(deleteDoc(doc(admin, 'users', 'alice')));
+    await assertFails(deleteDoc(doc(manager, 'users', 'bob')));
+    await assertSucceeds(deleteDoc(doc(accountOwner, 'users', 'alice')));
+
+    console.log('Firestore security tests passed: ownership, scoped queries, pending accounts, private chat, group channel roles and SIP assignment.');
+  } finally {
+    await env.cleanup();
+  }
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

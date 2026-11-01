@@ -10,34 +10,165 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAccountOwner() {
+      return isAuthenticated() && request.auth.token.email == "safeness.c.a@gmail.com";
+    }
+
+    function isSuperAdminAccount() {
+      // The designated owner account is the sole bootstrap exception.
+      // Every other SuperAdmin must already have an approved/active profile.
+      return isAuthenticated() && (
+        request.auth.token.email == "safeness.c.a@gmail.com" ||
+        (isApproved() && userRole() == "superadmin")
+      );
+    }
+
     function userRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none");
     }
 
     function isAdmin() {
-      return isAuthenticated() && (
+      return isApproved() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         userRole() in ["admin", "superadmin", "ceo", "gestor"])
+        userRole() in ["admin", "superadmin", "owner", "ceo", "gestor"]
       );
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && (
+      return isApproved() && (
         request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         userRole() in ["superadmin", "admin"])
+        userRole() in ["superadmin", "admin"]
       );
     }
 
+    function hasEffectivePermission(permission, defaultAllowed) {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let overrides = profile.get("permissions", {});
+      let matrix = exists(/databases/$(database)/documents/settings/rbac_matrix)
+        ? get(/databases/$(database)/documents/settings/rbac_matrix).data.get("matrix", {})
+        : {};
+      let rawRole = userRole();
+      let matrixRole = rawRole in ["agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent"]
+        ? "sales"
+        : rawRole;
+      let rolePermissions = matrix.get(matrixRole, {});
+      return overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
+    }
+
+    function isHR() {
+      return isApproved() && hasEffectivePermission(
+        "recruitment_payroll",
+        userRole() in ["superadmin", "admin", "owner", "ceo", "rrhh"]
+      );
+    }
+
+    function canManageHelpdesk() {
+      return isApproved() && hasEffectivePermission(
+        "helpdesk_manage",
+        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor"]
+      );
+    }
+
+    function isValidTicketStatusTransition(beforeStatus, afterStatus) {
+      return beforeStatus == afterStatus ||
+        (beforeStatus == "open" && afterStatus in ["in_progress", "resolved", "closed"]) ||
+        (beforeStatus == "in_progress" && afterStatus in ["open", "resolved", "closed"]) ||
+        (beforeStatus == "resolved" && afterStatus in ["open", "closed"]) ||
+        (beforeStatus == "closed" && afterStatus == "open");
+    }
+
+    function isValidTicketReply(before, after) {
+      let beforeMessages = before.get("messages", []);
+      let afterMessages = after.get("messages", []);
+      let lastMessage = afterMessages[afterMessages.size() - 1];
+      return beforeMessages is list &&
+        afterMessages is list &&
+        afterMessages.size() == beforeMessages.size() + 1 &&
+        afterMessages.toSet().hasAll(beforeMessages.toSet()) &&
+        lastMessage.get("senderId", "") == request.auth.uid &&
+        lastMessage.get("senderEmail", "") == request.auth.token.email &&
+        lastMessage.get("text", "") is string &&
+        lastMessage.get("text", "").size() > 0 &&
+        lastMessage.get("text", "").size() <= 5000 &&
+        lastMessage.get("createdAt", null) is timestamp;
+    }
+
+    function isValidTicketAssignment(data) {
+      let assignedUid = data.get("assignedTo", null);
+      let assignedEmail = data.get("assignedToEmail", null);
+      return assignedUid == null
+        ? assignedEmail == null
+        : assignedUid is string &&
+          assignedEmail is string &&
+          exists(/databases/$(database)/documents/users/$(assignedUid)) &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("email", "") == assignedEmail &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("status", "") in ["approved", "active"] &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("role", "") in ["superadmin", "admin", "owner", "ceo", "gestor"];
+    }
+
+    function isVoipUser() {
+      // Superadmins are the account-wide telephony owners; per-user RBAC
+      // overrides must not accidentally remove their call-center access.
+      return isApproved() && (
+        userRole() == "superadmin" ||
+        hasEffectivePermission(
+          "voip_calls",
+          userRole() in ["admin", "owner", "ceo", "gestor", "supervisor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
+        )
+      );
+    }
+
+    function isTelephonyAdmin() {
+      return isApproved() &&
+        userRole() in ["superadmin", "admin"] &&
+        (userRole() == "superadmin" || hasEffectivePermission("telephony_config", true));
+    }
+
     function isApproved() {
+      // Fail closed: a missing status is not an implicit approval.
+      // Trusted provisioning explicitly writes "active" for allowlisted
+      // administrators and "pending" for every other new account.
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "approved") == "approved";
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "pending") in ["approved", "active"];
     }
 
     function isUser(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function ownsRecord(data) {
+      return isAuthenticated() && (
+        data.get('ownerId', '') == request.auth.uid ||
+        data.get('createdBy', '') == request.auth.uid ||
+        data.get('assignedTo', '') == request.auth.uid ||
+        data.get('assignedManagerId', '') == request.auth.uid ||
+        data.get('assignedAgentUid', '') == request.auth.uid ||
+        data.get('agentId', '') == request.auth.uid ||
+        data.get('userId', '') == request.auth.uid ||
+        data.get('userUid', '') == request.auth.uid
+      );
+    }
+
+    function hasOnlyOwnAssignments(data) {
+      return data.get('ownerId', request.auth.uid) == request.auth.uid &&
+        data.get('createdBy', request.auth.uid) == request.auth.uid &&
+        data.get('assignedTo', request.auth.uid) == request.auth.uid &&
+        data.get('assignedManagerId', request.auth.uid) == request.auth.uid &&
+        data.get('agentId', request.auth.uid) == request.auth.uid &&
+        data.get('assignedAgentUid', request.auth.uid) == request.auth.uid &&
+        data.get('userId', request.auth.uid) == request.auth.uid &&
+        data.get('userUid', request.auth.uid) == request.auth.uid;
+    }
+
+    function preservesOwnership(before, after) {
+      return after.get('ownerId', before.get('ownerId', '')) == before.get('ownerId', '') &&
+        after.get('createdBy', before.get('createdBy', '')) == before.get('createdBy', '') &&
+        after.get('assignedTo', before.get('assignedTo', '')) == before.get('assignedTo', '') &&
+        after.get('assignedManagerId', before.get('assignedManagerId', '')) == before.get('assignedManagerId', '') &&
+        after.get('agentId', before.get('agentId', '')) == before.get('agentId', '') &&
+        after.get('userId', before.get('userId', '')) == before.get('userId', '') &&
+        after.get('userUid', before.get('userUid', '')) == before.get('userUid', '');
     }
 
     function incoming() {
@@ -76,72 +207,141 @@ service cloud.firestore {
     // Users
     // ===============================================================
     match /users/{userId} {
-      allow read:   if isAuthenticated() && (isUser(userId) || isAdmin());
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (
+      allow read:   if isAuthenticated() && (isUser(userId) || isAdmin() || isHR());
+      allow create: if isSuperAdminAccount();
+      allow update: if isSuperAdminAccount() || (
         isUser(userId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['role', 'status', 'permissions', 'uid'])
       );
-      allow delete: if isAdmin();
+      allow delete: if isAccountOwner();
     }
 
     match /user_sessions/{sessionId} {
-      allow read:   if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || resource.data.get('uid', '') == request.auth.uid || resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && (request.resource.data.get('uid', '') == request.auth.uid || request.resource.data.get('userId', '') == request.auth.uid);
+      allow update, delete: if isAdmin() || resource.data.get('uid', '') == request.auth.uid || resource.data.get('userId', '') == request.auth.uid;
     }
 
     // ===============================================================
     // Clients
     // ===============================================================
     match /clients/{clientId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() &&
-                       request.resource.data.get('createdBy', '') == request.auth.uid;
-      allow update: if isAdmin() ||
-                       existing().get('createdBy', '') == request.auth.uid ||
-                       existing().get('assignedTo', '') == request.auth.uid;
+      allow read: if isAdmin() || (isApproved() && (resource.data.get('createdBy', '') == request.auth.uid || resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('assignedManagerId', '') == request.auth.uid));
+      allow create: if (isAdmin() && request.resource.data.get('createdBy', '') == request.auth.uid) || (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid && request.resource.data.get('assignedManagerId', request.auth.uid) == request.auth.uid);
+      allow update: if (
+        isAdmin() && request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '')
+      ) || (
+        isApproved() && canAccessClient(clientId) &&
+        request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '') &&
+        request.resource.data.get('assignedTo', resource.data.get('assignedTo', '')) == resource.data.get('assignedTo', '') &&
+        request.resource.data.get('assignedManagerId', resource.data.get('assignedManagerId', '')) == resource.data.get('assignedManagerId', '')
+      );
       allow delete: if isAdmin();
-
       match /{subcollection}/{document=**} {
-        allow read:  if isAuthenticated();
-        allow write: if isAdmin() ||
-          get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
-          get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid;
+        allow read: if canAccessClient(clientId);
+        allow create, update: if isApproved() && canAccessClient(clientId);
+        allow delete: if isAdmin();
       }
     }
 
     match /leads/{leadId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && ownsRecord(request.resource.data) && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     match /form_templates/{templateId} {
-      allow read:   if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isApproved();
+      allow create, update, delete: if isAdmin();
     }
 
     match /client_interactions/{interactionId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
+        (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if isAdmin() || (isApproved() && hasOnlyOwnAssignments(request.resource.data) && (ownsRecord(request.resource.data) ||
+        (request.resource.data.get('clientId', '') is string && canAccessClient(request.resource.data.get('clientId', '')))));
+      allow update: if isAdmin() || (isApproved() && (ownsRecord(resource.data) || (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')))) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     match /tasks/{taskId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
+        (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if (isAdmin() && request.resource.data.get('createdBy', '') == request.auth.uid) ||
+        (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
+    }
+
+    function canAccessClient(clientId) {
+      return isAdmin() || (
+        isApproved() &&
+        exists(/databases/$(database)/documents/clients/$(clientId)) &&
+        (
+          get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid ||
+          get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedManagerId', '') == request.auth.uid
+        )
+      );
+    }
+
+    // Legacy chat records used channelId before type/targetId were introduced.
+    // Infer only the historical schema that the client already recognizes.
+    function chatMessageType(data) {
+      let explicitType = data.get('type', '');
+      let legacyChannel = data.get('channelId', '');
+      return explicitType in ['groups', 'clients', 'private']
+        ? explicitType
+        : (legacyChannel in ['general', 'dev-ops']
+          ? 'groups'
+          : (legacyChannel is string && legacyChannel.size() > 0
+            ? 'clients'
+            : (data.get('senderId', '') is string && data.get('targetId', '') is string ? 'private' : '')));
+    }
+
+    function chatMessageTarget(data) {
+      let explicitTarget = data.get('targetId', '');
+      return explicitTarget is string && explicitTarget.size() > 0
+        ? explicitTarget
+        : data.get('channelId', '');
+    }
+
+    function canReadChatMessage(data) {
+      let messageType = chatMessageType(data);
+      let target = chatMessageTarget(data);
+      return isApproved() && (
+        (messageType == 'groups' && (target == 'general' || isAdmin())) ||
+        (messageType == 'private' &&
+          (data.get('senderId', '') == request.auth.uid || target == request.auth.uid)) ||
+        (messageType == 'clients' &&
+          target is string && target.size() > 0 &&
+          canAccessClient(target))
+      );
     }
 
     match /chat_messages/{messageId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() &&
-                       (isAdmin() ||
-                        existing().get('targetId', '') == request.auth.uid ||
-                        existing().get('senderId', '') == request.auth.uid);
+      // Modern messages use type/targetId; legacy records are authorized
+      // using their historical channelId/participant fields without widening access.
+      allow get, list: if canReadChatMessage(existing());
+      allow create: if isApproved() &&
+        request.resource.data.get('senderId', '') == request.auth.uid &&
+        request.resource.data.get('type', '') in ['groups', 'private', 'clients'] &&
+        (
+          (request.resource.data.type == 'groups' && (request.resource.data.get('targetId', '') == 'general' || isAdmin())) ||
+          (request.resource.data.type == 'private' &&
+            request.resource.data.get('targetId', '') is string &&
+            request.resource.data.targetId != request.auth.uid) ||
+          (request.resource.data.type == 'clients' &&
+            request.resource.data.get('targetId', '') is string &&
+            canAccessClient(request.resource.data.targetId))
+        );
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (existing().get('targetId', '') == request.auth.uid &&
+          request.resource.data.diff(existing()).affectedKeys().hasOnly(['isRead', 'readAt']))
+      );
       allow delete: if isAdmin();
     }
 
@@ -149,125 +349,229 @@ service cloud.firestore {
     // Helpdesk
     // ===============================================================
     match /support_tickets/{ticketId} {
-      allow get:  if isAdmin() || (isAuthenticated() && existing().userId == request.auth.uid);
-      allow list: if isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAdmin() || (isAuthenticated() && existing().userId == request.auth.uid);
-      allow delete: if isAdmin();
+      allow get: if canManageHelpdesk() || (isApproved() && existing().get('userId', '') == request.auth.uid);
+      allow list: if canManageHelpdesk() || (isApproved() && resource.data.get('userId', '') == request.auth.uid);
+      allow create: if isApproved() &&
+        request.resource.data.get('userId', '') == request.auth.uid &&
+        request.resource.data.get('userEmail', '') == request.auth.token.email &&
+        request.resource.data.keys().hasOnly(['userId', 'userEmail', 'subject', 'description', 'priority', 'status', 'assignedTo', 'assignedToEmail', 'createdAt', 'updatedAt', 'messages']) &&
+        request.resource.data.get('subject', '') is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 180 &&
+        request.resource.data.get('description', '') is string && request.resource.data.description.size() > 0 && request.resource.data.description.size() <= 10000 &&
+        request.resource.data.get('priority', 'medium') in ['low', 'medium', 'high', 'critical'] &&
+        request.resource.data.get('status', '') == 'open' &&
+        request.resource.data.get('assignedTo', null) == null &&
+        request.resource.data.get('assignedToEmail', null) == null &&
+        request.resource.data.get('messages', []) is list &&
+        request.resource.data.messages.size() == 1 &&
+        request.resource.data.messages[0].get('senderId', '') == request.auth.uid &&
+        request.resource.data.messages[0].get('senderEmail', '') == request.auth.token.email &&
+        request.resource.data.messages[0].get('text', '') == request.resource.data.description &&
+        request.resource.data.messages[0].get('createdAt', null) is timestamp &&
+        request.resource.data.get('createdAt', null) == request.time &&
+        request.resource.data.get('updatedAt', null) == request.time;
+      // Support staff may only manage workflow fields and append one
+      // authenticated message. Ticket identity and original content are immutable.
+      allow update: if (
+        canManageHelpdesk() &&
+        request.resource.data.diff(existing()).affectedKeys().hasOnly(['status', 'priority', 'assignedTo', 'assignedToEmail', 'updatedAt', 'messages']) &&
+        request.resource.data.get('userId', '') == existing().get('userId', '') &&
+        request.resource.data.get('userEmail', '') == existing().get('userEmail', '') &&
+        request.resource.data.get('subject', '') == existing().get('subject', '') &&
+        request.resource.data.get('description', '') == existing().get('description', '') &&
+        request.resource.data.get('createdAt', null) == existing().get('createdAt', null) &&
+        request.resource.data.get('updatedAt', null) == request.time &&
+        request.resource.data.get('status', '') in ['open', 'in_progress', 'resolved', 'closed'] &&
+        isValidTicketStatusTransition(existing().get('status', 'open'), request.resource.data.get('status', 'open')) &&
+        request.resource.data.get('priority', '') in ['low', 'medium', 'high', 'critical'] &&
+        isValidTicketAssignment(request.resource.data) &&
+        (!request.resource.data.diff(existing()).affectedKeys().hasAny(['messages']) || isValidTicketReply(existing(), request.resource.data))
+      ) || (
+        isApproved() &&
+        existing().get('userId', '') == request.auth.uid &&
+        request.resource.data.diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) &&
+        request.resource.data.get('updatedAt', null) == request.time &&
+        isValidTicketReply(existing(), request.resource.data) &&
+        existing().get('status', 'open') in ['open', 'in_progress'] &&
+        request.resource.data.get('status', '') == existing().get('status', '') &&
+        request.resource.data.get('priority', '') == existing().get('priority', '') &&
+        request.resource.data.get('assignedTo', null) == existing().get('assignedTo', null) &&
+        request.resource.data.get('assignedToEmail', null) == existing().get('assignedToEmail', null)
+      );
+      allow delete: if false;
     }
 
     // ===============================================================
     // Omnicanal & VoIP
     // ===============================================================
-    match /omnichannel_threads/{threadId} {
-      allow read, create, update: if isAuthenticated();
+        match /omnichannel_threads/{threadId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && request.resource.data.get('createdBy', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
-
       match /messages/{messageId} {
-        allow read, create, update: if isAuthenticated();
+        allow read: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
+        allow create: if isAdmin() || (isApproved() && request.resource.data.get('senderId', '') == request.auth.uid && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
+        allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']));
         allow delete: if isAdmin();
       }
     }
 
-    match /voip_call_history/{callId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+        match /voip_call_history/{callId} {
+      allow read: if isVoipUser() && (isAdmin() || ownsRecord(resource.data));
+      allow create: if isVoipUser() && request.resource.data.get('agentId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      // Call records are immutable for agents after creation; only administrators
+      // may correct an audited record.
+      allow update: if isTelephonyAdmin();
+      allow delete: if isTelephonyAdmin();
     }
 
     match /voip_providers/{providerId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isTelephonyAdmin();
+    }
+
+    match /operadores/{operatorId} {
+      allow read, write: if isTelephonyAdmin();
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read: if isAdmin() && (isVoipUser() || isTelephonyAdmin());
+      allow write: if isTelephonyAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
-      allow read:  if isAdmin() || existing().get('agentUid', '') == request.auth.uid;
-      allow write: if isAdmin();
+      allow read: if (isAdmin() && (isVoipUser() || isTelephonyAdmin())) ||
+        (isVoipUser() && existing().get('agentId', '') == request.auth.uid);
+      allow write: if isTelephonyAdmin();
     }
 
     match /telnyx_sip_credentials/{sipId} {
-      allow read: if isAdmin() || (isApproved() && existing().get('assignedTo', '') == request.auth.uid);
-      allow create: if isAdmin() && incoming().get('assignedTo', null) == null;
-      allow update: if isAdmin() && (
-        existing().get('assignedTo', null) == null ||
-        incoming().get('assignedTo', null) == null ||
-        isSuperAdmin()
-      );
-      allow delete: if isAdmin();
+      // Agents and managers receive short-lived WebRTC JWTs from the backend;
+      // only admins with effective telephony_config permission can access SIP secrets.
+      allow read, update, delete: if isTelephonyAdmin();
+      allow create: if isTelephonyAdmin() && incoming().get('assignedTo', null) == null;
     }
 
     match /esim_profiles/{profileId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
-    match /shared_whatsapp_chats/{chatId} {
-      allow read, create, update: if isAuthenticated();
+        match /shared_whatsapp_chats/{chatId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     match /company_profiles/{profileId} {
-      allow read:   if true;
-      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'industry', 'createdAt']) &&
-                       request.resource.data.name is string &&
-                       request.resource.data.name.size() < 200;
-      allow update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    match /appointments/{appointmentId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+        match /appointments/{appointmentId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
     }
 
-    match /call_dispositions/{dispositionId} {
-      allow read, create, update: if isAuthenticated();
+        match /call_dispositions/{dispositionId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && hasOnlyOwnAssignments(request.resource.data) && (request.resource.data.get('agentId', '') == request.auth.uid || request.resource.data.get('createdBy', '') == request.auth.uid));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     // ===============================================================
     // Reclutamiento
     // ===============================================================
+    function isOpenJobApplication(data) {
+      let jobId = data.get('jobId', '');
+      return jobId == 'general-pool' ||
+        (jobId is string && jobId.size() > 0 &&
+          exists(/databases/$(database)/documents/jobs/$(jobId)) &&
+          get(/databases/$(database)/documents/jobs/$(jobId)).data.get('status', '') == 'active');
+    }
+
     match /candidates/{candidateId} {
-      allow read:   if isAuthenticated();
-      allow create: if true;
-      allow update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, delete: if isHR();
+      allow update: if isHR() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'name', 'role', 'phone', 'email', 'hrNotes']) &&
+        request.resource.data.get('status', resource.data.get('status', 'Nuevo')) in ['Nuevo', 'En Revisión', 'Entrevista', 'Academia Kaivincia', 'Contratado'] &&
+        request.resource.data.get('name', resource.data.get('name', '')) is string &&
+        request.resource.data.get('name', resource.data.get('name', '')).size() > 0 &&
+        request.resource.data.get('name', resource.data.get('name', '')).size() <= 150 &&
+        request.resource.data.get('role', resource.data.get('role', '')) is string &&
+        request.resource.data.get('role', resource.data.get('role', '')).size() <= 150 &&
+        request.resource.data.get('phone', resource.data.get('phone', '')) is string &&
+        request.resource.data.get('phone', resource.data.get('phone', '')).size() <= 40 &&
+        request.resource.data.get('email', resource.data.get('email', '')) is string &&
+        request.resource.data.get('email', resource.data.get('email', '')).size() <= 254 &&
+        request.resource.data.get('hrNotes', resource.data.get('hrNotes', '')) is string &&
+        request.resource.data.get('hrNotes', resource.data.get('hrNotes', '')).size() <= 5000;
+      allow create: if request.resource.data.keys().hasOnly([
+        'name', 'email', 'phone', 'city', 'linkedin', 'role', 'experience', 'jobId',
+        'skills', 'status', 'hasPhoto', 'hasResume', 'resumeFileName', 'resumeText', 'createdAt'
+      ]) &&
+        request.resource.data.get('status', '') == 'Nuevo' &&
+        isOpenJobApplication(request.resource.data) &&
+        request.resource.data.get('resumeText', '') is string &&
+        request.resource.data.resumeText.size() > 0 && request.resource.data.resumeText.size() <= 15000 &&
+        request.resource.data.get('resumeFileName', '') is string &&
+        request.resource.data.resumeFileName.size() > 0 && request.resource.data.resumeFileName.size() <= 180 &&
+        request.resource.data.get('hasResume', false) == true &&
+        request.resource.data.get('hasPhoto', false) == false &&
+        request.resource.data.get('skills', []) is list &&
+        request.resource.data.skills.size() <= 30 &&
+        request.resource.data.get('name', '') is string &&
+        request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 150 &&
+        request.resource.data.get('email', '') is string &&
+        request.resource.data.email.size() > 0 && request.resource.data.email.size() <= 254 &&
+        request.resource.data.get('phone', '') is string &&
+        request.resource.data.phone.size() <= 40 &&
+        request.resource.data.get('city', '') is string &&
+        request.resource.data.city.size() <= 120 &&
+        request.resource.data.get('linkedin', '') is string &&
+        request.resource.data.linkedin.size() <= 500 &&
+        request.resource.data.get('role', '') is string &&
+        request.resource.data.role.size() <= 150 &&
+        request.resource.data.get('experience', '') is string &&
+        request.resource.data.experience.size() <= 5000 &&
+        request.resource.data.get('jobId', '') is string &&
+        request.resource.data.jobId.size() > 0 &&
+        request.resource.data.jobId.size() <= 128 &&
+        request.resource.data.get('createdAt', null) == request.time;
     }
 
     match /jobs/{jobId} {
-      allow get, list:      if true;
-      allow create, update: if isAdmin() && isValidJob(incoming());
-      allow delete:         if isAdmin();
+      // Public pages use a sanitized server endpoint; full HR job records
+      // contain internal candidate and acquisition metrics.
+      allow get, list: if isHR();
+      allow create, update: if isHR() && isValidJob(incoming());
+      allow delete: if isHR();
     }
 
     // ===============================================================
     // B2B, suscripciones, academia
     // ===============================================================
     match /b2b_entities/{entityId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /subscriptions/{subId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    match /academic_progress/{progressId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+        match /academic_progress/{progressId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isAdmin() || (isApproved() && ownsRecord(request.resource.data) && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin();
     }
 
     // RBAC permission matrix: authenticated users may read the matrix
     // to evaluate their effective navigation; only admins may modify it.
     match /settings/rbac_matrix {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdminAccount();
     }
 
     match /settings/appearance {
@@ -276,33 +580,29 @@ service cloud.firestore {
     }
 
     match /settings/voip_providers {
-      allow read:  if true;
-      allow write: if isAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     match /settings/integrations {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isSuperAdmin();
       match /{subcollection}/{docId} {
         allow read, write: if isSuperAdmin() || isAdmin();
       }
     }
 
     match /settings_integrations/{integrationId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     // ===============================================================
     // Integraciones
     // ===============================================================
     match /integrations/{integrationId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /integration_test_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read, create: if isAdmin();
       allow update, delete: if false;
     }
 
@@ -311,64 +611,58 @@ service cloud.firestore {
     // ===============================================================
     match /audit_logs/{logId} {
       allow read:   if isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.get('actorUid', request.auth.uid) == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /security_alerts/{alertId} {
-      allow read:   if isAdmin();
-      allow create: if isAuthenticated();
-      allow update: if isAdmin();
+      allow read, update: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', request.auth.uid) == request.auth.uid;
       allow delete: if false;
     }
 
     match /automation_rules/{ruleId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /automation_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read, create: if isAdmin();
       allow update, delete: if false;
     }
 
     match /collaborators/{collaboratorId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
-    match /prospects/{prospectId} {
-      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
-      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+        match /prospects/{prospectId} {
+      allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     // ===============================================================
     // Proyectos, facturación & control horario
     // ===============================================================
-    match /projects/{projectId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidProject(incoming());
-      allow update: if isAuthenticated() && isValidProject(incoming());
+        match /projects/{projectId} {
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if isAdmin() || (isApproved() && isValidProject(request.resource.data) && request.resource.data.get('createdBy', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidProject(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
     match /invoices/{invoiceId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidInvoice(incoming());
-      allow update: if isAuthenticated() && isValidInvoice(incoming());
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create, update: if isAdmin() && isValidInvoice(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /time_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidTimeLog(incoming());
-      allow update: if isAuthenticated() &&
-                       (isAdmin() ||
-                        (existing().get('userUid', '') == request.auth.uid && isValidTimeLog(incoming())));
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow create: if isApproved() && isValidTimeLog(request.resource.data) && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidTimeLog(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -377,14 +671,14 @@ service cloud.firestore {
     }
 
     match /system_events/{eventId} {
-      allow read:   if isAdmin();
-      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /system_logs/{logId} {
-      allow read:   if isAdmin();
-      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow create: if isAdmin();
       allow update, delete: if false;
     }
 
@@ -392,36 +686,60 @@ service cloud.firestore {
     // Asistencia & permisos
     // ===============================================================
     match /attendance_logs/{logId} {
-      allow read:   if isAdmin() ||
-                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
-      allow update, delete: if isAdmin();
+      allow read: if isHR() ||
+        (isApproved() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      // Timestamp is server-authored; the client cannot backdate or fabricate
+      // attendance events. Logs are immutable after creation.
+      allow create: if isApproved() &&
+        incoming().keys().hasOnly(['userId', 'userName', 'type', 'timestamp', 'source']) &&
+        incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('userName', '') == request.auth.token.email &&
+        incoming().get('type', '') in ['in', 'out'] &&
+        incoming().get('source', '') == 'web' &&
+        incoming().get('timestamp', null) == request.time;
+      allow update, delete: if false;
     }
 
     match /absence_requests/{requestId} {
-      allow read:   if isAdmin() ||
-                       (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
-      allow update, delete: if isAdmin();
+      allow read: if isHR() ||
+        (isApproved() && (resource.data.get('userId', '') == request.auth.uid || resource.data.get('userUid', '') == request.auth.uid));
+      allow create: if isApproved() &&
+        incoming().keys().hasOnly(['type', 'startDate', 'endDate', 'reason', 'userId', 'userName', 'status', 'createdAt']) &&
+        incoming().get('userId', '') == request.auth.uid &&
+        incoming().get('userName', '') == request.auth.token.email &&
+        incoming().get('status', '') == 'pending' &&
+        incoming().get('type', '') is string && incoming().type.size() > 0 && incoming().type.size() <= 80 &&
+        incoming().get('startDate', '') is string && incoming().startDate.size() == 10 && incoming().startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}') &&
+        incoming().get('endDate', '') is string && incoming().endDate.size() == 10 && incoming().endDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}') &&
+        incoming().startDate <= incoming().endDate &&
+        incoming().get('reason', '') is string && incoming().reason.size() <= 3000 &&
+        incoming().get('createdAt', null) == request.time;
+      allow update: if isHR() &&
+        resource.data.get('status', '') == 'pending' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedAt', 'reviewedBy', 'reviewerEmail']) &&
+        request.resource.data.get('status', '') in ['approved', 'rejected'] &&
+        request.resource.data.get('reviewedBy', '') == request.auth.uid &&
+        request.resource.data.get('reviewerEmail', '') == request.auth.token.email &&
+        request.resource.data.get('reviewedAt', null) == request.time;
+      allow delete: if false;
     }
 
-    match /notifications/{notificationId} {
-      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
-      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow delete: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+        match /notifications/{notificationId} {
+      allow read: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
     }
 
-    match /documents/{documentId} {
-      allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
-      allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow delete: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
+        match /documents/{documentId} {
+      allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
+      allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
     }
 
     match /settings/telnyx_config {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     // ===============================================================

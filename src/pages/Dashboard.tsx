@@ -36,37 +36,12 @@ export default function Dashboard() {
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const isOptimizing = false;
   const [users, setUsers] = useState<any[]>([]);
   
   // System Events Feed
-  const [events, setEvents] = useState<SystemEvent[]>([
-    { 
-      id: '1', 
-      module: 'Proyectos', 
-      type: 'warning', 
-      message: 'Retraso detectado en Proyecto TechCorp v2', 
-      timestamp: new Date(), 
-      impact: '-12% Liquidez Proyectada' 
-    },
-    { 
-      id: '2', 
-      module: 'Talento', 
-      type: 'success', 
-      message: 'Carlos Ruiz alcanzó ROI de 210%', 
-      timestamp: new Date(Date.now() - 1000 * 60 * 15), 
-      impact: 'Bono Nómina Aplicado' 
-    },
-    { 
-      id: '3', 
-      module: 'Seguridad', 
-      type: 'error', 
-      message: 'Palabra clave de riesgo "Reembolso" en Chat #402', 
-      timestamp: new Date(Date.now() - 1000 * 60 * 45), 
-      impact: 'Log CISO Generado' 
-    }
-  ]);
-
+  const [events] = useState<SystemEvent[]>([]); /* Feed will populate only from persisted system events. */
+  // Activity feed is intentionally empty until persisted audit events are connected.
   const { user, loading: authLoading } = useAuth();
 
   const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending' || u.role === 'none'), [users]);
@@ -96,35 +71,13 @@ export default function Dashboard() {
 
   // Intelligence Pulse Metrics
   const mrr = useMemo(() => clients.reduce((acc, c) => acc + (Number(c.amount) || 0), 0), [clients]);
-  const avgHealth = 88; 
-  const teamROI = 185; 
-  const academyGrowth = 24;
+  const avgHealth = null;
+  const teamROI = null;
+  const academyGrowth = null;
 
-  const handleAiOptimization = () => {
-    setIsOptimizing(true);
-    setTimeout(() => {
-      setIsOptimizing(false);
-      const newEvent: SystemEvent = {
-        id: Math.random().toString(),
-        module: 'Talento',
-        type: 'success',
-        message: 'Optimización IA: Carga redistribuida según certificaciones Academia',
-        timestamp: new Date(),
-        impact: '+15% Eficiencia Operativa'
-      };
-      setEvents([newEvent, ...events.slice(0, 4)]);
-    }, 2000);
-  };
-
-  const chartData = [
-    { name: 'Lun', revenue: 4000, expenses: 2400 },
-    { name: 'Mar', revenue: 3000, expenses: 1398 },
-    { name: 'Mie', revenue: 2000, expenses: 9800 },
-    { name: 'Jue', revenue: 2780, expenses: 3908 },
-    { name: 'Vie', revenue: 1890, expenses: 4800 },
-    { name: 'Sab', revenue: 2390, expenses: 3800 },
-    { name: 'Dom', revenue: 3490, expenses: 4300 },
-  ];
+  // AI optimization remains unavailable until a real, permission-checked workflow exists.
+  // No revenue/expense series is shown until transactions are sourced from accounting records.
+  const chartData: Array<{ name: string; revenue: number; expenses: number }> = [];
 
   return (
     <div className="kaivincia-dashboard min-h-screen bg-transparent text-slate-600 font-sans p-6 lg:p-10 pb-20">
@@ -136,10 +89,10 @@ export default function Dashboard() {
             <Cpu className="w-8 h-8 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Nervous System</h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Dashboard Ejecutivo</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Estado de servicios no verificado
               </span>
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
                 Kaivincia Architecture v5.0
@@ -167,8 +120,8 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={handleAiOptimization}
-            disabled={isOptimizing}
+            onClick={undefined}
+            disabled={true}
             className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#F59E0B] hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/30 transition-all flex items-center gap-3 group relative overflow-hidden"
           >
             <AnimatePresence mode="wait">
@@ -185,12 +138,12 @@ export default function Dashboard() {
                 <Sparkles key="idle" className="w-4 h-4 group-hover:scale-125 transition-transform" />
               )}
             </AnimatePresence>
-            {isOptimizing ? 'Optimizando...' : 'IA Optimization'}
+            IA Optimization no configurada
           </button>
           <div className="flex items-center gap-4 px-6 py-3 bg-white/5 border border-white/10 rounded-xl">
              <div className="text-right">
                 <p className="text-[8px] font-black uppercase text-gray-500">Security Pulse</p>
-                <p className="text-xs font-black text-white">99.8% Encrypted</p>
+                <p className="text-xs font-black text-white">Verificación no disponible</p>
              </div>
              <ShieldAlert className="w-5 h-5 text-emerald-500" />
           </div>
@@ -348,7 +301,7 @@ export default function Dashboard() {
                   { 
                     type: 'alert', 
                     message: "Alerta de Salud: 2 clientes muestran deserción en el Módulo de Academia. Impacto proyectado: -$4.2k MRR.",
-                    action: { label: "Intervenir Academia", onClick: () => navigate('/crm/academia') }
+                    action: { label: "Intervenir Academia", onClick: () => navigate('/crm/academy-internal') }
                   }
                 ]}
               />
@@ -366,9 +319,9 @@ export default function Dashboard() {
               
               <div className="space-y-4">
                  {[
-                   { label: 'Uso de API GenAI', value: '88%', color: 'bg-cyan-500' },
-                   { label: 'Sincronización GPS', value: 'Active', color: 'bg-emerald-500' },
-                   { label: 'Latencia de Nodo', value: '14ms', color: 'bg-[#A855F7]' }
+                   { label: 'Uso de API GenAI', value: 'No disponible', color: 'bg-slate-500' },
+                   { label: 'Sincronización GPS', value: 'No verificada', color: 'bg-slate-500' },
+                   { label: 'Latencia de Nodo', value: 'No disponible', color: 'bg-slate-500' }
                  ].map(stat => (
                    <div key={stat.label} className="flex flex-col gap-1.5">
                       <div className="flex justify-between text-[8px] font-black uppercase tracking-widest text-gray-500">
@@ -396,7 +349,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">I. Cash Flow Analytics</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">${(mrr > 0 ? mrr/1000 : 57.2).toFixed(1)}K <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+12.4%</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{mrr > 0 ? `${(mrr / 1000).toFixed(1)}K` : 'Sin datos'}</p>
               </div>
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-2xl border border-emerald-500/20">
                 <Wallet className="w-5 h-5" />
@@ -420,8 +373,8 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-6 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-gray-500">
-               <span>Operativo: $45,200</span>
-               <span className="text-emerald-500">Neto: +$12,400</span>
+               <span>Operativo: sin datos</span>
+               <span className="text-gray-500">Neto: sin datos</span>
             </div>
           </motion.div>
 
@@ -434,7 +387,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">II. Customer Nervous Health</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">{avgHealth}% <span className="text-xs text-amber-500 font-bold tracking-widest uppercase ml-2">-2% Risk</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{avgHealth === null ? 'Sin datos' : `${avgHealth}%`}</p>
               </div>
               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20">
                 <Activity className="w-5 h-5" />
@@ -442,16 +395,7 @@ export default function Dashboard() {
             </div>
             
             <div className="grid grid-cols-6 gap-2 h-48 content-center">
-              {[...Array(24)].map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`h-full w-full rounded-lg transition-all duration-500 cursor-pointer hover:scale-110 active:scale-95 border ${
-                    i === 3 || i === 12 ? 'bg-[#EF4444] border-red-500/50' : 
-                    i % 5 === 0 ? 'bg-[#F59E0B22] border-amber-500/30' : 'bg-[#10B98122] border-emerald-500/30'
-                  }`}
-                  title="Unit Status"
-                />
-              ))}
+              <div className="col-span-6 text-center text-xs text-gray-500 py-8">Estado de clientes no disponible: aún no hay una fuente de salud verificada conectada.</div>
             </div>
             
             <div className="mt-6 flex justify-between items-center">
@@ -465,7 +409,7 @@ export default function Dashboard() {
                    <span className="text-[8px] font-black uppercase tracking-widest">Error Node</span>
                  </div>
                </div>
-               <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">2 Entities Delayed</span>
+               <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Sin incidencias verificadas</span>
             </div>
           </motion.div>
 
@@ -478,7 +422,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">III. Performance Node Score</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">{teamROI}% <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+15% Efficient</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{teamROI === null ? 'Sin datos' : `${teamROI}%`}</p>
               </div>
               <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl border border-blue-500/20">
                 <Users className="w-5 h-5" />
@@ -513,13 +457,13 @@ export default function Dashboard() {
           {/* D. INTEL GROWTH HUB (ACADEMIA/SALES) */}
           <motion.div 
             whileHover={{ scale: 1.01 }}
-            onClick={() => navigate('/crm/academia')}
+            onClick={() => navigate('/crm/academy-internal')}
             className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
           >
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">IV. Growth Systemic Expansion</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">+{academyGrowth}% <span className="text-xs text-blue-500 font-bold tracking-widest uppercase ml-2">Scale Active</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{academyGrowth === null ? 'Sin datos' : `+${academyGrowth}%`}</p>
               </div>
               <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl border border-purple-500/20">
                 <BarChart3 className="w-5 h-5" />
@@ -563,7 +507,7 @@ export default function Dashboard() {
             
             <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
               <AnimatePresence initial={false}>
-                {events.map((event) => (
+                {events.length === 0 ? <p className="text-xs text-gray-500">No hay eventos operativos registrados todavía.</p> : events.map((event) => (
                   <motion.div 
                     key={event.id}
                     initial={{ opacity: 0, x: 20 }}

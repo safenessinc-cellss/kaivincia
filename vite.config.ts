@@ -8,11 +8,12 @@ function telnyxDevApiPlugin(env: Record<string, string>): Plugin {
     name: 'telnyx-dev-api',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url || (!req.url.startsWith('/api/telnyx') && !req.url.startsWith('/api/meta'))) {
+        if (!req.url || (!req.url.startsWith('/api/telnyx') && !req.url.startsWith('/api/meta') && !req.url.startsWith('/api/gemini'))) {
           return next();
         }
 
         // Ensure env variables are present in process.env
+        if (env.GEMINI_API_KEY) process.env.GEMINI_API_KEY = env.GEMINI_API_KEY;
         if (env.TELNYX_API_KEY) process.env.TELNYX_API_KEY = env.TELNYX_API_KEY;
         if (env.TELNYX_CONNECTION_ID) process.env.TELNYX_CONNECTION_ID = env.TELNYX_CONNECTION_ID;
         if (env.META_APP_ID) process.env.META_APP_ID = env.META_APP_ID;
@@ -31,21 +32,16 @@ function telnyxDevApiPlugin(env: Record<string, string>): Plugin {
 
         res.setHeader('Content-Type', 'application/json');
 
-        if (pathname === '/api/meta-config') {
-          const { default: metaConfigHandler } = await import('./api/meta-config.js');
-          return metaConfigHandler(req, res);
+        if (pathname === '/api/gemini') {
+          const { default: geminiHandler } = await import('./api/gemini.js');
+          return geminiHandler(req, res);
         }
 
-        if (pathname === '/api/meta-send') {
-          const { default: metaSendHandler } = await import('./api/meta-send.js');
-          return metaSendHandler(req, res);
+        if (pathname.startsWith('/api/meta')) {
+          const { default: metaHandler } = await import('./api/meta.js');
+          req.query = { ...(req.query || {}), endpoint: pathname.slice('/api/'.length) };
+          return metaHandler(req, res);
         }
-
-        if (pathname === '/api/meta-webhook') {
-          const { default: metaWebhookHandler } = await import('./api/meta-webhook.js');
-          return metaWebhookHandler(req, res);
-        }
-
 
         if ((pathname === '/api/telnyx/config' || pathname === '/api/telnyx-config') && req.method === 'GET') {
           try {
@@ -164,10 +160,6 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss(), telnyxDevApiPlugin(env)],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
-      'import.meta.env.VITE_GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

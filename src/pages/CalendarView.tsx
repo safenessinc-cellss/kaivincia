@@ -3,7 +3,7 @@ import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, where } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { X } from 'lucide-react';
@@ -47,67 +47,48 @@ export default function CalendarView() {
       setEvents([...taskEvents, ...clientEvents, ...appointmentEvents]);
     };
 
-    // Fetch Tasks
-    const unsubTasks = onSnapshot(collection(db, 'tasks'), (snapshot) => {
-      taskEvents = snapshot.docs.map(doc => {
-        const data = doc.data();
+    const taskDocs = new Map<string, any>();
+    const clientDocs = new Map<string, any>();
+    const appointmentDocs = new Map<string, any>();
+    const renderTaskDocs = () => {
+      taskEvents = Array.from(taskDocs.values()).map(({ id, ...data }) => {
         const date = data.dueDate ? new Date(data.dueDate) : new Date();
-        return {
-          id: doc.id,
-          title: `[Tarea] ${data.title}`,
-          start: date,
-          end: date,
-          type: 'task' as const,
-          allDay: true
-        };
+        return { id, title: `[Tarea] ${data.title}`, start: date, end: date, type: 'task' as const, allDay: true };
       });
       syncEvents();
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'tasks'));
-
-    // Fetch Interactions/Clients
-    const unsubClients = onSnapshot(collection(db, 'clients'), (clientSnap) => {
-      clientEvents = clientSnap.docs
-        .filter(doc => doc.data().contactDate)
-        .map(doc => {
-          const data = doc.data();
-          const date = new Date(data.contactDate);
-          return {
-            id: `client-${doc.id}`,
-            title: `[Contacto] ${data.name}`,
-            start: date,
-            end: date,
-            type: 'interaction' as const,
-            allDay: true
-          };
-        });
+    };
+    const renderClientDocs = () => {
+      clientEvents = Array.from(clientDocs.values()).filter(data => data.contactDate).map(data => {
+        const date = new Date(data.contactDate);
+        return { id: `client-${data.id}`, title: `[Contacto] ${data.name}`, start: date, end: date, type: 'interaction' as const, allDay: true };
+      });
       syncEvents();
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'clients'));
-
-    // Fetch Appointments (Agenda & Reuniones)
-    const unsubAppointments = onSnapshot(collection(db, 'appointments'), (apptSnap) => {
-      appointmentEvents = apptSnap.docs.map(doc => {
-        const data = doc.data();
-        let startDate = new Date();
-        if (data.date) {
-          startDate = new Date(`${data.date}T${data.time || '10:00'}`);
-        }
+    };
+    const renderAppointmentDocs = () => {
+      appointmentEvents = Array.from(appointmentDocs.values()).map(data => {
+        const startDate = data.date ? new Date(`${data.date}T${data.time || '10:00'}`) : new Date();
         const endDate = new Date(startDate.getTime() + (data.durationMinutes || 45) * 60000);
-        return {
-          id: `appt-${doc.id}`,
-          title: `📅 [Cita] ${data.leadName || data.title || 'Reunión'} (${data.assignedAgent || 'TLMK'})`,
-          start: startDate,
-          end: endDate,
-          type: 'appointment' as const,
-          allDay: false
-        };
+        return { id: `appt-${data.id}`, title: `📅 [Cita] ${data.leadName || data.title || 'Reunión'}`, start: startDate, end: endDate, type: 'appointment' as const, allDay: false };
       });
       syncEvents();
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'appointments'));
+    };
+    const subscribeScoped = (collectionName: string, fields: string[], store: Map<string, any>, render: () => void) =>
+      fields.map(field => onSnapshot(query(collection(db, collectionName), where(field, '==', user.uid)), snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') store.delete(change.doc.id);
+          else store.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+        });
+        render();
+      }, error => handleFirestoreError(error, OperationType.GET, collectionName)));
+
+    const unsubTasks = subscribeScoped('tasks', ['createdBy', 'assignedTo'], taskDocs, renderTaskDocs);
+    const unsubClients = subscribeScoped('clients', ['createdBy', 'assignedTo', 'assignedManagerId'], clientDocs, renderClientDocs);
+    const unsubAppointments = subscribeScoped('appointments', ['createdBy', 'assignedTo'], appointmentDocs, renderAppointmentDocs);
 
     return () => {
-      unsubTasks();
-      unsubClients();
-      unsubAppointments();
+      unsubTasks.forEach(unsub => unsub());
+      unsubClients.forEach(unsub => unsub());
+      unsubAppointments.forEach(unsub => unsub());
     };
   }, [user, authLoading]);
 

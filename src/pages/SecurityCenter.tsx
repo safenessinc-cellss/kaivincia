@@ -17,7 +17,7 @@ import {
   Shield, 
   Eye
 } from 'lucide-react';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -73,8 +73,9 @@ export default function SecurityCenter() {
     });
 
     // 3. Conteo de incidentes en últimas 24h desde audit_logs
-    const unsubAudit = onSnapshot(collection(db, 'audit_logs'), (snap) => {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const qAudit = query(collection(db, 'audit_logs'), where('timestamp', '>=', Timestamp.fromDate(oneDayAgo)));
+    const unsubAudit = onSnapshot(qAudit, (snap) => {
       let incidentCount = 0;
       snap.forEach((doc) => {
         const d = doc.data();
@@ -134,27 +135,27 @@ export default function SecurityCenter() {
 
         {/* Indicador de Estado del Sistema */}
         <div className="flex items-center gap-3 bg-slate-950/80 border border-slate-800 px-4 py-2.5 rounded-2xl">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_#FBBF24]" />
           <div className="text-[11px] font-mono">
-            <span className="text-slate-400">Protección del Ecosistema:</span>{' '}
-            <strong className="text-emerald-400">EN LÍNEA</strong>
+            <span className="text-slate-400">Telemetría consultada:</span>{' '}
+            <strong className="text-amber-400">PARCIAL</strong>
           </div>
         </div>
       </div>
 
       {/* Tarjetas de Telemetría Real */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-        {/* Sesiones Activas Reales */}
+        {/* Sesiones Marcadas Activas Reales */}
         <div className="p-5 rounded-3xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between shadow-lg">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-slate-400 block mb-1">
-              Sesiones Activas
+              Sesiones Marcadas Activas
             </span>
             <div className="text-2xl font-black text-[#00F0FF] flex items-baseline gap-2">
               <span>{activeSessionsCount}</span>
               <span className="text-[11px] font-normal text-slate-500">dispositivos</span>
             </div>
-            <p className="text-[10px] text-slate-400 font-sans mt-1">Concurrencia real en vivo</p>
+            <p className="text-[10px] text-slate-400 font-sans mt-1">Registros con isActive=true; no valida dispositivos conectados</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-cyan-950/30 border border-cyan-800/40 flex items-center justify-center text-[#00F0FF]">
             <Laptop className="w-6 h-6" />
@@ -165,7 +166,7 @@ export default function SecurityCenter() {
         <div className="p-5 rounded-3xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between shadow-lg">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-slate-400 block mb-1">
-              Cuentas de Usuario
+              Perfiles no suspendidos/congelados
             </span>
             <div className="text-2xl font-black text-white flex items-baseline gap-2">
               <span>{totalUsersCount - suspendedUsersCount}</span>
@@ -175,7 +176,7 @@ export default function SecurityCenter() {
               {suspendedUsersCount > 0 ? (
                 <span className="text-rose-400">{suspendedUsersCount} suspendidos</span>
               ) : (
-                '100% operativos'
+                'Incluye estados pendientes/inactivos; no equivale a cuentas activas'
               )}
             </p>
           </div>
@@ -188,7 +189,7 @@ export default function SecurityCenter() {
         <div className="p-5 rounded-3xl bg-slate-950/80 border border-slate-800/80 flex items-center justify-between shadow-lg">
           <div>
             <span className="text-[10px] uppercase tracking-widest text-slate-400 block mb-1">
-              MFA Verificado
+              MFA Marcado en Perfil
             </span>
             <div className="text-2xl font-black text-emerald-400 flex items-baseline gap-2">
               <span>{mfaEnrolledCount}</span>
@@ -196,7 +197,7 @@ export default function SecurityCenter() {
                 ({totalUsersCount > 0 ? Math.round((mfaEnrolledCount / totalUsersCount) * 100) : 0}%)
               </span>
             </div>
-            <p className="text-[10px] text-slate-400 font-sans mt-1">Enrolados en Firebase Auth</p>
+            <p className="text-[10px] text-slate-400 font-sans mt-1">Campo mfaEnrolled en Firestore; no verificado contra Firebase Auth</p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-950/30 border border-emerald-800/40 flex items-center justify-center text-emerald-400">
             <Shield className="w-6 h-6" />

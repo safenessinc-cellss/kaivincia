@@ -1,0 +1,77 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, audit/kaivincia-full-platform-review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, tests and production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Dependency vulnerability report
+        continue-on-error: true
+        run: |
+          npm audit --json > "$RUNNER_TEMP/npm-audit.json" || true
+          node - "$RUNNER_TEMP/npm-audit.json" <<'NODE'
+          const fs = require('node:fs');
+          try {
+            const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+            const vulnerabilities = Object.entries(report.vulnerabilities || {});
+            const counts = report.metadata?.vulnerabilities || {};
+            console.log('NPM AUDIT COUNTS', JSON.stringify(counts));
+            for (const [name, item] of vulnerabilities) {
+              console.log([
+                String(item.severity || 'unknown').toUpperCase(),
+                name,
+                'range=' + (item.range || 'unknown'),
+                'direct=' + Boolean(item.isDirect),
+                'fix=' + JSON.stringify(item.fixAvailable ?? null),
+                'advisories=' + JSON.stringify((item.via || []).map(advisory =>
+                  typeof advisory === 'string'
+                    ? advisory
+                    : { title: advisory.title, url: advisory.url, range: advisory.range, source: advisory.source }
+                ))
+              ].join(' | '));
+            }
+          } catch (error) {
+            console.log('Dependency audit report unavailable:', String(error));
+          }
+          NODE
+      - name: TypeScript
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: Firestore rules emulator tests
+        run: |
+          npm install --no-save --package-lock=false @firebase/rules-unit-testing firebase-tools
+          npx firebase emulators:exec --only firestore --project demo-kaivincia-security "node scripts/test-firestore-rules.cjs"
+      - name: Production build
+        run: npm run build
+      - name: Legacy lint report (non-blocking)
+        continue-on-error: true
+        run: npm run lint

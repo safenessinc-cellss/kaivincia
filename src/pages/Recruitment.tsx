@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
@@ -10,20 +10,39 @@ import {
   MonitorPlay
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Contratado"];
 
-export default function Recruitment() {
-  const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
-  const [isUploading, setIsUploading] = useState(false);
+const getStoredDateMillis = (value: any) => {
+  const date = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const formatAttendanceTime = (value: any) => {
+  const date = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Hora no disponible' : date.toLocaleString();
+};
+
+type RecruitmentTab = 'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal';
+
+interface RecruitmentProps {
+  canManageRecruitment?: boolean;
+  initialTab?: RecruitmentTab;
+}
+
+export default function Recruitment({ canManageRecruitment = false, initialTab = 'employee-portal' }: RecruitmentProps) {
+  const [activeTab, setActiveTab] = useState<RecruitmentTab>(initialTab);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // Attendance State
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [attendanceLog, setAttendanceLog] = useState<any[]>([]);
+  const [absenceRequests, setAbsenceRequests] = useState<any[]>([]);
 
   // Absence Form State
   const [absenceForm, setAbsenceForm] = useState({
@@ -56,31 +75,17 @@ export default function Recruitment() {
     acquisitionCost: 0
   });
 
-  // Fetch Candidates
+  // Candidate records are only queried by users with effective HR permission.
   useEffect(() => {
+    if (!canManageRecruitment) {
+      setCandidates([]);
+      setLoadingCandidates(false);
+      return;
+    }
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (data.length === 0) {
-        // Seed with required example
-        const example = {
-          id: 'example-1',
-          name: 'Carlos Ruiz',
-          role: 'Analista de Operaciones',
-          status: 'En Revisión',
-          aiScore: 92,
-          email: 'carlos.ruiz@example.com',
-          phone: '+34 600 000 000',
-          linkedin: 'https://linkedin.com/in/carlosruiz',
-          portfolio: 'https://carlosruiz.dev',
-          aiPros: ['Experiencia en automatización de procesos', 'Fuerte background en SQL y Python'],
-          aiCons: ['Poca experiencia en liderazgo de equipos directos'],
-          createdAt: new Date().toISOString()
-        };
-        setCandidates([example]);
-      } else {
-        setCandidates(data);
-      }
+      setCandidates(data);
       setLoadingCandidates(false);
     }, (error) => {
       console.warn("Candidates listener error:", error);
@@ -89,66 +94,81 @@ export default function Recruitment() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [canManageRecruitment, user?.uid]);
 
-  // Fetch Jobs
+  // Attendance state is read from persisted records for the signed-in user.
   useEffect(() => {
+    const uid = user?.uid;
+    if (!uid) {
+      setAttendanceLog([]);
+      setIsCheckedIn(false);
+      return;
+    }
+    // Read both current and legacy owner fields without broad collection reads.
+    const querySnapshots = new Map<number, any[]>();
+    const publishAttendance = () => {
+      const unique = new Map<string, any>();
+      querySnapshots.forEach(items => items.forEach(item => unique.set(item.id, item)));
+      const logs = Array.from(unique.values())
+        .sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
+      setAttendanceLog(logs.slice(0, 20));
+      setIsCheckedIn(logs[0]?.type === 'in');
+    };
+    const queries = [
+      query(collection(db, 'attendance_logs'), where('userId', '==', uid)),
+      query(collection(db, 'attendance_logs'), where('userUid', '==', uid))
+    ];
+    const unsubscribers = queries.map((attendanceQuery, index) => onSnapshot(attendanceQuery, snapshot => {
+      querySnapshots.set(index, snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      publishAttendance();
+    }, error => handleFirestoreError(error, OperationType.GET, 'attendance_logs')));
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+  }, [user?.uid]);
+
+  // HR sees the review queue; employees see only their own requests.
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setAbsenceRequests([]);
+      return;
+    }
+    if (canManageRecruitment) {
+      return onSnapshot(query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc')), snapshot => {
+        setAbsenceRequests(snapshot.docs
+          .map(item => ({ id: item.id, ...item.data() }))
+          .sort((a: any, b: any) => getStoredDateMillis(b.createdAt) - getStoredDateMillis(a.createdAt)));
+      }, error => handleFirestoreError(error, OperationType.GET, 'absence_requests'));
+    }
+    // Preserve access to older employee requests stored under userUid.
+    const querySnapshots = new Map<number, any[]>();
+    const publishAbsences = () => {
+      const unique = new Map<string, any>();
+      querySnapshots.forEach(items => items.forEach(item => unique.set(item.id, item)));
+      setAbsenceRequests(Array.from(unique.values())
+        .sort((a: any, b: any) => getStoredDateMillis(b.createdAt) - getStoredDateMillis(a.createdAt)));
+    };
+    const queries = [
+      query(collection(db, 'absence_requests'), where('userId', '==', uid)),
+      query(collection(db, 'absence_requests'), where('userUid', '==', uid))
+    ];
+    const unsubscribers = queries.map((absenceQuery, index) => onSnapshot(absenceQuery, snapshot => {
+      querySnapshots.set(index, snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      publishAbsences();
+    }, error => handleFirestoreError(error, OperationType.GET, 'absence_requests')));
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
+  }, [canManageRecruitment, user?.uid]);
+
+  // Full job records include HR metrics and are never queried by employees.
+  useEffect(() => {
+    if (!canManageRecruitment) {
+      setJobs([]);
+      setLoadingJobs(false);
+      return;
+    }
     const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (data.length === 0) {
-        // Seed with suggested jobs
-        const initialJobs = [
-          {
-            title: 'Appointment Setter Senior',
-            department: 'Ventas Nivel 1',
-            location: 'Remoto / Global',
-            type: 'Tiempo Completo',
-            description: 'Buscamos setters con experiencia en High Ticket Sales para calificar leads y agendar llamadas para nuestro equipo de closers.',
-            isUrgent: true,
-            status: 'active',
-            candidatesCount: 5,
-            daysActive: 3,
-            acquisitionCost: 15.5,
-            createdAt: new Date().toISOString()
-          },
-          {
-            title: 'Growth Specialist AI',
-            department: 'Growth & Ops',
-            location: 'Remoto',
-            type: 'Tiempo Completo',
-            description: 'Responsable de optimizar los flujos de automatización y el entrenamiento de modelos de IA locales.',
-            isUrgent: false,
-            status: 'active',
-            candidatesCount: 12,
-            daysActive: 8,
-            acquisitionCost: 45.2,
-            createdAt: new Date().toISOString()
-          },
-          {
-            title: 'Project Manager Operativo',
-            department: 'Gestión',
-            location: 'Híbrido / Madrid',
-            type: 'Tiempo Completo',
-            description: 'Liderar la implementación de sistemas Kaivincia en nuevos clientes corporativos.',
-            isUrgent: false,
-            status: 'active',
-            candidatesCount: 3,
-            daysActive: 1,
-            acquisitionCost: 0,
-            createdAt: new Date().toISOString()
-          }
-        ];
-        initialJobs.forEach(async job => {
-          try {
-            await addDoc(collection(db, 'jobs'), job);
-          } catch (e) {
-            console.error("Error seeding job", e);
-          }
-        });
-      } else {
-        setJobs(data);
-      }
+      setJobs(data);
       setLoadingJobs(false);
     }, (error) => {
       console.warn("Jobs listener error:", error);
@@ -157,14 +177,14 @@ export default function Recruitment() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [canManageRecruitment, user?.uid]);
 
   // --- Candidates Logic ---
   const updateStage = async (candidateId: string, newStage: string) => {
     try {
       await updateDoc(doc(db, 'candidates', candidateId), { status: newStage });
       if (newStage === 'Academia Kaivincia') {
-        alert('Candidato aprobado para la Academia. (Simulación: Correo de bienvenida enviado con accesos)');
+        alert('Etapa del candidato actualizada. No se ha enviado ningún correo ni se han creado accesos a la Academia.');
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `candidates/${candidateId}`);
@@ -174,7 +194,15 @@ export default function Recruitment() {
   const handleSaveCandidateEdit = async () => {
     if (!editingCandidate) return;
     try {
-      const { id, ...dataToUpdate } = editingCandidate;
+      const dataToUpdate = { ...editingCandidate };
+      const id = dataToUpdate.id;
+      delete dataToUpdate.id;
+      delete dataToUpdate.aiScore;
+      delete dataToUpdate.aiSummary;
+      delete dataToUpdate.aiPros;
+      delete dataToUpdate.aiCons;
+      delete dataToUpdate.aiJustification;
+      delete dataToUpdate.aiExtractedSkills;
       await updateDoc(doc(db, 'candidates', id), dataToUpdate);
       setEditingCandidate(null);
     } catch (error) {
@@ -267,45 +295,37 @@ export default function Recruitment() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.length) return;
-    setIsUploading(true);
-    // Simulate AI extraction
-    setTimeout(async () => {
-      const newCandidate = {
-        name: 'Candidato Extraído IA',
-        role: 'Por Definir',
-        status: 'Nuevo',
-        aiScore: Math.floor(Math.random() * 30) + 70,
-        email: 'ia.extract@nucleus.test',
-        phone: '+00 000 000 000',
-        createdAt: new Date().toISOString(),
-        aiSummary: 'Perfil extraído automáticamente mediante el motor Nucleus Core.'
-      };
-      
-      try {
-        await addDoc(collection(db, 'candidates'), newCandidate);
-      } catch (error) {
-        console.error("Error seeding extracted candidate", error);
-      }
-      
-      setIsUploading(false);
-      alert('Analizando CV con IA: Extracción completada. El perfil ha sido catalogado en el Pipeline.');
-    }, 2500);
+  const handleAbsenceStatusChange = async (requestId: string, status: 'approved' | 'rejected') => {
+    if (!canManageRecruitment) return;
+    const reviewer = auth.currentUser;
+    if (!reviewer) return;
+    try {
+      await updateDoc(doc(db, 'absence_requests', requestId), {
+        status,
+        reviewedAt: serverTimestamp(),
+        reviewedBy: reviewer.uid,
+        reviewerEmail: reviewer.email || ''
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `absence_requests/${requestId}`);
+    }
   };
 
   const handleAttendance = async (type: 'in' | 'out') => {
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) return;
+    if ((type === 'in' && isCheckedIn) || (type === 'out' && !isCheckedIn)) return;
     try {
       const log = {
-        userId: auth.currentUser?.uid || 'guest',
-        userName: auth.currentUser?.displayName || 'Colaborador',
+        userId: currentUser.uid,
+        userName: currentUser.email || '',
         type,
-        timestamp: new Date().toISOString(),
-        ip: '192.168.1.' + Math.floor(Math.random() * 255) // Simulated IP
+        timestamp: serverTimestamp(),
+        source: 'web'
       };
       await addDoc(collection(db, 'attendance_logs'), log);
       setIsCheckedIn(type === 'in');
-      alert(`Fichaje ${type === 'in' ? 'de entrada' : 'de salida'} registrado correctamente.`);
+      alert(`Fichaje ${type === 'in' ? 'de entrada' : 'de salida'} registrado.`);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'attendance_logs');
     }
@@ -313,16 +333,21 @@ export default function Recruitment() {
 
   const handleAbsenceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) {
+      alert('Debes iniciar sesión con una cuenta de correo válida para enviar la solicitud.');
+      return;
+    }
     try {
       const request = {
         ...absenceForm,
-        userId: auth.currentUser?.uid || 'guest',
-        userName: auth.currentUser?.displayName || 'Colaborador',
+        userId: currentUser.uid,
+        userName: currentUser.email,
         status: 'pending',
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       };
       await addDoc(collection(db, 'absence_requests'), request);
-      alert('Solicitud enviada a RRHH y a su superior para aprobación.');
+      alert('Solicitud registrada con estado pendiente. La notificación automática a RRHH/superior no está confirmada.');
       setIsAbsenceModalOpen(false);
       setAbsenceForm({ type: 'Día Libre', startDate: '', endDate: '', reason: '' });
     } catch (error) {
@@ -330,7 +355,7 @@ export default function Recruitment() {
     }
   };
 
-  if ((loadingCandidates || loadingJobs) && candidates.length === 0 && jobs.length === 0) {
+  if (canManageRecruitment && (loadingCandidates || loadingJobs) && candidates.length === 0 && jobs.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[300px] p-8 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
         <div className="flex flex-col items-center gap-3">
@@ -369,15 +394,16 @@ export default function Recruitment() {
                   <Fingerprint className="w-6 h-6 text-[#00F0FF]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Terminal Kaivincia Core v5</p>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje personal</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Registro web de asistencia</p>
                 </div>
               </div>
 
               <div className="space-y-6">
                 <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-gray-100">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Tiempo de Sesión</p>
-                  <p className="text-5xl font-black text-gray-900 italic tracking-tighter">00:00:00</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Estado del fichaje</p>
+                  <p className="text-5xl font-black text-gray-900 italic tracking-tighter">{isCheckedIn ? 'ENTRADA REGISTRADA' : 'SIN FICHAJE ACTIVO'}</p>
+                  <p className="text-[9px] text-gray-500 mt-3">{attendanceLog[0]?.timestamp ? `Último evento: ${formatAttendanceTime(attendanceLog[0].timestamp)}` : 'Sin registros de asistencia todavía'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -412,8 +438,8 @@ export default function Recruitment() {
                       <MapPin className="w-5 h-5" />
                    </div>
                    <div>
-                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación Validada</p>
-                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">Kaivincia Virtual Node • VPN Enabled</p>
+                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación no capturada</p>
+                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">No se registra GPS ni IP. El evento se asocia a tu cuenta autenticada.</p>
                    </div>
                 </div>
               </div>
@@ -525,58 +551,52 @@ export default function Recruitment() {
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
           <div>
-            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Reclutamiento y Selección</h2>
+            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">{canManageRecruitment ? 'Reclutamiento y Selección' : 'Mi Portal de Equipo'}</h2>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Gestión de Talento Kaivincia N-Core</p>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs: HR controls are hidden from employee self-service accounts. */}
       <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar">
-        <button
-          onClick={() => setActiveTab('candidates')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Pipeline
-        </button>
-        <button
-          onClick={() => setActiveTab('jobs')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Vacantes
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'docs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Gestión Documental
-        </button>
+        {canManageRecruitment && (
+          <>
+            <button
+              onClick={() => setActiveTab('candidates')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Pipeline
+            </button>
+            <button
+              onClick={() => setActiveTab('jobs')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Vacantes
+            </button>
+            <button
+              onClick={() => setActiveTab('docs')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'docs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <FileText className="w-4 h-4" /> Gestión Documental
+            </button>
+            <button
+              onClick={() => setActiveTab('portal')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <Globe className="w-4 h-4" /> Portal Público
+            </button>
+          </>
+        )}
         <button
           onClick={() => setActiveTab('employee-portal')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'employee-portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'employee-portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
         >
           <Users className="w-4 h-4" /> Portal de Equipo
-        </button>
-        <button
-          onClick={() => setActiveTab('portal')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Globe className="w-4 h-4" /> Portal Público
         </button>
       </div>
       
       {/* Gestión Documental Tab */}
-      {activeTab === 'docs' && (
+      {canManageRecruitment && activeTab === 'docs' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Document Creation Center */}
@@ -690,7 +710,7 @@ export default function Recruitment() {
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Protocolo de Privacidad</h4>
                  </div>
                  <p className="text-[11px] text-gray-500 leading-relaxed italic">
-                   Kaivincia Center asegura que todos los documentos de identidad son encriptados en reposo y cumplen con la normativa GDPR. El acceso está restringido a SuperAdmin.
+                   Este módulo no recibe ni archiva documentos de identidad. No solicites ni cargues DNI, pasaportes u otros documentos sensibles hasta que se habiliten almacenamiento privado, control de acceso y una política de retención verificada.
                  </p>
               </div>
             </div>
@@ -704,11 +724,11 @@ export default function Recruitment() {
            {/* Top Stats: Attendance & Real-time Status */}
            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[
-                { label: 'En Línea Ahora', val: '42/50', icon: Zap, color: 'text-green-500', bg: 'bg-green-50' },
-                { label: 'En Break', val: '5', icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-50' },
-                { label: 'Fuera de Línea', val: '3', icon: UserPlus, color: 'text-gray-400', bg: 'bg-gray-50' },
-                { label: 'Solicitudes Pend.', val: '2', icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' }
-              ].map(stat => (
+                { label: 'Mi estado de jornada', val: isCheckedIn ? 'En jornada' : 'Sin fichaje', icon: Zap, color: isCheckedIn ? 'text-green-600' : 'text-gray-400', bg: isCheckedIn ? 'bg-green-50' : 'bg-gray-50' },
+                { label: 'Mis registros', val: String(attendanceLog.length), icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Solicitudes registradas', val: String(absenceRequests.length), icon: UserPlus, color: 'text-blue-500', bg: 'bg-blue-50' },
+                { label: 'Pendientes de RR. HH.', val: String(absenceRequests.filter(item => item.status === 'pending').length), icon: MessageCircle, color: 'text-indigo-500', bg: 'bg-indigo-50' }
+                            ].map(stat => (
                 <div key={stat.label} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl flex items-center gap-4">
                    <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                       <stat.icon className="w-6 h-6" />
@@ -730,46 +750,25 @@ export default function Recruitment() {
                     </div>
                     <div className="flex justify-between items-end mb-10">
                        <div>
-                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Monitor de Disponibilidad</h3>
-                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sincronización de Red Kaivincia Core</p>
+                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Disponibilidad del equipo</h3>
+                          <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sin telemetría global conectada</p>
                        </div>
                        <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-xl">
                           <Clock className="w-4 h-4 text-[#00F0FF]" />
-                          <span className="text-xs font-mono font-black italic">14:41:22 UTC-5</span>
+                          <span className="text-xs font-mono font-black italic">Estado no disponible</span>
                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                          {[
-                            { name: 'Ana S.', role: 'Setter', status: 'active', ip: '192.168.1.45' },
-                            { name: 'Carlos R.', role: 'Aprendiz', status: 'break', ip: '192.168.1.12' },
-                            { name: 'Elena M.', role: 'Gestor', status: 'active', ip: '187.12.4.99' },
-                            { name: 'Luis P.', role: 'Setter', status: 'offline', ip: 'Unknown' },
-                          ].map((emp, i) => (
-                            <div key={i} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group overflow-hidden">
-                               <div className="flex justify-between items-start mb-4">
-                                  <div className="h-8 w-8 bg-white border border-gray-100 rounded-xl flex items-center justify-center text-[10px] font-black italic">
-                                     {emp.name.split(' ')[0][0]}
-                                  </div>
-                                  <div className={`h-2 w-2 rounded-full ${emp.status === 'active' ? 'bg-green-500 shadow-[0_0_10px_#10B981]' : emp.status === 'break' ? 'bg-amber-500' : 'bg-gray-300'}`} />
-                               </div>
-                               <h4 className="text-[11px] font-black text-gray-900 uppercase italic truncate">{emp.name}</h4>
-                               <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-0.5">{emp.role}</p>
-                               <div className="mt-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <MousePointer2 className="w-3 h-3 text-[#00F0FF]" />
-                                  <span className="text-[8px] font-mono text-gray-400">{emp.ip}</span>
-                               </div>
-                            </div>
-                          ))}
-                       </div>
-                       
-                       <button 
-                          onClick={() => setIsAttendanceModalOpen(true)}
-                          className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic"
-                       >
-                          Acceder al Panel de Control de Jornada (Fichaje)
-                       </button>
+                    <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center">
+                       <p className="text-xs font-black uppercase tracking-widest text-gray-700">Monitor global no conectado</p>
+                       <p className="text-[10px] text-gray-500 mt-2">No hay telemetría real de disponibilidad. No se muestran nombres, estados ni direcciones IP de ejemplo.</p>
+                    </div>
+                    <button
+                      onClick={() => setIsAttendanceModalOpen(true)}
+                      className="w-full py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.3em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic"
+                    >
+                      Abrir fichaje personal
+                    </button>
                     </div>
                  </div>
 
@@ -789,92 +788,57 @@ export default function Recruitment() {
                     </div>
 
                     <div className="space-y-4">
-                       {[
-                         { user: 'Marcos Gil', type: 'Día Libre', date: '15 May - 16 May', status: 'pending', reason: 'Asuntos familiares' },
-                         { user: 'Sofia Lopez', type: 'Cambio Turno', date: 'Hoy (Tarde)', status: 'approved', reason: 'Cita médica dental' }
-                       ].map((req, i) => (
-                         <div key={i} className="flex items-center gap-6 p-6 bg-gray-50/50 border border-gray-100 rounded-3xl group hover:border-blue-200 transition-all">
-                            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${req.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                               <Calendar className="w-6 h-6" />
+                       {absenceRequests.length === 0 ? (
+                         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-xs text-gray-500">
+                           No hay solicitudes registradas.
+                         </div>
+                       ) : absenceRequests.map((req) => (
+                         <div key={req.id} className="flex items-center gap-4 p-5 bg-gray-50/50 border border-gray-100 rounded-3xl">
+                            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${req.status === 'approved' ? 'bg-green-100 text-green-600' : req.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                               <Calendar className="w-5 h-5" />
                             </div>
-                            <div className="flex-1">
-                               <div className="flex items-center gap-3">
-                                  <h4 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">{req.user}</h4>
-                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${req.status === 'approved' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
-                                     {req.status === 'approved' ? 'Aprobado' : 'Pendiente'}
+                            <div className="flex-1 min-w-0">
+                               <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="text-sm font-black text-gray-900 truncate">{req.userName || req.userEmail || 'Colaborador'}</h4>
+                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${req.status === 'approved' ? 'bg-green-500 text-white' : req.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                     {req.status === 'approved' ? 'Aprobada' : req.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
                                   </span>
                                </div>
-                               <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type} • {req.date}</p>
-                               <p className="text-xs text-gray-500 mt-2 italic">"{req.reason}"</p>
+                               <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type || 'Ausencia'} • {req.startDate || '—'} – {req.endDate || '—'}</p>
+                               <p className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">{req.reason || 'Sin motivo indicado'}</p>
                             </div>
-                            <div className="flex gap-2">
-                               <button className="p-3 bg-white border border-gray-100 text-emerald-500 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
-                               <button className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
-                            </div>
+                            {canManageRecruitment && req.status === 'pending' && (
+                              <div className="flex gap-2 shrink-0">
+                                <button onClick={() => handleAbsenceStatusChange(req.id, 'approved')} title="Aprobar solicitud" className="p-3 bg-white border border-gray-100 text-emerald-600 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => handleAbsenceStatusChange(req.id, 'rejected')} title="Rechazar solicitud" className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
+                              </div>
+                            )}
                          </div>
                        ))}
                     </div>
+                    </div>
                  </div>
-              </div>
-
+              
               {/* Sidebar: Role Config & Training */}
               <div className="lg:col-span-4 space-y-6">
-                 {/* Roles Basados en Experiencia */}
                  <div className="bg-[#0B0E14] rounded-[3rem] p-10 border border-gray-800 shadow-2xl text-white">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter mb-8 flex items-center gap-3">
-                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Config de Roles
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter mb-4 flex items-center gap-3">
+                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> {canManageRecruitment ? 'Permisos de RR. HH.' : 'Acceso personal'}
                     </h3>
-                    <div className="space-y-4">
-                       {[
-                         { id: 'sales', label: 'Setters', color: 'text-[#00F0FF]', border: 'group-hover:border-[#00F0FF]/30', desc: 'Acceso ilimitado a CRM y Pipeline.' },
-                         { id: 'alumno', label: 'Aprendices', color: 'text-amber-500', border: 'group-hover:border-amber-500/30', desc: 'Limitado a Academia y Simuladores.' },
-                         { id: 'gestor', label: 'Gestores', color: 'text-emerald-500', border: 'group-hover:border-emerald-500/30', desc: 'Monitor de disponibilidad y operativa total.' }
-                       ].map(roleDef => (
-                         <div key={roleDef.id} className={`p-4 border border-white/5 bg-white/5 rounded-2xl group transition-all ${roleDef.border}`}>
-                            <div className="flex justify-between items-start mb-2">
-                               <h4 className={`text-xs font-black ${roleDef.color} uppercase tracking-widest`}>{roleDef.label}</h4>
-                               <button 
-                                 onClick={() => navigate('/crm/superadmin')}
-                                 className="text-[8px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 px-2 py-1 rounded-lg transition-colors"
-                               >
-                                 Asignar
-                               </button>
-                            </div>
-                            <p className="text-[9px] text-gray-400 leading-relaxed italic">{roleDef.desc}</p>
-                         </div>
-                       ))}
-                    </div>
-                    <button 
-                      onClick={() => navigate('/crm/superadmin')}
-                      className="w-full mt-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all"
-                    >
-                       Gestionar Permisos Maestros
-                    </button>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      {canManageRecruitment
+                        ? 'El acceso a candidatos, directorio y solicitudes de ausencia depende del rol y de los permisos individuales. La asignación de roles y permisos del sistema queda reservada a SuperAdmin.'
+                        : 'Este portal muestra únicamente tus fichajes y tus solicitudes. Las decisiones de aprobación y el acceso a expedientes de candidatos están reservados al equipo de RR. HH.'}
+                    </p>
                  </div>
 
-                 {/* Welcome Kit Library */}
                  <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl">
-                    <h3 className="text-sm font-black text-gray-900 uppercase italic tracking-widest mb-6 flex items-center gap-3">
+                    <h3 className="text-sm font-black text-gray-900 uppercase italic tracking-widest mb-4 flex items-center gap-3">
                        <BookOpen className="w-5 h-5 text-indigo-500" /> Kit de Bienvenida
                     </h3>
-                    <div className="space-y-4">
-                       {[
-                         { title: 'Manual de Cultura Kaivincia', type: 'PDF • 4.5MB' },
-                         { title: 'Guía de Herramientas AI', type: 'EPUB • 1.2MB' },
-                         { title: 'Identidad Visual v4', type: 'ZIP • 42MB' }
-                       ].map((doc, i) => (
-                         <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-gray-100 cursor-pointer group">
-                           <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center text-gray-400 group-hover:text-indigo-500">
-                             <FileText className="w-4 h-4" />
-                           </div>
-                           <div className="flex-1">
-                              <p className="text-[10px] font-black text-gray-900 uppercase truncate">{doc.title}</p>
-                              <p className="text-[8px] text-gray-400 uppercase">{doc.type}</p>
-                           </div>
-                           <Download className="w-3 h-3 text-gray-300 group-hover:text-gray-900" />
-                         </div>
-                       ))}
-                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      No hay documentos publicados en la biblioteca de empleados. Los enlaces de descarga aparecerán cuando se conecte un repositorio privado de documentos.
+                    </p>
                  </div>
 
                  {/* Protocolo de Faltas */}
@@ -884,54 +848,19 @@ export default function Recruitment() {
                        <h4 className="text-[10px] font-black uppercase tracking-widest">Protocolo S.O.P. Ausencias</h4>
                     </div>
                     <p className="text-[10px] text-red-900/60 leading-relaxed italic">
-                      Las ausencias injustificadas activan automáticamente un strike en el expediente del colaborador. 3 strikes resultan en auditoría disciplinaria obligatoria.
+                      Las solicitudes requieren revisión y aprobación manual por RR. HH. Este módulo no aplica sanciones automáticas ni modifica expedientes disciplinarios.
                     </p>
                  </div>
               </div>
            </div>
-        </div>
       )}
-      {activeTab === 'candidates' && (
+      {canManageRecruitment && activeTab === 'candidates' && (
         <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-          {/* AI Intake Board - Reduced Size */}
-          <div className="bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl relative overflow-hidden group mb-2 shrink-0 transition-all hover:shadow-[#00F0FF]/5">
-            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-               <Bot className="w-16 h-16 text-[#00F0FF]" />
-            </div>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-               <div className="max-w-2xl">
-                  <div className="flex items-center gap-3 mb-2">
-                     <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-xl group-hover:rotate-6 transition-transform">
-                        <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
-                     </div>
-                     <div>
-                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Clasificador de Talento Nucleus</h3>
-                        <p className="text-[9px] font-black text-[#00F0FF] uppercase tracking-widest mt-0.5 italic">Extracción y Catalogación IA Multi-Factor</p>
-                     </div>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Ajuste Cultural</b> basado en los valores de Kaivincia.
-                  </p>
-               </div>
-               <div className="flex-1 max-w-sm">
-                  <label className="block">
-                     <div className={`border-2 border-dashed border-gray-100 rounded-3xl p-6 bg-gray-50/50 hover:bg-white hover:border-[#00F0FF]/50 transition-all cursor-pointer text-center group/uploader relative overflow-hidden shadow-inner ${isUploading ? 'animate-pulse opacity-50 pointer-events-none' : ''}`}>
-                        <input 
-                           type="file" 
-                           className="hidden" 
-                           accept=".pdf,.doc,.docx"
-                           onChange={handleFileUpload}
-                        />
-                        <div className="absolute top-0 left-0 w-full h-0.5 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
-                        <Upload className={`w-8 h-8 text-gray-400 mx-auto mb-2 group-hover/uploader:text-[#00F0FF] group-hover/uploader:scale-110 transition-all ${isUploading ? 'animate-bounce' : ''}`} />
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                           {isUploading ? 'Extrayendo Datos...' : 'Importar Lote de CVs'}
-                        </p>
-                        <p className="text-[8px] font-black text-gray-300 mt-1 uppercase tracking-tight">PDF • WORD • LINKEDIN • AI DRIVEN</p>
-                     </div>
-                  </label>
-               </div>
-            </div>
+          <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm shrink-0">
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Recepción de candidaturas</h3>
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+              La importación masiva de CV no está habilitada. Las candidaturas se reciben mediante el formulario público, que extrae texto del CV y lo deja disponible para revisión de RR. HH.
+            </p>
           </div>
 
           <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
@@ -963,11 +892,7 @@ export default function Recruitment() {
                       }}
                       className="bg-white p-5 rounded-[2rem] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] border border-gray-100 hover:border-[#00F0FF]/30 hover:shadow-xl transition-all cursor-pointer group/card relative overflow-hidden active:scale-95"
                     >
-                      {/* Match Score Indicator Line */}
-                      <div className={`absolute top-0 left-0 h-full w-1.5 ${
-                        (candidate.aiScore || 0) >= 90 ? 'bg-green-500' :
-                        (candidate.aiScore || 0) >= 70 ? 'bg-blue-500' : 'bg-amber-500'
-                      }`} />
+                      <div className={`absolute top-0 left-0 h-full w-1.5 ${candidate.hasResume ? 'bg-emerald-500' : 'bg-gray-300'}`} />
 
                       <div className="flex gap-4 items-start mb-4">
                         <div className="h-12 w-12 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-900 border border-gray-100 shadow-inner group-hover/card:scale-110 transition-transform">
@@ -980,18 +905,12 @@ export default function Recruitment() {
                       </div>
 
                       <div className="flex items-center justify-between mt-auto">
-                        <div className="flex -space-x-2">
-                           <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-gray-400">IA</div>
-                           <div className="w-6 h-6 rounded-full bg-gray-900 border-2 border-white flex items-center justify-center">
-                              <Zap className="w-3 h-3 text-[#00F0FF]" />
-                           </div>
-                        </div>
-                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${
-                          (candidate.aiScore || 0) >= 90 ? 'bg-green-500 text-white' :
-                          (candidate.aiScore || 0) >= 70 ? 'bg-blue-500 text-white' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {candidate.aiScore || 0}% AJUSTE
-                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                          {candidate.hasResume ? 'CV recibido' : 'CV pendiente'}
+                        </span>
+                        <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600">
+                          {candidate.status || 'Nuevo'}
+                        </span>
                       </div>
                     </motion.div>
                   ))}
@@ -1048,43 +967,24 @@ export default function Recruitment() {
                </div>
 
                <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
-                  {/* IA Analysis Panel */}
-                  <div className="bg-gray-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl">
-                     <div className="absolute top-0 right-0 p-8">
-                        <Sparkles className="w-10 h-10 text-[#00F0FF]/20 animate-pulse" />
+                  <div className="bg-gray-50 rounded-[2rem] p-8 border border-gray-100 space-y-5">
+                     <div>
+                       <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900">Revisión de Recursos Humanos</h3>
+                       <p className="text-[10px] text-gray-500 mt-2">La evaluación y el avance del candidato son decisiones del equipo de RR. HH.; no se asigna una puntuación automática.</p>
                      </div>
-                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-8">
-                           <div className="h-6 w-1 bg-[#00F0FF] rounded-full" />
-                           <h3 className="text-xs font-black uppercase tracking-[0.3em] text-[#00F0FF]">Auditoría Predictiva IA</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-10">
-                           <div className="space-y-4">
-                              <p className="text-[10px] font-black text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                 <CheckCircle className="w-3 h-3" /> Puntos Fuertes
-                              </p>
-                              <div className="space-y-3">
-                                 {(selectedCandidate.aiPros || ['Perfil sólido', 'Alta concurrencia técnica']).map((pro: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-xs font-medium text-gray-300 leading-relaxed italic">
-                                       <span className="text-[#00F0FF]">•</span> {pro}
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                           <div className="space-y-4">
-                              <p className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
-                                 <ShieldAlert className="w-3 h-3" /> Señales de Alerta
-                              </p>
-                              <div className="space-y-3">
-                                 {(selectedCandidate.aiCons || ['Falta experiencia en sector específico', 'Brecha salarial alta']).map((con: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-xs font-medium text-gray-300 leading-relaxed italic">
-                                       <span className="text-red-500">•</span> {con}
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                        </div>
+                     <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest">
+                       <span className="px-3 py-2 bg-white rounded-xl border border-gray-200">Estado: {selectedCandidate.status || 'Nuevo'}</span>
+                       <span className="px-3 py-2 bg-white rounded-xl border border-gray-200">{selectedCandidate.hasResume ? 'Texto de CV disponible' : 'Sin CV registrado'}</span>
+                     </div>
+                     <div className="space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Texto extraído del currículum</h4>
+                       <div className="max-h-72 overflow-y-auto whitespace-pre-wrap bg-white rounded-2xl border border-gray-200 p-5 text-xs leading-relaxed text-gray-700">
+                         {selectedCandidate.resumeText ? String(selectedCandidate.resumeText).slice(0, 12000) : 'No se ha guardado texto de currículum para esta candidatura.'}
+                       </div>
+                     </div>
+                     <div className="space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Notas internas de RR. HH.</h4>
+                       <p className="text-xs leading-relaxed text-gray-700 whitespace-pre-wrap">{selectedCandidate.hrNotes || 'Aún no hay notas internas.'}</p>
                      </div>
                   </div>
 
@@ -1106,43 +1006,19 @@ export default function Recruitment() {
                      </a>
                   </div>
 
-                  {/* Communication History (VoIP/Messaging Mock) */}
-                  <div className="space-y-6">
-                     <div className="flex justify-between items-center">
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 flex items-center gap-2 italic">
-                           <History className="w-4 h-4 text-[#00F0FF]" /> Historial de Nodos
-                        </h3>
-                        <span className="text-[9px] font-black text-gray-400">Sincronizado Módulo VoIP</span>
-                     </div>
-                     <div className="space-y-4">
-                        {[
-                           { type: 'Call', text: 'Entrevista inicial exitosa', time: 'Hoy, 10:30', icon: Phone },
-                           { type: 'WhatsApp', text: 'Envió portafolio actualizado', time: 'Ayer, 19:42', icon: MessageCircle },
-                           { type: 'Stage', text: 'Movido a En Revisión por IA', time: 'hace 2 días', icon: Zap },
-                        ].map((log, i) => (
-                           <div key={i} className="flex gap-4 items-start p-5 bg-white border border-gray-100 rounded-[1.5rem] hover:shadow-lg transition-all">
-                              <div className="h-10 w-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
-                                 <log.icon className="w-5 h-5" />
-                              </div>
-                              <div>
-                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{log.type}</span>
-                                    <div className="w-1 h-1 bg-gray-200 rounded-full" />
-                                    <span className="text-[10px] font-black text-gray-400 italic">{log.time}</span>
-                                 </div>
-                                 <p className="text-[11px] font-bold text-gray-900 mt-1">{log.text}</p>
-                              </div>
-                           </div>
-                        ))}
-                     </div>
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6">
+                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-700 flex items-center gap-2">
+                       <History className="w-4 h-4 text-gray-400" /> Historial de comunicaciones
+                     </h3>
+                     <p className="text-xs text-gray-500 mt-2">No hay historial real de llamadas o WhatsApp sincronizado con este candidato.</p>
                   </div>
                </div>
 
                <div className="p-8 border-t border-gray-50 bg-gray-50/50 flex gap-4">
-                  <button className="flex-1 h-16 bg-gray-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic">
-                     Agendar Entrevista
+                  <button disabled title="La agenda de entrevistas aún no está conectada" className="flex-1 h-16 bg-gray-200 text-gray-500 rounded-3xl font-black text-xs uppercase tracking-[0.2em] cursor-not-allowed italic">
+                     Agenda no disponible
                   </button>
-                  <button className="h-16 w-16 bg-white border border-gray-200 text-gray-400 rounded-3xl flex items-center justify-center hover:text-red-500 hover:border-red-100 transition-all hover:bg-red-50">
+                  <button disabled title="La eliminación de candidatos no está conectada" className="h-16 w-16 bg-gray-100 border border-gray-200 text-gray-300 rounded-3xl flex items-center justify-center cursor-not-allowed">
                      <Trash2 className="w-6 h-6" />
                   </button>
                </div>
@@ -1152,13 +1028,13 @@ export default function Recruitment() {
       </AnimatePresence>
 
       {/* Jobs Tab */}
-      {activeTab === 'jobs' && (
+      {canManageRecruitment && activeTab === 'jobs' && (
         <div className="space-y-8">
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                  { label: 'Candidatos Totales', val: candidates.length, color: 'blue' },
-                 { label: 'Días Activa (Avg)', val: '12.4', color: 'amber' },
-                 { label: 'Costo Adquisición (Avg)', val: '$45.2', color: 'green' }
+                 { label: 'Días activa (sin cálculo)', val: '—', color: 'amber' },
+                 { label: 'Costo de adquisición (no conectado)', val: '—', color: 'green' }
               ].map(metric => (
                  <div key={metric.label} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-xl relative overflow-hidden group">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-${metric.color}-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700`} />
@@ -1191,7 +1067,7 @@ export default function Recruitment() {
                    <tr>
                      <th className="px-10 py-6">Puesto / Nodo</th>
                      <th className="px-10 py-6">Departamento</th>
-                     <th className="px-10 py-6">Metadatos (IA)</th>
+                     <th className="px-10 py-6">Datos de la vacante</th>
                      <th className="px-10 py-6">Sincronización</th>
                      <th className="px-10 py-6 text-right">Dirección</th>
                    </tr>
@@ -1262,7 +1138,7 @@ export default function Recruitment() {
       )}
 
       {/* Portal Público Tab */}
-      {activeTab === 'portal' && (
+      {canManageRecruitment && activeTab === 'portal' && (
         <div className="flex-1 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-2xl flex flex-col lg:flex-row items-center gap-10">
             <div className="flex-1 space-y-6">
@@ -1274,7 +1150,7 @@ export default function Recruitment() {
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Sincronización Web Externa Automática</p>
               </div>
               <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                Este portal es la cara pública de tu empresa. Todas las vacantes marcadas como <b className="text-gray-900 uppercase">ONLINE</b> en la pestaña anterior se publicarán automáticamente aquí. Los candidatos podrán postularse y sus perfiles entrarán directamente a tu Pipeline de IA.
+                Este portal es la cara pública de tu empresa. Todas las vacantes marcadas como <b className="text-gray-900 uppercase">ONLINE</b> en la pestaña anterior se publicarán automáticamente aquí. Los candidatos podrán postularse y sus perfiles entrarán directamente al pipeline de selección.
               </p>
               <div className="flex gap-4">
                 <a 
@@ -1426,61 +1302,17 @@ export default function Recruitment() {
                 </div>
               </div>
 
-              {/* IA SECTION - Clearly Distinguishable */}
-              <div className="bg-gray-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden group border border-[#00F0FF]/20">
-                {/* AI Glow Effect */}
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#00F0FF]/20 rounded-full blur-[80px]" />
-                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px]" />
-                
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-[#00F0FF] text-black rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(181,154,69,0.3)]">
-                      <Bot className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-black uppercase tracking-tighter">Motor de Análisis IA</h4>
-                      <p className="text-[10px] text-[#00F0FF] font-black uppercase tracking-widest">Auditoría Predictiva Activa</p>
-                    </div>
-                  </div>
-                  <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 relative z-10">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-gray-400">
-                      <span>Score de Concurrencia</span>
-                      <span className="text-[#00F0FF]">{editingCandidate.aiScore || 0}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      value={editingCandidate.aiScore || 0}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiScore: parseInt(e.target.value)})}
-                      className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#00F0FF]"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Resumen Ejecutivo</label>
-                    <textarea 
-                      value={editingCandidate.aiSummary || ''}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiSummary: e.target.value})}
-                      rows={2}
-                      className="w-full bg-gray-800 border-gray-700 text-gray-300 rounded-xl p-3 text-sm focus:ring-1 focus:ring-[#00F0FF] outline-none border resize-none"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Justificación del Perfil</label>
-                    <textarea 
-                      value={editingCandidate.aiJustification || ''}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiJustification: e.target.value})}
-                      rows={3}
-                      className="w-full bg-gray-800 border-gray-700 text-gray-300 rounded-xl p-3 text-sm focus:ring-1 focus:ring-[#00F0FF] outline-none border resize-none"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Notas internas de RR. HH.</label>
+                <textarea
+                  value={editingCandidate.hrNotes || ''}
+                  onChange={e => setEditingCandidate({...editingCandidate, hrNotes: e.target.value})}
+                  rows={5}
+                  maxLength={5000}
+                  placeholder="Añade observaciones verificables de la entrevista o revisión del perfil..."
+                  className="w-full bg-gray-50 border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-[#00F0FF] outline-none resize-y"
+                />
+                <p className="text-[10px] text-gray-400">Máximo 5.000 caracteres. Solo visible para usuarios con permiso de RR. HH.</p>
               </div>
             </div>
 

@@ -208,8 +208,8 @@ export class TelnyxConfigService {
         await addDoc(collection(db, 'audit_logs'), {
           action: 'TELNYX_CONFIGURED',
           category: 'SECURITY',
-          userId: currentUser.uid,
-          userEmail: currentUser.email,
+          actorUid: currentUser.uid,
+          actorEmail: currentUser.email,
           details: {
             provider: 'telnyx',
             enabled: payload.enabled,

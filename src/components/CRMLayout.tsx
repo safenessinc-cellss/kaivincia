@@ -19,8 +19,25 @@ import NotificationCenter from './NotificationCenter';
 import LanguageSelector from './LanguageSelector';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAppearance } from '../contexts/AppearanceContext';
+import { normalizeRole } from '../constants/roles';
 
-export default function CRMLayout({ userData }: { userData: any }) {
+const MENU_PERMISSION_POLICIES: Record<string, { permission: string; roles: string[] }> = {
+  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'] },
+  '/crm/call-center': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
+  '/crm/integrations': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
+  '/crm/automations': { permission: 'automations_engine', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
+  '/crm/recruitment': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/team': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/payroll': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/accounting': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
+  '/crm/billing': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
+  '/crm/cobranza': { permission: 'view_financial_dashboard', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/client-management': { permission: 'client_base_global', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/reports': { permission: 'export_databases', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/security': { permission: 'security_center', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
+};
+
+export default function CRMLayout({ userData, canAccessPermission }: { userData: any; canAccessPermission?: (permissionId: string, fallbackRoles: string[]) => boolean }) {
   const { t } = useLanguage();
   const { appearance } = useAppearance();
   const location = useLocation();
@@ -39,8 +56,8 @@ export default function CRMLayout({ userData }: { userData: any }) {
     'Configuración': false
   });
 
-  const userRole = userData?.role || 'user';
-  const isAdminOrFin = ['superadmin', 'admin', 'billing', 'accounting'].includes(userRole);
+  const userRole = normalizeRole(userData?.role || 'user');
+  const isAdminOrFin = ['superadmin', 'admin', 'owner', 'billing', 'accounting'].includes(userRole);
   const isSuperAdmin = userRole === 'superadmin';
 
   useEffect(() => {
@@ -131,6 +148,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
         { name: t('nav.projects', 'Proyectos Activos'), href: '/crm/projects', icon: FolderKanban, color: 'text-orange-500' },
         { name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' },
         { name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' },
+        { name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap, color: 'text-cyan-400' },
         { name: t('nav.sgi_drive', 'SGI Drive'), href: '/crm/drive', icon: HardDrive, color: 'text-indigo-500' },
       ]
     };
@@ -138,7 +156,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
     const talentGroup = {
       title: t('nav.groups.talent', 'MÓDULO DE TALENTO'),
       items: [
-        { name: t('nav.recruitment', 'Reclutamiento AI'), href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
+        { name: t('nav.recruitment', 'Reclutamiento y RR. HH.'), href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
         { name: t('nav.team', 'Gestión de Equipo'), href: '/crm/team', icon: Users2, color: 'text-orange-500' },
         { name: t('nav.payroll', 'Módulo Nómina'), href: '/crm/payroll', icon: DollarSign, color: 'text-green-500' },
       ]
@@ -147,6 +165,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
     const portalGroup = {
       title: t('nav.groups.portal', 'PORTAL PERSONAL'),
       items: [
+        { name: t('nav.employee_portal', 'Portal de Equipo'), href: '/crm/employee-portal', icon: Users2, color: 'text-emerald-500' },
         { name: t('nav.my_portal', 'Mi Portal'), href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
         { name: t('nav.billing', 'Facturación GPS'), href: '/crm/billing', icon: Receipt, color: 'text-cyan-600' },
       ]
@@ -188,16 +207,15 @@ export default function CRMLayout({ userData }: { userData: any }) {
     }
 
     if (userRole === 'rrhh') {
-      return [coreGroup, talentGroup, academyGroup, portalGroup];
+      return [talentGroup, portalGroup];
     }
 
     if (userRole === 'gestor') {
-      return [telemarketingGroup, coreGroup, operationsGroup, clientGroup, strategyGroup, portalGroup];
+      return [coreGroup, clientGroup, operationsGroup, strategyGroup, portalGroup];
     }
 
-    if (userRole === 'ceo' || userRole === 'superadmin') {
+    if (userRole === 'ceo' || userRole === 'superadmin' || userRole === 'admin' || userRole === 'owner') {
       const groups = [
-        telemarketingGroup,
         coreGroup,
         clientGroup,
         operationsGroup,
@@ -207,17 +225,19 @@ export default function CRMLayout({ userData }: { userData: any }) {
         portalGroup,
       ];
 
-      if (isSuperAdmin) {
+      if (['superadmin', 'admin', 'ceo'].includes(userRole)) {
+        const configItems: any[] = [];
+        if (isSuperAdmin) {
+          configItems.push({ name: t('nav.superadmin', 'SuperAdmin'), href: '/crm/superadmin', icon: ShieldAlert });
+        }
+        if (['superadmin', 'admin'].includes(userRole)) {
+          configItems.push({ name: t('nav.appearance', 'Personalización Visual'), href: '/crm/appearance', icon: Palette, color: 'text-[#EC4899]' });
+          configItems.push({ name: t('nav.call_center_admin', 'Administración de Telefonía'), href: '/crm/call-center', icon: PhoneCall, color: 'text-emerald-400' });
+        }
+        configItems.push({ name: t('nav.security_center', 'Security Center'), href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' });
         groups.push({
           title: t('nav.groups.config', 'CONFIGURACIÓN'),
-          items: [
-            { name: t('nav.superadmin', 'SuperAdmin'), href: '/crm/superadmin', icon: ShieldAlert },
-            { name: t('nav.appearance', 'Personalización Visual'), href: '/crm/appearance', icon: Palette, color: 'text-[#EC4899]' },
-            { name: t('nav.security_center', 'Security Center'), href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
-            { name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap },
-            { name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' },
-            { name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' },
-          ]
+          items: configItems
         } as any);
       }
       return groups;
@@ -229,6 +249,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
       {
         title: t('common.welcome', 'BIENVENIDO'),
         items: [
+          ...(userRole !== 'cliente' ? [{ name: t('nav.employee_portal', 'Portal de Equipo'), href: '/crm/employee-portal', icon: Users2, color: 'text-emerald-500' }] : []),
           { name: t('nav.my_portal', 'Mi Portal'), href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
           { name: t('nav.helpdesk', 'Centro de Soporte'), href: '/crm/helpdesk', icon: HelpCircle, color: 'text-cyan-400' },
         ]
@@ -247,8 +268,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
         items: (Array.isArray(group.items) ? group.items : [])
           .filter((item: any) => item && typeof item === 'object')
           .filter((item: any) => typeof item.name === 'string' && typeof item.href === 'string')
-      }));
-  }, [menuGroups]);
+          .filter((item: any) => {
+            const policy = MENU_PERMISSION_POLICIES[item.href.split('?')[0]];
+            return !policy || !canAccessPermission || canAccessPermission(policy.permission, policy.roles);
+          })
+      }))
+      .filter((group: any) => group.items.length > 0);
+  }, [menuGroups, canAccessPermission]);
 
   const filteredMenuGroups = useMemo(() => {
     if (!menuSearch) return normalizedMenuGroups;
@@ -338,9 +364,11 @@ export default function CRMLayout({ userData }: { userData: any }) {
               <MessageSquare className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </Link>
-            <Link to="/crm/calls" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.voip_softphone', 'Sistema de Llamadas')}>
-              <PhoneCall className="w-5 h-5" />
-            </Link>
+            {canAccessPermission?.('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator']) && (
+              <Link to="/crm/calls" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.voip_softphone', 'Sistema de Llamadas')}>
+                <PhoneCall className="w-5 h-5" />
+              </Link>
+            )}
             <Link to="/crm/tasks" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.tasks', 'Mis Tareas')}>
               <CheckSquare className="w-5 h-5" />
             </Link>
@@ -574,15 +602,17 @@ export default function CRMLayout({ userData }: { userData: any }) {
               </div>
             )}
 
-            {/* QUICK OPERATIONAL SHORTCUTS FOR TLMK */}
-            <button 
-              onClick={() => navigate('/crm/calls?dialer=open')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500 hover:text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
-              title={t('voip.title', 'Abrir Discador Telefónico VoIP')}
-            >
-              <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
-              <span className="hidden md:inline">{t('header.voip_shortcut', 'Discador VoIP')}</span>
-            </button>
+            {/* Quick dialer shortcut follows the same effective permission as the route. */}
+            {canAccessPermission?.('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator']) && (
+              <button
+                onClick={() => navigate('/crm/calls?dialer=open')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500 hover:text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                title={t('voip.title', 'Abrir Discador Telefónico VoIP')}
+              >
+                <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
+                <span className="hidden md:inline">{t('header.voip_shortcut', 'Discador VoIP')}</span>
+              </button>
+            )}
 
             <button 
               onClick={() => navigate('/crm/pipeline')}
@@ -639,10 +669,13 @@ export default function CRMLayout({ userData }: { userData: any }) {
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              <Outlet context={{ userData, ceoMode }} />
+              <Outlet context={{ userData, ceoMode, canAccessPermission }} />
             </motion.div>
           </AnimatePresence>
         </main>
+        <footer className="px-6 py-3 border-t border-gray-200/70 bg-white/70 text-center text-[10px] tracking-wide text-gray-500">
+          Kaivincia Corp · Desarrollado y mantenido por <span className="font-semibold text-gray-700">SAFENESS.INC</span>
+        </footer>
       </div>
 
       <CommandBar isOpen={isCommandBarOpen} onClose={() => setIsCommandBarOpen(false)} />

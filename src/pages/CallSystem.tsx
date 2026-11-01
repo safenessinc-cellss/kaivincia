@@ -31,39 +31,66 @@ import OmnichannelInbox from '../components/calls/OmnichannelInbox';
 import VoipCoverageZones from '../components/calls/VoipCoverageZones';
 import TelnyxAdminHub from '../components/calls/TelnyxAdminHub';
 import MetaAdminHub from '../components/integrations/MetaAdminHub';
-import { isPrivilegedRole } from '../constants/roles';
+import { normalizeRole } from '../constants/roles';
+
+const VALID_CALL_TABS = ['monitor', 'softphone', 'telnyx', 'meta', 'logs', 'esim', 'directory', 'inbox', 'cobertura', 'utilidades'];
 
 export default function CallSystem() {
-  const { userData } = useOutletContext<{ userData: any }>() || {};
+  const { userData, canAccessPermission } = useOutletContext<{
+    userData: any;
+    canAccessPermission?: (permissionId: string, fallbackRoles: string[]) => boolean;
+  }>() || {};
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Roles administrativos autorizados para configurar proveedores y supervisar
   const isAdmin = useMemo(
-    () => isPrivilegedRole(userData?.role),
+    () => ['superadmin', 'admin'].includes(normalizeRole(userData?.role)),
     [userData?.role]
+  );
+  const canManageTelephony = useMemo(
+    () => normalizeRole(userData?.role) === 'superadmin' || (isAdmin && (canAccessPermission
+      ? canAccessPermission('telephony_config', ['superadmin', 'admin'])
+      : userData?.permissions?.telephony_config !== false)),
+    [isAdmin, canAccessPermission, userData?.permissions, userData?.role]
   );
 
   // Manejo de pestaña activa vía URL o estado
   const currentTabParam = searchParams.get('tab') || 'monitor';
   const dialParam = searchParams.get('dial') || '';
 
-  const [activeTab, setActiveTab] = useState<string>(currentTabParam);
   const [isSoftphoneFloating, setIsSoftphoneFloating] = useState(false);
   const [dialTargetNumber, setDialTargetNumber] = useState<string>(dialParam);
 
   // Llamada activa simulada/en curso para monitor
   const [activeCallSession, setActiveCallSession] = useState<any | null>(null);
 
-  // Sincronizar URL cuando cambia la pestaña
+  // La URL es la única fuente de verdad para la pestaña activa.
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
     setSearchParams(prev => {
       const p = new URLSearchParams(prev);
       p.set('tab', tabId);
       return p;
     });
   };
+
+  // La pestaña se deriva de la URL: soporta atrás/adelante sin estado duplicado.
+  // Los paneles administrativos no se abren desde un query param no autorizado.
+  const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
+  const activeTab = (
+    (!isAdmin && ['telnyx', 'meta', 'esim', 'directory'].includes(requestedTab)) ||
+    (['telnyx', 'esim', 'directory'].includes(requestedTab) && !canManageTelephony)
+  ) ? 'monitor' : requestedTab;
+
+  useEffect(() => {
+    if (activeTab !== currentTabParam) {
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('tab', activeTab);
+        return next;
+      }, { replace: true });
+    }
+  }, [activeTab, currentTabParam, setSearchParams]);
 
   // Escuchar parámetro 'dial' para abrir marcador
   useEffect(() => {
@@ -84,14 +111,15 @@ export default function CallSystem() {
     setActiveCallSession({
       id: 'call_test_' + Date.now().toString().slice(-4),
       customer: '+1 (323) 555-0199 (Cliente California)',
-      agent: userData?.displayName || userData?.name || 'Marta García',
+      agent: userData?.displayName || userData?.name || 'Agente de prueba',
       duration: '00:45',
-      provider: 'Zadarma SIP Direct',
+      provider: 'Simulador local (DEMO)',
       sentiment: 'positive',
       latency: '22ms',
       jitter: '0.8ms',
       cost: '$0.0090',
-      isRecording: true
+      isRecording: true,
+      isDemo: true
     });
   };
 
@@ -101,8 +129,8 @@ export default function CallSystem() {
     { id: 'telnyx', label: '⭐ Panel Telnyx', icon: Radio, adminOnly: true },
     { id: 'meta', label: '⭐ Panel Meta', icon: Share2, adminOnly: true },
     { id: 'logs', label: t('calls.tabs.logs', 'Historial & Grabaciones'), icon: Clock },
-    { id: 'esim', label: t('calls.tabs.esim', 'Líneas eSIM'), icon: Smartphone },
-    { id: 'directory', label: t('calls.tabs.directory', 'Troncales SIP'), icon: Server },
+    { id: 'esim', label: t('calls.tabs.esim', 'Líneas eSIM'), icon: Smartphone, adminOnly: true },
+    { id: 'directory', label: t('calls.tabs.directory', 'Troncales SIP'), icon: Server, adminOnly: true },
     { id: 'inbox', label: t('calls.tabs.inbox', 'Bandeja Omnicanal'), icon: MessageSquare },
     { id: 'cobertura', label: t('calls.tabs.coverage', 'Zonas & Horarios'), icon: MapPin },
     { id: 'utilidades', label: t('calls.tabs.utilities', 'Comprobante Utility'), icon: FileText }
@@ -122,9 +150,9 @@ export default function CallSystem() {
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">
                   {t('calls.title', 'Centro Telefónico & VoIP')}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Troncal Zadarma Online
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 text-[10px] font-black uppercase flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Estado de troncal no verificado
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -153,7 +181,7 @@ export default function CallSystem() {
 
       {/* Navegación por Pestañas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
-        {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => {
+        {TABS.filter((tab) => (!tab.adminOnly || isAdmin) && (!['telnyx', 'esim', 'directory'].includes(tab.id) || canManageTelephony)).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -175,6 +203,11 @@ export default function CallSystem() {
 
       {/* Contenido Dinámico de la Pestaña Activa */}
       <div className="transition-opacity duration-200">
+        {activeTab === 'monitor' && activeCallSession?.isDemo && (
+          <div role="status" className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+            DEMOSTRACIÓN: esta sesión y sus métricas son datos simulados; no representan una llamada real ni el estado del operador telefónico.
+          </div>
+        )}
         {activeTab === 'monitor' && (
           <LiveCallMonitor
             activeCall={activeCallSession}
@@ -188,11 +221,12 @@ export default function CallSystem() {
             <SoftphoneDialer
               initialPhoneNumber={dialTargetNumber}
               mode="embedded"
+              canManageTelephony={canManageTelephony}
             />
           </div>
         )}
 
-        {activeTab === 'telnyx' && isAdmin && (
+        {activeTab === 'telnyx' && canManageTelephony && (
           <TelnyxAdminHub />
         )}
 
@@ -206,15 +240,15 @@ export default function CallSystem() {
           />
         )}
 
-        {activeTab === 'esim' && (
+        {activeTab === 'esim' && canManageTelephony && (
           <EsimManager
             onStartCall={(phone) => handleTriggerCall(phone)}
           />
         )}
 
-        {activeTab === 'directory' && (
+        {activeTab === 'directory' && canManageTelephony && (
           <VoipProviderConfig
-            isAdmin={isAdmin}
+            isAdmin={canManageTelephony}
           />
         )}
 
@@ -241,6 +275,7 @@ export default function CallSystem() {
           <SoftphoneDialer
             initialPhoneNumber={dialTargetNumber}
             mode="floating"
+            canManageTelephony={canManageTelephony}
             onClose={() => setIsSoftphoneFloating(false)}
           />
         )}

@@ -230,6 +230,7 @@ export default function ClientManagement() {
       // 1. Create Client Record
       const clientRef = await addDoc(collection(db, 'clients'), {
         ...newClient,
+        createdBy: auth.currentUser?.uid,
         status: newClient.status || 'Lead',
         healthScore: 100,
         createdAt: serverTimestamp()
@@ -238,6 +239,7 @@ export default function ClientManagement() {
       // 2. Automation: Create Folder in Vault SGI
       await addDoc(collection(db, 'documents'), {
          title: `CARPETA CLIENTE: ${newClient.companyName}`,
+         ownerId: auth.currentUser?.uid,
          category: 'Legal',
          clientId: clientRef.id,
          tags: ['Cifrado', 'Vault'],
@@ -820,6 +822,7 @@ export default function ClientManagement() {
                                   });
                                   // Update Global Pulse
                                   await addDoc(collection(db, 'system_events'), {
+                                    actorUid: auth.currentUser?.uid,
                                      type: 'PULSE_UPDATE',
                                      message: `Proyecto "${project.name}" actualizado a ${e.target.value} por el Gestor.`,
                                      timestamp: serverTimestamp()

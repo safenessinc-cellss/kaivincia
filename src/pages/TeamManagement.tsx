@@ -14,51 +14,19 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate, Navigate } from 'react-router-dom';
 
-// Mock Data
-const TEAM_MEMBERS = [
-  { 
-    id: '1', name: 'Carlos Ruiz', role: 'Closer', status: 'Online', workload: 95, avatar: 'C', 
-    goal: 50000, current: 42000, type: 'sales', trend: 'up',
-    kpis: { calls: 145, closeRate: '22%', avgCallTime: '14:30' },
-    skills: [
-      { name: 'Ventas B2B', level: 90, source: 'Academia Interna' },
-      { name: 'Negociación', level: 85, source: 'Experiencia' },
-      { name: 'Onboarding', level: 60, source: 'Academia Interna' }
-    ]
-  },
-  { 
-    id: '2', name: 'Ana Silva', role: 'Tutor', status: 'Meeting', workload: 60, avatar: 'A', 
-    goal: 100, current: 85, type: 'support', trend: 'down',
-    kpis: { students: 85, tickets: 120, satisfaction: '4.8/5' },
-    skills: [
-      { name: 'Soporte Técnico', level: 95, source: 'Experiencia' },
-      { name: 'Resolución de Conflictos', level: 80, source: 'Academia Interna' },
-      { name: 'Ventas B2B', level: 40, source: 'Academia Interna (En curso)' }
-    ]
-  },
-  { 
-    id: '3', name: 'Miguel Rojas', role: 'Operaciones', status: 'Offline', workload: 40, avatar: 'M', 
-    goal: 10, current: 8, type: 'operations', trend: 'up',
-    kpis: { projects: 8, compliance: '95%', delays: 1 },
-    skills: [
-      { name: 'Gestión de Proyectos', level: 100, source: 'Experiencia' },
-      { name: 'Automatizaciones', level: 75, source: 'Academia Interna' }
-    ]
-  },
-];
-
-const AUDIT_LOGS = [
-  { id: 1, user: 'Carlos Ruiz', action: 'Actualizó el contrato de TechSolutions', time: 'Hace 10 min', type: 'update' },
-  { id: 2, user: 'Ana Silva', action: 'Resolvió ticket de soporte #4421', time: 'Hace 45 min', type: 'resolve' },
-  { id: 3, user: 'Miguel Rojas', action: 'Intento de login fuera de horario', time: 'Ayer, 23:15', type: 'alert' },
-];
-
 export default function TeamManagement() {
   const [activeTab, setActiveTab] = useState('directory');
   const { tasks, users: contextUsers } = useGlobalContext();
 
   // Auth Guard & Timing State
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, userData } = useAuth();
+  // The Firestore users/{uid} rules reserve role/permission administration
+  // for SuperAdmin (and the designated account owner). Admins may view audit
+  // history but cannot open controls that Firestore will reject.
+  const currentRole = String(userData?.role || '').toLowerCase().trim();
+  const canManageAccess = currentRole === 'superadmin' || user?.email === 'safeness.c.a@gmail.com';
+  const canViewAudit = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(currentRole);
+  const isHrRole = currentRole === 'rrhh';
   const [firestoreUsers, setFirestoreUsers] = useState<any[]>([]);
   const [firestoreAuditLogs, setFirestoreAuditLogs] = useState<any[]>([]);
 
@@ -73,7 +41,7 @@ export default function TeamManagement() {
       handleFirestoreError(error, OperationType.GET, 'users');
     });
 
-    const unsubAudit = onSnapshot(
+    const unsubAudit = canViewAudit ? onSnapshot(
       query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50)),
       (snapshot) => {
         setFirestoreAuditLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -81,66 +49,61 @@ export default function TeamManagement() {
       (error) => {
         handleFirestoreError(error, OperationType.GET, 'audit_logs');
       }
-    );
+    ) : () => {};
 
     return () => {
       unsubUsers();
       unsubAudit();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, canViewAudit]);
 
   const effectiveUsers = firestoreUsers.length > 0 ? firestoreUsers : contextUsers;
 
   const normalizedMembers = useMemo(() => {
-    if (Array.isArray(effectiveUsers) && effectiveUsers.length > 0) {
-      const validUsers = effectiveUsers.filter((u: any) => u && typeof u === 'object');
-      if (validUsers.length > 0) {
-        return validUsers.map((u: any, idx: number) => {
-          const fallback = TEAM_MEMBERS[idx % TEAM_MEMBERS.length] || TEAM_MEMBERS[0];
-          const name = u.name || u.displayName || (typeof u.email === 'string' ? u.email.split('@')[0] : '') || fallback.name || 'Especialista';
-          const avatar = (u.avatar || name.charAt(0) || fallback.avatar || 'U').toUpperCase();
-          return {
-            id: u.id || `user-${idx}`,
-            name,
-            role: u.role || fallback.role,
-            status: u.status || fallback.status,
-            workload: u.workload || fallback.workload,
-            avatar,
-            goal: u.goal || fallback.goal || 10000,
-            current: u.current || fallback.current || 7500,
-            type: u.type || (u.role === 'closer' || u.role === 'sales' ? 'sales' : u.role === 'tutor' ? 'support' : fallback.type || 'operations'),
-            trend: u.trend || fallback.trend || 'up',
-            kpis: {
-              calls: u.kpis?.calls ?? fallback.kpis?.calls ?? 45,
-              closeRate: u.kpis?.closeRate ?? fallback.kpis?.closeRate ?? '18%',
-              avgCallTime: u.kpis?.avgCallTime ?? fallback.kpis?.avgCallTime ?? '12:00',
-              students: u.kpis?.students ?? fallback.kpis?.students ?? 40,
-              tickets: u.kpis?.tickets ?? fallback.kpis?.tickets ?? 25,
-              satisfaction: u.kpis?.satisfaction ?? fallback.kpis?.satisfaction ?? '4.7/5',
-              projects: u.kpis?.projects ?? fallback.kpis?.projects ?? 5,
-              compliance: u.kpis?.compliance ?? fallback.kpis?.compliance ?? '98%',
-              delays: u.kpis?.delays ?? fallback.kpis?.delays ?? 0
-            },
-            skills: Array.isArray(u.skills) && u.skills.length > 0 ? u.skills : fallback.skills,
-            email: u.email || `${name.toLowerCase().replace(/\s+/g, '.')}@kaivincia.com`,
-            permissions: u.permissions || {}
-          };
-        });
-      }
-    }
-    return TEAM_MEMBERS;
+    if (!Array.isArray(effectiveUsers)) return [];
+    return effectiveUsers
+      .filter((u: any) => u && typeof u === 'object' && typeof u.id === 'string')
+      .map((u: any) => {
+        const name = u.name || u.displayName || (typeof u.email === 'string' ? u.email.split('@')[0] : '') || 'Usuario';
+        return {
+          id: u.id,
+          name,
+          role: u.role || 'Sin rol',
+          status: u.status || 'Sin estado',
+          workload: Number.isFinite(Number(u.workload)) ? Number(u.workload) : 0,
+          avatar: String(u.avatar || name.charAt(0) || 'U').toUpperCase(),
+          goal: Number.isFinite(Number(u.goal)) ? Number(u.goal) : 0,
+          current: Number.isFinite(Number(u.current)) ? Number(u.current) : 0,
+          type: u.type || (['closer', 'sales', 'agent'].includes(String(u.role || '').toLowerCase()) ? 'sales' : String(u.role || '').toLowerCase() === 'tutor' ? 'support' : 'operations'),
+          trend: ['up', 'down'].includes(u.trend) ? u.trend : 'flat',
+          kpis: {
+            calls: Number(u.kpis?.calls) || 0,
+            closeRate: u.kpis?.closeRate || '—',
+            avgCallTime: u.kpis?.avgCallTime || '—',
+            students: Number(u.kpis?.students) || 0,
+            tickets: Number(u.kpis?.tickets) || 0,
+            satisfaction: u.kpis?.satisfaction || '—',
+            projects: Number(u.kpis?.projects) || 0,
+            compliance: u.kpis?.compliance || '—',
+            delays: Number(u.kpis?.delays) || 0
+          },
+          skills: Array.isArray(u.skills) ? u.skills : [],
+          email: u.email || '',
+          permissions: u.permissions || {}
+        };
+      });
   }, [effectiveUsers]);
 
-  const [selectedMember, setSelectedMember] = useState<any>(() => (normalizedMembers && normalizedMembers[0]) || TEAM_MEMBERS[0]);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedUserForPerms, setSelectedUserForPerms] = useState<any | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (normalizedMembers && normalizedMembers.length > 0) {
+    if (normalizedMembers.length > 0) {
       const exists = selectedMember ? normalizedMembers.find(m => m?.id === selectedMember?.id) : null;
-      if (!exists) {
-        setSelectedMember(normalizedMembers[0]);
-      }
+      if (!exists) setSelectedMember(normalizedMembers[0]);
+    } else {
+      setSelectedMember(null);
     }
   }, [normalizedMembers, selectedMember]);
 
@@ -158,10 +121,9 @@ export default function TeamManagement() {
       const currentPerms = targetUser?.permissions || {};
       const newPerms = { ...currentPerms, [module]: hasAccess };
       
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
-      });
+      // Changing permissions must not implicitly approve or activate an
+      // account. Account lifecycle is an explicit, separate owner action.
+      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
@@ -182,22 +144,15 @@ export default function TeamManagement() {
     })).sort((a,b) => b.Completadas - a.Completadas);
   }, [tasks]);
 
-  const displayAuditLogs = useMemo(() => {
-    if (firestoreAuditLogs.length > 0) {
-      return firestoreAuditLogs.map((log: any) => ({
-        id: log.id,
-        user: log.userEmail || log.userName || log.user || 'Operador Kaivincia',
-        action: log.action || log.description || log.type || 'Evento de auditoría registrado',
-        time: log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (log.time || 'Reciente'),
-        type: log.severity === 'high' || log.severity === 'critical' ? 'alert' : (log.type || 'update')
-      }));
-    }
-    return AUDIT_LOGS;
-  }, [firestoreAuditLogs]);
+  const displayAuditLogs = useMemo(() => firestoreAuditLogs.map((log: any) => ({
+    id: log.id,
+    user: log.userEmail || log.userName || log.user || 'Usuario',
+    action: log.action || log.description || log.type || 'Evento registrado',
+    time: log.timestamp?.toDate ? log.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (log.time || 'Reciente'),
+    type: log.severity === 'high' || log.severity === 'critical' ? 'alert' : (log.type || 'update')
+  })), [firestoreAuditLogs]);
 
-  const activeMember = (selectedMember && typeof selectedMember === 'object' ? selectedMember : null) 
-    || (normalizedMembers && normalizedMembers.length > 0 ? normalizedMembers[0] : null) 
-    || TEAM_MEMBERS[0];
+  const activeMember = selectedMember && typeof selectedMember === 'object' ? selectedMember : normalizedMembers[0] || null;
 
   if (authLoading) {
     return (
@@ -229,8 +184,10 @@ export default function TeamManagement() {
         <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar shrink-0">
           {[
             { id: 'directory', label: 'Directorio & Rendimiento', icon: Users },
-            { id: 'commissions', label: 'Comisiones y Pagos', icon: DollarSign },
-            { id: 'security', label: 'Seguridad y Auditoría', icon: ShieldAlert },
+            ...(!isHrRole ? [
+              { id: 'commissions', label: 'Comisiones y Pagos', icon: DollarSign },
+              { id: 'security', label: 'Seguridad y Auditoría', icon: ShieldAlert },
+            ] : []),
           ].map(tab => (
             <button 
               key={tab.id}
@@ -253,56 +210,20 @@ export default function TeamManagement() {
             <div className="flex flex-col xl:flex-row gap-6 h-full">
               {/* Column Lateral */}
               <div className="w-full xl:w-1/4 space-y-6">
-                 {/* TALENT MATCHER - Proactive Intelligence */}
-                 <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 flex flex-col gap-6">
+                 {/* Recomendaciones de asignación: sin motor validado no se simulan sugerencias */}
+                 <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                        <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg">
                           <Cpu className="w-5 h-5 text-[#00F0FF]" />
                        </div>
                        <div>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Talent Matcher</h3>
-                          <p className="text-[8px] font-black text-[#00F0FF] uppercase tracking-widest">Optimización de Recursos IA</p>
+                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900">Asignación de talento</h3>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Motor de recomendaciones no conectado</p>
                        </div>
                     </div>
-
-                    <div className="space-y-4">
-                       {[
-                         { project: 'Onboarding TechCorp', ideal: 'Carlos Ruiz', reason: '90% B2B', match: 98, load: 95 },
-                         { project: 'Soporte VIP Premium', ideal: 'Ana Silva', reason: '95% Soporte', match: 96, load: 60 },
-                         { project: 'Automatización Flujos', ideal: 'Miguel Rojas', reason: '100% Projects', match: 92, load: 40 },
-                       ].map((match, i) => (
-                         <div key={i} className="p-4 bg-gray-50 rounded-[1.5rem] border border-gray-100 group hover:border-[#00F0FF]/30 transition-all relative overflow-hidden">
-                            <div className="flex justify-between items-start mb-2">
-                               <p className="text-[10px] font-black text-gray-900 uppercase italic truncate w-32">{match.project}</p>
-                               <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{match.match}% MATCH</span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between mb-3">
-                               <p className="text-[10px] text-gray-500 font-bold uppercase italic">ID: <span className="text-gray-900">{match.ideal}</span></p>
-                               <div className="flex flex-col items-end gap-1">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Carga Actual</p>
-                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                     <div 
-                                        className={`h-full ${match.load > 85 ? 'bg-red-500' : 'bg-green-500'}`} 
-                                        style={{ width: `${match.load}%` }}
-                                     />
-                                  </div>
-                               </div>
-                            </div>
-
-                            <button 
-                               disabled={match.load > 85}
-                               className={`w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                                  match.load > 85 
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed italic' 
-                                  : 'bg-white border border-gray-100 text-gray-400 group-hover:bg-gray-900 group-hover:text-white group-hover:border-transparent group-hover:shadow-lg'
-                               }`}
-                            >
-                               {match.load > 85 ? 'Sobrecarga Detectada' : 'Asignar con Kaivincia IA'}
-                            </button>
-                         </div>
-                       ))}
-                    </div>
+                    <p className="text-xs leading-relaxed text-gray-500">
+                      No se muestran recomendaciones ni asignaciones automáticas hasta disponer de métricas verificadas y un motor de cálculo validado.
+                    </p>
                  </div>
 
                  {/* Leaderboard 2.0 */}
@@ -315,7 +236,9 @@ export default function TeamManagement() {
                     </div>
                     
                     <div className="space-y-4 relative z-10">
-                       {[...TEAM_MEMBERS].sort((a,b) => (b.current || 0) - (a.current || 0)).map((member, index) => (
+                       {normalizedMembers.length === 0 ? (
+                         <p className="text-xs text-gray-400">Sin empleados registrados.</p>
+                       ) : [...normalizedMembers].sort((a,b) => (b.current || 0) - (a.current || 0)).map((member, index) => (
                          <div key={member.id} className="bg-white/5 rounded-2xl p-4 flex items-center gap-4 border border-white/5 hover:bg-white/[0.08] transition-all">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm relative ${
                                index === 0 ? 'bg-[#00F0FF] text-white shadow-lg' :
@@ -334,11 +257,11 @@ export default function TeamManagement() {
                                         <div className="flex items-center gap-0.5 text-green-400">
                                            <ArrowUpRight className="w-2.5 h-2.5" /> +4.2%
                                         </div>
-                                     ) : (
+                                     ) : member.trend === 'down' ? (
                                         <div className="flex items-center gap-0.5 text-red-400">
-                                           <ArrowDownRight className="w-2.5 h-2.5" /> -1.8%
+                                           <ArrowDownRight className="w-2.5 h-2.5" /> Tendencia descendente
                                         </div>
-                                     )}
+                                     ) : <span className="text-gray-400">Sin datos de tendencia</span>}
                                   </div>
                                </div>
                             </div>
@@ -379,7 +302,9 @@ export default function TeamManagement() {
                   <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Directorio de Elite</h3>
                 </div>
                 <div className="overflow-y-auto flex-1 p-4 space-y-4">
-                  {normalizedMembers.filter((m: any) => m && typeof m === 'object').map(member => (
+                  {normalizedMembers.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-gray-500">No hay empleados registrados para mostrar. Los indicadores aparecerán cuando existan datos reales.</div>
+                  ) : normalizedMembers.filter((m: any) => m && typeof m === 'object').map(member => (
                     <div 
                       key={member.id}
                       onClick={() => setSelectedMember(member)}
@@ -432,16 +357,16 @@ export default function TeamManagement() {
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email || 'Especialista'}</h2>
-                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {activeMember?.role || 'Nodo'}</p>
+                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email || 'Sin empleado seleccionado'}</h2>
+                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">{activeMember ? `Especialista de Equipo • ${activeMember.role}` : 'No hay registros reales de empleados'}</p>
                     </div>
                   </div>
-                  <button 
+                  {canManageAccess && <button 
                     onClick={() => activeMember && setSelectedUserForPerms(activeMember)}
                     className="h-14 px-8 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95"
                   >
                     Modificar Roles
-                  </button>
+                  </button>}
                 </div>
 
                 {/* Meta Mensual */}
@@ -485,12 +410,12 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tasa de Cierre</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.closeRate ?? '0%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.closeRate ?? '—'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Clock className="w-6 h-6 text-purple-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tiempo Promedio</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.avgCallTime ?? '00:00'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.avgCallTime ?? '—'}</p>
                       </div>
                     </>
                   )}
@@ -509,7 +434,7 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Activity className="w-6 h-6 text-cyan-500/100 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Satisfacción</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.satisfaction ?? '5.0/5'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.satisfaction ?? '—'}</p>
                       </div>
                     </>
                   )}
@@ -523,7 +448,7 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Cumplimiento</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.compliance ?? '100%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.compliance ?? '—'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />

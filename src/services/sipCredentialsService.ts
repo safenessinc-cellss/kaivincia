@@ -16,69 +16,15 @@ import { encryptData, decryptData, maskSensitiveKey } from '../utils/cryptoUtils
 /**
  * 9 Credenciales Reales SIP de Telnyx para Kaivincia Corp
  */
+// Credentials previously embedded in this source were removed. Rotate them in Telnyx;
+// never commit SIP passwords or provision production credentials from client code.
 export const INITIAL_TELNYX_SIPS: Array<{
   name: string;
   connectionId: string;
   username: string;
   rawPassword: string;
   isDefault?: boolean;
-}> = [
-  {
-    name: 'Kaivincia-User6',
-    connectionId: '3054059835856258128',
-    username: 'karelyamachado',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User5',
-    connectionId: '3049029931188094577',
-    username: 'userzaydelidelarosa10636',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User4',
-    connectionId: '3049028702106027326',
-    username: 'userzaydelidelarosa72023',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User3',
-    connectionId: '3049027210175317954',
-    username: 'userzaydelidelarosa66419',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User2',
-    connectionId: '3049024314419447080',
-    username: 'userzaydelidelarosa83184',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User2-Secundario',
-    connectionId: '3049024314419447080',
-    username: 'userzaydelidelarosa83184',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-User1',
-    connectionId: '3049005430773646347',
-    username: 'userzaydelidelarosa76398',
-    rawPassword: 'Samythob0829.!'
-  },
-  {
-    name: 'Kaivincia-Voice-Test',
-    connectionId: '3046958032463333200',
-    username: 'userzaydelidelarosa25986',
-    rawPassword: 'Samythob0829.!',
-    isDefault: true
-  },
-  {
-    name: 'Kaivincia-User7',
-    connectionId: '3057560522074358881',
-    username: 'Amirakaivinciacorp',
-    rawPassword: 'Samythob0829.!'
-  }
-];
+}> = [];
 
 export class SipCredentialsService {
   private static COLLECTION_NAME = 'telnyx_sip_credentials';
@@ -222,40 +168,10 @@ export class SipCredentialsService {
   /**
    * Sembrar las 9 credenciales SIP iniciales si no existen
    */
-  public static async seedInitialSips(force = false): Promise<number> {
-    const existing = await this.getAllSips();
-    if (existing.length > 0 && !force) {
-      return 0;
-    }
-
-    let seededCount = 0;
-    for (const sip of INITIAL_TELNYX_SIPS) {
-      const docId = `sip_${sip.username}_${sip.connectionId.slice(-6)}`;
-      const encrypted = await encryptData(sip.rawPassword);
-
-      await setDoc(doc(db, this.COLLECTION_NAME, docId), {
-        name: sip.name,
-        connectionId: sip.connectionId,
-        username: sip.username,
-        passwordEncrypted: encrypted,
-        passwordMasked: maskSensitiveKey(sip.rawPassword, 2),
-        assignedTo: null,
-        assignedAgentName: null,
-        assignedAgentEmail: null,
-        status: 'active',
-        sipDomain: 'sip.telnyx.com',
-        sipPort: 5060,
-        transport: 'WSS',
-        isDefault: Boolean(sip.isDefault),
-        callerId: '+13055550199',
-        lastTestStatus: 'untested',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-      seededCount++;
-    }
-
-    return seededCount;
+  // No client-side credential seeding: credentials must be provisioned by
+  // an authorized server-side workflow and never sourced from repository code.
+  public static async seedInitialSips(_force = false): Promise<number> {
+    return 0;
   }
 
   /**
@@ -263,6 +179,9 @@ export class SipCredentialsService {
    */
   public static async decryptSipPassword(encryptedStr: string): Promise<string> {
     if (!encryptedStr) return '';
+    // ENC_V1 belongs to the retired client-side vault. Never attempt to
+    // decrypt it in the browser; Telnyx WebRTC uses backend-issued JWTs.
+    if (encryptedStr.startsWith('ENC_V1:')) return '';
     try {
       return await decryptData(encryptedStr);
     } catch (e) {

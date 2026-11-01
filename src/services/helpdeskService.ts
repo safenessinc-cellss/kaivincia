@@ -42,7 +42,7 @@ async function logTicketAudit(
     if (!user) return;
     await addDoc(collection(db, 'audit_logs'), {
       action,
-      actorId: user.uid,
+      actorUid: user.uid,
       actorEmail: user.email || 'unknown',
       ticketId,
       details,
@@ -65,7 +65,7 @@ export async function createTicket(data: {
   const initialMessage: TicketMessage = {
     senderId: user.uid,
     senderEmail: user.email || 'desconocido',
-    text: data.description,
+    text: data.description.trim(),
     createdAt: Timestamp.now()
   };
 

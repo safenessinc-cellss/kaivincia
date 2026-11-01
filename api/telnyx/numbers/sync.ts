@@ -1,11 +1,18 @@
-import { adminAuth } from '../../../server/_lib/firebaseAdmin.js';
+import { adminAuth, adminDb  , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Cache-Control', 'no-store, private');
+  res.setHeader('Vary', 'Authorization');
 
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'POST, OPTIONS'); res.end(JSON.stringify({ error: 'Method Not Allowed' })); return; }
+
+  if (!isFirebaseAdminConfigured) {
+    res.statusCode = 503;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, error: 'Firebase Admin no está configurado para este entorno.' }));
+    return;
+  }
 
   try {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
@@ -20,6 +27,19 @@ export default async function handler(req: any, res: any) {
       res.statusCode = 401;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ error: 'Token inválido' }));
+      return;
+    }
+
+    const profileSnap = await adminDb.collection('users').doc(authUser.uid).get();
+    const profile = profileSnap.data() || {};
+    const role = String(profile.role || '').toLowerCase();
+    const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
+    const matrixValue = matrixSnap.data()?.matrix?.[role]?.telephony_config;
+    const override = profile.permissions?.telephony_config;
+    const permission = typeof override === 'boolean' ? override : (typeof matrixValue === 'boolean' ? matrixValue : ['superadmin', 'admin'].includes(role));
+    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !['superadmin', 'admin'].includes(role) || !permission) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'No tienes permiso para sincronizar el inventario Telnyx.' }));
       return;
     }
 
@@ -51,8 +71,7 @@ export default async function handler(req: any, res: any) {
       connectionId: n.connection_id,
     }));
 
-    const { getFirestore } = await import('firebase-admin/firestore');
-    const db = getFirestore();
+    const db = adminDb;
 
     for (const num of numbers) {
       const docId = `num_${num.phoneNumber.replace(/\D/g, '')}`;

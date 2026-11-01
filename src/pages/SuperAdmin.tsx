@@ -24,9 +24,11 @@ interface RBACPermission {
 
 const RBAC_ROLES = [
   { id: 'superadmin', label: 'SuperAdmin', color: 'bg-red-500/10 text-red-600 border-red-200' },
+  { id: 'owner', label: 'Propietario', color: 'bg-rose-500/10 text-rose-600 border-rose-200' },
   { id: 'ceo', label: 'CEO / Director', color: 'bg-purple-500/10 text-purple-600 border-purple-200' },
   { id: 'admin', label: 'Administrador', color: 'bg-blue-500/10 text-blue-600 border-blue-200' },
   { id: 'gestor', label: 'Gestión Operaciones', color: 'bg-cyan-500/10 text-cyan-600 border-cyan-200' },
+  { id: 'supervisor', label: 'Supervisor', color: 'bg-orange-500/10 text-orange-600 border-orange-200' },
   { id: 'sales', label: 'Ventas (TLMK / Closer)', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200' },
   { id: 'rrhh', label: 'Recursos Humanos', color: 'bg-pink-500/10 text-pink-600 border-pink-200' },
   { id: 'collaborator', label: 'Colaborador', color: 'bg-indigo-500/10 text-indigo-600 border-indigo-200' },
@@ -44,25 +46,27 @@ const RBAC_PERMISSIONS: RBACPermission[] = [
   { id: 'academy_management', name: 'Gestión de Alumnos & Academia', module: 'Academia' },
   { id: 'voip_calls', name: 'Discador & Llamadas VoIP', module: 'Voz' },
   { id: 'recruitment_payroll', name: 'Reclutamiento & Nómina (RRHH)', module: 'Talento' },
+  { id: 'helpdesk_manage', name: 'Administrar tickets y asignaciones de Helpdesk', module: 'Soporte' },
   { id: 'telephony_config', name: 'Configuración Telefónica & Rutas IA', module: 'Voz' },
   { id: 'automations_engine', name: 'Motor de Automatizaciones & Reglas', module: 'Automatizaciones' },
   { id: 'security_center', name: 'Centro de Seguridad & Auditoría', module: 'Seguridad' },
   { id: 'export_databases', name: 'Exportar Bases de Datos & Reportes', module: 'Datos' },
-  { id: 'delete_records', name: 'Eliminar Registros & Cuentas de Usuario', module: 'Seguridad' },
 ];
 
 const DEFAULT_MATRIX_STATE: Record<string, Record<string, boolean>> = {
-  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, delete_records: true },
-  ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, delete_records: false },
-  admin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, delete_records: false },
-  gestor: { view_financial_dashboard: true, accounting_gps: false, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: true, security_center: false, export_databases: true, delete_records: false },
-  sales: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  rrhh: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: true, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  collaborator: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  tutor: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  alumno: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  cliente: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
-  user: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: false, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
+  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
+  owner: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
+  ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
+  admin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
+  gestor: { view_financial_dashboard: true, accounting_gps: false, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: true, security_center: false, export_databases: true, helpdesk_manage: true },
+  supervisor: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  sales: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  rrhh: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: true, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  collaborator: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  tutor: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  alumno: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  cliente: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
+  user: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: false, voip_calls: false, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, helpdesk_manage: false },
 };
 
 export default function SuperAdmin() {
@@ -115,6 +119,7 @@ export default function SuperAdmin() {
   }, []);
 
   const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+  const canDeleteUsers = user?.email === 'safeness.c.a@gmail.com';
 
   // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
   useEffect(() => {
@@ -179,13 +184,13 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { status });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'UPDATE_USER_STATUS',
         resourceType: 'User',
         resourceId: userId,
         details: `Estado actualizado a ${status}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
       triggerFeedback(`Estado de usuario actualizado a "${status}".`);
     } catch (error) {
@@ -197,13 +202,13 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'UPDATE_USER_ROLE',
         resourceType: 'User',
         resourceId: userId,
         details: `Rol actualizado a ${role}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
       triggerFeedback(`Rol de usuario actualizado a "${role}".`);
     } catch (error) {
@@ -212,9 +217,9 @@ export default function SuperAdmin() {
   };
 
   const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+    const targetUser = users.find(u => u.id === userId);
+    const currentPerms = targetUser?.permissions || {};
     try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user?.permissions || {};
       const newPerms = { ...currentPerms, [module]: hasAccess };
 
       // Update in local state immediately so user sees toggle without closing dialog
@@ -225,23 +230,23 @@ export default function SuperAdmin() {
 
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms } : u));
 
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
-      });
+      // Editing a permission must never approve or reactivate an account.
+      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: auth.currentUser?.uid || '',
+        actorEmail: auth.currentUser?.email || null,
         action: 'UPDATE_USER_PERMISSIONS',
         resourceType: 'User',
         resourceId: userId,
         details: `Módulo ${module} establecido en ${hasAccess ? 'Permitido' : 'Revocado'}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       triggerFeedback(`Permiso "${module}" ${hasAccess ? 'concedido' : 'revocado'}.`);
     } catch (error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: currentPerms } : u));
+      setSelectedUserForPerms((prev: any) => prev ? { ...prev, permissions: currentPerms } : null);
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
@@ -261,13 +266,13 @@ export default function SuperAdmin() {
       });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'ASSIGN_CLIENTS_PROJECTS',
         resourceType: 'User',
         resourceId: assignModalUser.id,
         details: `Asignados ${assignedClientsDraft.length} clientes y ${assignedProjectsDraft.length} proyectos`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setAssignModalUser(null);
@@ -279,23 +284,27 @@ export default function SuperAdmin() {
 
   const handleDeleteUserPermanently = async () => {
     if (!userToDelete) return;
+    if (!canDeleteUsers) {
+      triggerFeedback('Solo la cuenta propietaria autorizada puede eliminar perfiles.');
+      return;
+    }
     setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'users', userToDelete.id));
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'DELETE_USER_PERMANENT',
         resourceType: 'User',
         resourceId: userToDelete.id,
-        details: `Usuario ${userToDelete.email || userToDelete.id} purgado definitivamente del sistema.`,
+        details: `Perfil CRM eliminado para ${userToDelete.email || userToDelete.id}; la cuenta de autenticación permanece.`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setUserToDelete(null);
       setDeleteConfirmInput('');
-      triggerFeedback('Usuario eliminado definitivamente del sistema.');
+      triggerFeedback('Perfil CRM eliminado. La cuenta de autenticación de Firebase no se elimina desde este panel.');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${userToDelete.id}`);
     } finally {
@@ -317,7 +326,9 @@ export default function SuperAdmin() {
       }, { merge: true });
       triggerFeedback('Matriz de permisos actualizada.');
     } catch (err) {
+      setMatrixState(matrixState);
       console.error('Error saving matrix:', err);
+      triggerFeedback('No se pudo guardar la matriz. Se restauró el último estado local confirmado.');
     } finally {
       setIsSavingMatrix(false);
     }
@@ -328,18 +339,18 @@ export default function SuperAdmin() {
     try {
       const inviteId = `invite_${Date.now()}`;
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'INVITE_USER',
         resourceType: 'User',
         resourceId: inviteId,
         details: `Invitación generada para ${inviteEmail} con rol ${inviteRole}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setIsInviteModalOpen(false);
       setInviteEmail('');
-      triggerFeedback(`Invitación enviada exitosamente a ${inviteEmail}.`);
+      triggerFeedback(`Solicitud de invitación registrada para ${inviteEmail}. El envío de correo aún no está conectado.`);
     } catch (error) {
       console.error(error);
     }
@@ -608,13 +619,13 @@ export default function SuperAdmin() {
                             </button>
 
                             {/* Delete User Permanently */}
-                            <button 
+                            {canDeleteUsers && <button 
                               onClick={() => setUserToDelete(user)}
-                              title="Eliminar Usuario Definitivamente" 
+                              title="Eliminar Perfil CRM (solo cuenta propietaria)" 
                               className="p-2 bg-red-50 text-red-500 hover:text-white hover:bg-red-600 rounded-xl transition-all border border-red-200"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </button>}
                           </div>
                         </td>
                       </tr>
@@ -644,7 +655,7 @@ export default function SuperAdmin() {
                     </span>
                   )}
                   <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200">
-                    Sincronización en Vivo
+                    Guardado en Firestore
                   </span>
                 </div>
               </div>
@@ -762,7 +773,7 @@ export default function SuperAdmin() {
                         <div className="flex items-center gap-3 text-[10px] text-gray-400 mt-1.5">
                           <span>Usuario: {log.userEmail || log.userId}</span>
                           <span>•</span>
-                          <span>IP: {log.ipAddress || '127.0.0.1'}</span>
+                          <span>IP: {log.ipAddress || 'No capturada'}</span>
                         </div>
                       </div>
                     </div>
@@ -787,7 +798,7 @@ export default function SuperAdmin() {
                 <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <h4 className="font-bold text-blue-900">Protección de Datos & Reglas de Firestore</h4>
-                  <p className="text-blue-700 mt-0.5">Las reglas de seguridad validan token de administrador y deniegan mutaciones no autorizadas en toda la plataforma.</p>
+                  <p className="text-blue-700 mt-0.5">La auditoría detectó colecciones con alcance global. La revisión de reglas y consultas sigue pendiente; la protección integral aún no está validada.</p>
                 </div>
               </div>
             </div>
@@ -811,8 +822,8 @@ export default function SuperAdmin() {
                     </p>
                   </div>
                   <div className="shrink-0 bg-slate-800/80 px-4 py-3 rounded-xl border border-slate-700 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] block">Nivel de Seguridad</span>
-                    <span className="text-sm font-black text-white">ISO 27001 / SOC-2</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] block">Marco de referencia</span>
+                    <span className="text-sm font-black text-white">Referencia ISO 27001 / SOC 2 (sin certificación)</span>
                   </div>
                 </div>
               </div>
@@ -875,7 +886,7 @@ export default function SuperAdmin() {
                       <h5 className="text-xs font-black text-red-900 uppercase">Protocolo de Baja & Eliminación Permanente</h5>
                     </div>
                     <p className="text-xs text-red-800 leading-relaxed">
-                      Para suspender temporalmente el acceso, cambie el estado a <b>suspended</b> en el menú desplegable. Si se requiere la revocación total y purga de la cuenta de usuario, presione el ícono de papelera roja, que exigirá tipear textualmente la palabra <code className="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold font-mono">ELIMINAR</code> antes de ejecutar <code className="text-[11px] bg-red-100 px-1 rounded font-mono">deleteDoc</code> en Firestore.
+                      Para suspender temporalmente el acceso, cambie el estado a <b>suspended</b>. La eliminación disponible aquí borra únicamente el perfil CRM de Firestore; no elimina la cuenta de Firebase Authentication. Solo la cuenta propietaria autorizada puede ejecutarla y debe confirmar escribiendo <code className="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold font-mono">ELIMINAR</code>.
                     </p>
                   </div>
                 </div>
@@ -1035,7 +1046,7 @@ export default function SuperAdmin() {
                   <Building2 className="w-3.5 h-3.5 text-indigo-500" /> Clientes Asignados ({assignedClientsDraft.length})
                 </h4>
                 <p className="text-[11px] text-gray-400 mb-3">
-                  Este colaborador solo podrá visualizar e interactuar con los clientes marcados aquí.
+                  Estas asignaciones quedan registradas en el perfil. La restricción efectiva de lectura y escritura aún requiere aplicar reglas y consultas por asignación.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {clientsList.map(c => {
@@ -1130,14 +1141,14 @@ export default function SuperAdmin() {
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-red-950 uppercase tracking-tight">Eliminar Usuario Permanentemente</h3>
+                <h3 className="text-base font-black text-red-950 uppercase tracking-tight">Eliminar Perfil CRM</h3>
                 <p className="text-[11px] text-red-700">Esta acción no se puede deshacer.</p>
               </div>
             </div>
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-gray-700 leading-relaxed">
-                Estás a punto de eliminar definitivamente la cuenta de <span className="font-bold text-gray-950">{userToDelete.email || userToDelete.name}</span>. Se revocarán todos los accesos a los módulos y se registrará este evento en la auditoría inmutable.
+                Estás a punto de eliminar el perfil CRM de <span className="font-bold text-gray-950">{userToDelete.email || userToDelete.name}</span>. Esta acción no elimina la cuenta de autenticación de Firebase ni sus datos asociados; esos pasos requieren un procedimiento administrativo separado.
               </p>
 
               <div>
@@ -1192,12 +1203,15 @@ export default function SuperAdmin() {
               </button>
             </div>
             <div className="p-6 space-y-4 text-xs">
+              <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900">
+                Estas opciones todavía no se guardan ni se aplican a las sesiones. Se muestran deshabilitadas para evitar una falsa confirmación.
+              </div>
               <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200">
                 <div>
                   <p className="font-bold text-gray-900">Tiempo de Expiración de Sesión</p>
                   <p className="text-[11px] text-gray-500">Cierra la sesión automáticamente tras inactividad.</p>
                 </div>
-                <select className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
+                <select disabled className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-gray-100 opacity-60">
                   <option value="30m">30 Minutos</option>
                   <option value="1h">1 Hora</option>
                   <option value="8h">8 Horas</option>
@@ -1210,7 +1224,7 @@ export default function SuperAdmin() {
                   <p className="font-bold text-gray-900">Bloqueo por Intentos Fallidos</p>
                   <p className="text-[11px] text-gray-500">Congela temporalmente tras intentos erróneos.</p>
                 </div>
-                <select className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
+                <select disabled className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
                   <option value="5">5 Intentos</option>
                   <option value="3">3 Intentos</option>
                   <option value="10">10 Intentos</option>
@@ -1222,18 +1236,12 @@ export default function SuperAdmin() {
                   <p className="font-bold text-gray-900">Exigir 2FA Obligatorio para Admins</p>
                   <p className="text-[11px] text-gray-500">Obliga autenticación de dos pasos a roles directivos.</p>
                 </div>
-                <input type="checkbox" defaultChecked className="w-4 h-4 text-cyan-600 rounded" />
+                <input type="checkbox" disabled defaultChecked className="w-4 h-4 text-cyan-600 rounded opacity-60" />
               </div>
             </div>
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
-                onClick={() => {
-                  setIsSecurityPoliciesModalOpen(false);
-                  triggerFeedback('Políticas de seguridad guardadas.');
-                }}
-                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800"
-              >
-                Guardar Políticas
+              <button disabled className="px-6 py-2.5 bg-gray-300 text-gray-500 rounded-xl text-xs font-black uppercase tracking-wider cursor-not-allowed">
+                No disponible: falta persistencia backend
               </button>
             </div>
           </div>
@@ -1250,12 +1258,12 @@ export default function SuperAdmin() {
             </div>
             <div className="p-6 space-y-3 text-xs text-gray-700">
               <p>
-                Esta acción fuerza la invalidación de la caché de permisos en los navegadores conectados y actualiza la regla RBAC activa para todos los usuarios.
+                La invalidación distribuida de caché y la propagación global de permisos aún no están conectadas a un servicio backend. Esta vista no ejecuta cambios.
               </p>
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 font-mono text-[11px] space-y-1">
-                <div>✓ Matriz RBAC verificada: 11 roles activos</div>
-                <div>✓ Listener Firestore: Transmisión en tiempo real</div>
-                <div>✓ Colección audit_logs: Integridad confirmada</div>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
+                <div>Estado: NO VERIFICADO</div>
+                <div>Propagación de matriz: pendiente de backend</div>
+                <div>Invalidación de sesiones: no ejecutada</div>
               </div>
             </div>
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
@@ -1265,14 +1273,8 @@ export default function SuperAdmin() {
               >
                 Cerrar
               </button>
-              <button 
-                onClick={() => {
-                  setIsSyncModalOpen(false);
-                  triggerFeedback('Sincronización en tiempo real completada con éxito.');
-                }}
-                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-white bg-slate-900 hover:bg-[#00F0FF] hover:text-black rounded-xl transition-all"
-              >
-                Sincronizar Ahora
+              <button disabled className="px-5 py-2 text-xs font-black uppercase tracking-wider text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed">
+                Sincronización no disponible
               </button>
             </div>
           </div>
@@ -1284,13 +1286,14 @@ export default function SuperAdmin() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-gray-100">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/60">
-              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Invitar Nuevo Miembro</h3>
+              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Registrar Solicitud de Invitación</h3>
               <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
             <form onSubmit={handleInviteUser} className="p-6 space-y-4 text-xs">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">Este formulario registra una solicitud en la auditoría; no envía correos ni crea cuentas automáticamente.</p>
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Correo Electrónico</label>
                 <div className="relative">
@@ -1332,7 +1335,7 @@ export default function SuperAdmin() {
                   type="submit"
                   className="px-6 py-2 bg-slate-900 text-white hover:bg-[#00F0FF] hover:text-black rounded-xl font-black uppercase tracking-wider transition-all"
                 >
-                  Enviar Invitación
+                  Registrar solicitud
                 </button>
               </div>
             </form>
