@@ -19,8 +19,15 @@ const formatAttendanceTime = (value: any) => {
   return Number.isNaN(date.getTime()) ? 'Hora no disponible' : date.toLocaleString();
 };
 
-export default function Recruitment() {
-  const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
+type RecruitmentTab = 'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal';
+
+interface RecruitmentProps {
+  canManageRecruitment?: boolean;
+  initialTab?: RecruitmentTab;
+}
+
+export default function Recruitment({ canManageRecruitment = false, initialTab = 'employee-portal' }: RecruitmentProps) {
+  const [activeTab, setActiveTab] = useState<RecruitmentTab>(initialTab);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -61,8 +68,13 @@ export default function Recruitment() {
     acquisitionCost: 0
   });
 
-  // Fetch Candidates
+  // Candidate records are only queried by users with effective HR permission.
   useEffect(() => {
+    if (!canManageRecruitment) {
+      setCandidates([]);
+      setLoadingCandidates(false);
+      return;
+    }
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -75,7 +87,7 @@ export default function Recruitment() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [canManageRecruitment]);
 
   // Attendance state is read from persisted records for the signed-in user.
   useEffect(() => {
@@ -100,18 +112,30 @@ export default function Recruitment() {
     });
   }, []);
 
-  // HR review queue: real absence requests only, no sample records.
+  // HR sees the review queue; employees see only their own requests.
   useEffect(() => {
-    const absenceQuery = query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc'));
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setAbsenceRequests([]);
+      return;
+    }
+    const absenceQuery = canManageRecruitment
+      ? query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc'))
+      : query(collection(db, 'absence_requests'), where('userId', '==', uid), orderBy('createdAt', 'desc'));
     return onSnapshot(absenceQuery, (snapshot) => {
       setAbsenceRequests(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'absence_requests');
     });
-  }, []);
+  }, [canManageRecruitment]);
 
-  // Fetch Jobs
+  // Full job records include HR metrics and are never queried by employees.
   useEffect(() => {
+    if (!canManageRecruitment) {
+      setJobs([]);
+      setLoadingJobs(false);
+      return;
+    }
     const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -124,7 +148,7 @@ export default function Recruitment() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [canManageRecruitment]);
 
   // --- Candidates Logic ---
   const updateStage = async (candidateId: string, newStage: string) => {
@@ -243,6 +267,7 @@ export default function Recruitment() {
   };
 
   const handleAbsenceStatusChange = async (requestId: string, status: 'approved' | 'rejected') => {
+    if (!canManageRecruitment) return;
     const reviewer = auth.currentUser;
     if (!reviewer) return;
     try {
@@ -300,7 +325,7 @@ export default function Recruitment() {
     }
   };
 
-  if ((loadingCandidates || loadingJobs) && candidates.length === 0 && jobs.length === 0) {
+  if (canManageRecruitment && (loadingCandidates || loadingJobs) && candidates.length === 0 && jobs.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[300px] p-8 text-center bg-white rounded-2xl border border-gray-100 shadow-sm">
         <div className="flex flex-col items-center gap-3">
@@ -496,7 +521,7 @@ export default function Recruitment() {
       <div className="flex justify-between items-center bg-white/50 p-4 rounded-[2rem] border border-gray-100 shadow-sm">
         <div className="flex items-center gap-6">
           <div>
-            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Reclutamiento y Selección</h2>
+            <h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">{canManageRecruitment ? 'Reclutamiento y Selección' : 'Mi Portal de Equipo'}</h2>
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mt-1">Gestión de Talento Kaivincia N-Core</p>
           </div>
         </div>
@@ -547,7 +572,7 @@ export default function Recruitment() {
       </div>
       
       {/* Gestión Documental Tab */}
-      {activeTab === 'docs' && (
+      {canManageRecruitment && activeTab === 'docs' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Document Creation Center */}
@@ -758,7 +783,7 @@ export default function Recruitment() {
                                <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type || 'Ausencia'} • {req.startDate || '—'} – {req.endDate || '—'}</p>
                                <p className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">{req.reason || 'Sin motivo indicado'}</p>
                             </div>
-                            {req.status === 'pending' && (
+                            {canManageRecruitment && req.status === 'pending' && (
                               <div className="flex gap-2 shrink-0">
                                 <button onClick={() => handleAbsenceStatusChange(req.id, 'approved')} title="Aprobar solicitud" className="p-3 bg-white border border-gray-100 text-emerald-600 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
                                 <button onClick={() => handleAbsenceStatusChange(req.id, 'rejected')} title="Rechazar solicitud" className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
@@ -803,7 +828,7 @@ export default function Recruitment() {
               </div>
            </div>
       )}
-      {activeTab === 'candidates' && (
+      {canManageRecruitment && activeTab === 'candidates' && (
         <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
           <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm shrink-0">
             <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Recepción de candidaturas</h3>
@@ -977,7 +1002,7 @@ export default function Recruitment() {
       </AnimatePresence>
 
       {/* Jobs Tab */}
-      {activeTab === 'jobs' && (
+      {canManageRecruitment && activeTab === 'jobs' && (
         <div className="space-y-8">
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
@@ -1087,7 +1112,7 @@ export default function Recruitment() {
       )}
 
       {/* Portal Público Tab */}
-      {activeTab === 'portal' && (
+      {canManageRecruitment && activeTab === 'portal' && (
         <div className="flex-1 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-2xl flex flex-col lg:flex-row items-center gap-10">
             <div className="flex-1 space-y-6">
