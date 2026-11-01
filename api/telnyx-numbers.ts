@@ -1,4 +1,4 @@
-import { adminDb } , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
+import { adminDb  , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
