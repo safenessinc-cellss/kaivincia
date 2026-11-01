@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
+import { adminAuth, adminDb  , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
 
 const ADMIN_ROLES = new Set(['superadmin', 'admin']);
 
