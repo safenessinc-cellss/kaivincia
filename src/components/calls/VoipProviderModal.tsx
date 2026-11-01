@@ -645,56 +645,60 @@ export default function VoipProviderModal({
         </div>
 
         {/* Selector de Pestañas de Configuración */}
-        <div className="flex items-center border-b border-slate-200/80 bg-white px-5 gap-2 overflow-x-auto no-scrollbar">
+        <div
+          role="tablist"
+          aria-label="Secciones de configuración VoIP"
+          className="flex items-stretch border-b border-slate-200 bg-slate-50/90 px-3 sm:px-5 gap-1.5 overflow-x-auto overscroll-x-contain no-scrollbar"
+        >
           <button
             type="button"
             onClick={() => setActiveTab('sip')}
-            className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`min-h-[64px] px-4 sm:px-5 py-3 text-sm sm:text-[15px] font-semibold tracking-normal normal-case flex items-center gap-2.5 border-b-[3px] rounded-t-lg transition-all duration-200 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset ${
               activeTab === 'sip'
-                ? 'border-cyan-400 text-cyan-700'
-                : 'border-transparent text-slate-600 hover:text-slate-700'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-900'
+                : 'border-transparent text-slate-700 hover:text-slate-950 hover:bg-slate-100'
             }`}
           >
-            <Server className="w-3.5 h-3.5" />
+            <Server className="w-[18px] h-[18px] shrink-0" />
             <span>Básico & Troncal SIP</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('api')}
-            className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`min-h-[64px] px-4 sm:px-5 py-3 text-sm sm:text-[15px] font-semibold tracking-normal normal-case flex items-center gap-2.5 border-b-[3px] rounded-t-lg transition-all duration-200 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset ${
               activeTab === 'api'
-                ? 'border-cyan-400 text-cyan-700'
-                : 'border-transparent text-slate-600 hover:text-slate-700'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-900'
+                : 'border-transparent text-slate-700 hover:text-slate-950 hover:bg-slate-100'
             }`}
           >
-            <Zap className="w-3.5 h-3.5" />
+            <Zap className="w-[18px] h-[18px] shrink-0" />
             <span>APIs REST & Webhooks</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('webrtc')}
-            className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`min-h-[64px] px-4 sm:px-5 py-3 text-sm sm:text-[15px] font-semibold tracking-normal normal-case flex items-center gap-2.5 border-b-[3px] rounded-t-lg transition-all duration-200 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset ${
               activeTab === 'webrtc'
-                ? 'border-cyan-400 text-cyan-700'
-                : 'border-transparent text-slate-600 hover:text-slate-700'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-900'
+                : 'border-transparent text-slate-700 hover:text-slate-950 hover:bg-slate-100'
             }`}
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-[18px] h-[18px] shrink-0" />
             <span>WebRTC, STUN/TURN & Códecs</span>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('routing')}
-            className={`py-3 px-3 text-xs font-black uppercase tracking-wider flex items-center gap-2 border-b-2 transition-all cursor-pointer whitespace-nowrap ${
+            className={`min-h-[64px] px-4 sm:px-5 py-3 text-sm sm:text-[15px] font-semibold tracking-normal normal-case flex items-center gap-2.5 border-b-[3px] rounded-t-lg transition-all duration-200 cursor-pointer whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-inset ${
               activeTab === 'routing'
-                ? 'border-cyan-400 text-cyan-700'
-                : 'border-transparent text-slate-600 hover:text-slate-700'
+                ? 'border-cyan-600 bg-cyan-50 text-cyan-900'
+                : 'border-transparent text-slate-700 hover:text-slate-950 hover:bg-slate-100'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
+            <Layers className="w-[18px] h-[18px] shrink-0" />
             <span>Enrutamiento & Failover</span>
           </button>
         </div>
