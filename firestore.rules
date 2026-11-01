@@ -95,11 +95,15 @@ service cloud.firestore {
 
     function isValidTicketAssignment(data) {
       let assignedUid = data.get("assignedTo", null);
+      let assignedEmail = data.get("assignedToEmail", null);
       return assignedUid == null
-        ? data.get("assignedToEmail", null) == null
+        ? assignedEmail == null
         : assignedUid is string &&
+          assignedEmail is string &&
           exists(/databases/$(database)/documents/users/$(assignedUid)) &&
-          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("email", "") == data.get("assignedToEmail", "");
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("email", "") == assignedEmail &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("status", "") in ["approved", "active"] &&
+          get(/databases/$(database)/documents/users/$(assignedUid)).data.get("role", "") in ["superadmin", "admin", "owner", "ceo", "gestor"];
     }
 
     function isVoipUser() {
@@ -333,7 +337,9 @@ service cloud.firestore {
         request.resource.data.messages[0].get('senderId', '') == request.auth.uid &&
         request.resource.data.messages[0].get('senderEmail', '') == request.auth.token.email &&
         request.resource.data.messages[0].get('text', '') == request.resource.data.description &&
-        request.resource.data.messages[0].get('createdAt', null) is timestamp;
+        request.resource.data.messages[0].get('createdAt', null) is timestamp &&
+        request.resource.data.get('createdAt', null) == request.time &&
+        request.resource.data.get('updatedAt', null) == request.time;
       // Support staff may only manage workflow fields and append one
       // authenticated message. Ticket identity and original content are immutable.
       allow update: if (
@@ -344,6 +350,7 @@ service cloud.firestore {
         request.resource.data.get('subject', '') == existing().get('subject', '') &&
         request.resource.data.get('description', '') == existing().get('description', '') &&
         request.resource.data.get('createdAt', null) == existing().get('createdAt', null) &&
+        request.resource.data.get('updatedAt', null) == request.time &&
         request.resource.data.get('status', '') in ['open', 'in_progress', 'resolved', 'closed'] &&
         isValidTicketStatusTransition(existing().get('status', 'open'), request.resource.data.get('status', 'open')) &&
         request.resource.data.get('priority', '') in ['low', 'medium', 'high', 'critical'] &&
@@ -353,6 +360,7 @@ service cloud.firestore {
         isApproved() &&
         existing().get('userId', '') == request.auth.uid &&
         request.resource.data.diff(existing()).affectedKeys().hasOnly(['messages', 'updatedAt']) &&
+        request.resource.data.get('updatedAt', null) == request.time &&
         isValidTicketReply(existing(), request.resource.data) &&
         existing().get('status', 'open') in ['open', 'in_progress'] &&
         request.resource.data.get('status', '') == existing().get('status', '') &&
