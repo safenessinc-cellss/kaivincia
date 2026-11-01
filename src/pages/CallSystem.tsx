@@ -79,7 +79,7 @@ export default function CallSystem() {
   const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
   const activeTab = (
     (!isAdmin && ['telnyx', 'meta', 'esim', 'directory'].includes(requestedTab)) ||
-    (requestedTab === 'telnyx' && !canManageTelephony)
+    (['telnyx', 'esim', 'directory'].includes(requestedTab) && !canManageTelephony)
   ) ? 'monitor' : requestedTab;
 
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function CallSystem() {
 
       {/* Navegación por Pestañas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
-        {TABS.filter((tab) => (!tab.adminOnly || isAdmin) && (tab.id !== 'telnyx' || canManageTelephony)).map((tab) => {
+        {TABS.filter((tab) => (!tab.adminOnly || isAdmin) && (!['telnyx', 'esim', 'directory'].includes(tab.id) || canManageTelephony)).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -239,13 +239,13 @@ export default function CallSystem() {
           />
         )}
 
-        {activeTab === 'esim' && (
+        {activeTab === 'esim' && canManageTelephony && (
           <EsimManager
             onStartCall={(phone) => handleTriggerCall(phone)}
           />
         )}
 
-        {activeTab === 'directory' && (
+        {activeTab === 'directory' && canManageTelephony && (
           <VoipProviderConfig
             isAdmin={canManageTelephony}
           />
