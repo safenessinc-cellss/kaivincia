@@ -162,8 +162,9 @@ function KanbanCard({
         </div>
 
         <button
+          disabled={!lead.phone}
           onClick={() => onWhatsApp(lead.phone, lead.name)}
-          className={`px-2.5 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 ${size === 'sm' ? 'text-[9px]' : 'text-[10px]'} font-bold flex items-center gap-1 transition-all cursor-pointer`}
+          className={`px-2.5 py-1 rounded-lg bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-white border border-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed ${size === 'sm' ? 'text-[9px]' : 'text-[10px]'} font-bold flex items-center gap-1 transition-all cursor-pointer`}
           title="Abrir WhatsApp"
         >
           <MessageSquare className={iconSizeClass} /> WhatsApp
