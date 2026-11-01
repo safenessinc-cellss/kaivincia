@@ -45,6 +45,7 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [integrationNotice, setIntegrationNotice] = useState('Aprovisionamiento eSIM y consumo en tiempo real: proveedor no conectado.');
   const [isSimulatingId, setIsSimulatingId] = useState<string | null>(null);
 
   // Modal de configuración de línea & WhatsApp
@@ -66,112 +67,10 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
 
     const q = collection(db, 'esim_profiles');
     const unsub = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setProfiles(list);
-        if (!selectedProfileId && list.length > 0) {
-          setSelectedProfileId(list[0].id);
-        }
-      } else {
-        // Semilla inicial predeterminada con configuración de línea interna y WhatsApp único
-        const defaults = [
-          {
-            id: 'esim_1',
-            agentName: 'Marta García',
-            phone: '+1 323 555 0122',
-            lineName: 'Línea Corporativa Ventas & WhatsApp',
-            extension: 'Ext 101',
-            carrier: 'T-Mobile USA',
-            region: 'USA',
-            planName: 'USA Ultra HighSpeed 15GB',
-            status: 'active',
-            isInternalLineActive: true,
-            isWhatsAppActive: true,
-            isSharedWithAllOperators: true,
-            assignedOperators: ['Todos los Operadores (Línea Compartida)'],
-            smdpServer: 'rsp.t-mobile.com',
-            activationCode: 'LPA:1$RSP.T-MOBILE.COM$T-MO-MARTA-902',
-            totalDataGB: 15,
-            usedDataGB: 4.8,
-            expirationDate: '2026-09-12',
-            signalStrength: 4,
-            iccid: '8904903200001234567',
-            isDemo: true,
-            whatsAppConfig: {
-              phoneNumberId: '109283746501928',
-              wabaId: 'WABA-99281-CORP',
-              displayName: 'Kaivincia CRM Corporativo',
-              sharedMode: 'all_operators',
-              webhookStatus: 'verified',
-              multiAgentEnabled: true
-            },
-            sipCredentials: {
-              sipUsername: '3235550122',
-              sipDomain: 'sip.zadarma.com',
-              callerId: '+1 323 555 0122'
-            }
-          },
-          {
-            id: 'esim_2',
-            agentName: 'Carlos Ruiz',
-            phone: '+34 690 987 654',
-            lineName: 'Línea Europa Soporte & Cierres',
-            extension: 'Ext 102',
-            carrier: 'Vodafone Europe',
-            region: 'Europa',
-            planName: 'EuroTravel Premium 10GB',
-            status: 'active',
-            isInternalLineActive: true,
-            isWhatsAppActive: true,
-            isSharedWithAllOperators: true,
-            assignedOperators: ['Todos los Operadores (Línea Compartida)'],
-            smdpServer: 'rsp.vodafone.com',
-            activationCode: 'LPA:1$RSP.VODAFONE.COM$VF-EUR-MARTA-304',
-            totalDataGB: 10,
-            usedDataGB: 8.5,
-            expirationDate: '2026-08-30',
-            signalStrength: 3,
-            iccid: '8934000200009876543',
-            isDemo: true,
-            whatsAppConfig: {
-              phoneNumberId: '209384817263540',
-              wabaId: 'WABA-EUROPE-33',
-              displayName: 'Kaivincia Europa',
-              sharedMode: 'all_operators',
-              webhookStatus: 'verified',
-              multiAgentEnabled: true
-            }
-          },
-          {
-            id: 'esim_3',
-            agentName: 'Miguel Rojas',
-            phone: '+58 412 555 1122',
-            lineName: 'Línea Contingencia Latam',
-            extension: 'Ext 103',
-            carrier: 'Digitel Local Backup',
-            region: 'Latam',
-            planName: 'Latam Multi-Carrier 5GB',
-            status: 'expired',
-            isInternalLineActive: false,
-            isWhatsAppActive: false,
-            isSharedWithAllOperators: false,
-            assignedOperators: ['Miguel Rojas'],
-            smdpServer: 'rsp.digitel.com.ve',
-            activationCode: 'LPA:1$RSP.DIGITEL.COM.VE$DG-VEN-MIGUEL-501',
-            totalDataGB: 5,
-            usedDataGB: 5.0,
-            expirationDate: '2026-06-25',
-            signalStrength: 2,
-            iccid: '8958021200001122334',
-            isDemo: true
-          }
-        ];
-        defaults.forEach(item => {
-          setDoc(doc(db, 'esim_profiles', item.id), item).catch(console.error);
-        });
-        setProfiles(defaults);
-        setSelectedProfileId(defaults[0].id);
-      }
+      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() })).filter((profile: any) => !profile.isDemo);
+      setProfiles(list);
+      if (selectedProfileId && !list.some((profile: any) => profile.id === selectedProfileId)) setSelectedProfileId(null);
+      if (!selectedProfileId && list.length > 0) setSelectedProfileId(list[0].id);
       setLoading(false);
     }, (err) => {
       console.warn('Error fetching esim_profiles:', err);
@@ -188,6 +87,8 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
   // Simular consumo de datos en la demo
   const handleSimulateUsage = async (profileId: string) => {
     if (isSimulatingId) return;
+    console.info('eSIM usage simulation disabled: no carrier usage integration is connected.');
+    return;
     setIsSimulatingId(profileId);
 
     const prof = profiles.find(p => p.id === profileId);
@@ -216,6 +117,8 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
   // Crear nuevo perfil eSIM (con configuración completa de línea y WhatsApp)
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIntegrationNotice('No se creó ninguna línea: conecta un proveedor eSIM real para aprovisionar perfiles.');
+    return;
     const newId = 'esim_' + Date.now().toString().slice(-6);
     const totalGB = parseInt(formPackage, 10);
     const generatedPhone = formPhone.trim() || (formRegion === 'USA' ? '+1 (323) 555-' + Math.floor(1000 + Math.random() * 9000) : '+34 690 ' + Math.floor(100000 + Math.random() * 900000));
@@ -298,6 +201,7 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
           <button
             type="button"
             onClick={() => setActiveTab('whatsapp')}
+            disabled={profiles.length === 0}
             className={`px-4 py-2 rounded-2xl font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer relative ${
               activeTab === 'whatsapp'
                 ? 'bg-emerald-500 text-black shadow-[0_0_20px_rgba(16,185,129,0.3)]'
@@ -314,15 +218,17 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
           <button
             type="button"
             onClick={() => setShowProvisionModal(true)}
+            disabled
             className="px-3.5 py-2 rounded-2xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 border border-cyan-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Nueva Línea eSIM</span>
+            <span>Aprovisionamiento no conectado</span>
           </button>
         </div>
       </div>
 
       {/* VISTA 1: GESTIÓN DE PERFILES Y LÍNEAS */}
+      {integrationNotice && <p className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-xs text-amber-700 dark:text-amber-300">{integrationNotice}</p>}
       {activeTab === 'profiles' && (
         <div className="space-y-6">
           {/* Banner de Estado de Integración y Modo Multi-Operador */}
@@ -599,7 +505,7 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
       )}
 
       {/* VISTA 2: BANDEJA WHATSAPP COMPARTIDA (NÚMERO ÚNICO PARA TODOS LOS OPERADORES) */}
-      {activeTab === 'whatsapp' && (
+      {activeTab === 'whatsapp' && profiles.length > 0 && (
         <EsimSharedWhatsappHub
           profile={selectedProfile || profiles[0]}
           onOpenConfig={() => handleOpenConfigModal(selectedProfile || profiles[0])}
