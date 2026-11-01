@@ -39,9 +39,12 @@ async function main() {
     await assertSucceeds(getDoc(doc(alice, 'clients', 'alice-client')));
     await assertSucceeds(setDoc(doc(alice, 'clients', 'alice-new-client'), { name: 'New client', createdBy: 'alice' }));
     await assertFails(setDoc(doc(bob, 'clients', 'forged-client'), { name: 'Forged', createdBy: 'alice' }));
+    await assertFails(setDoc(doc(alice, 'clients', 'shared-client'), { name: 'Shared', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(admin, 'clients', 'admin-assigned-client'), { name: 'Admin assigned', createdBy: 'admin', assignedTo: 'bob' }));
     await assertFails(setDoc(doc(pending, 'tasks', 'pending-task'), { title: 'Pending', createdBy: 'pending', assignedTo: 'pending' }));
     await assertFails(getDoc(doc(alice, 'clients', 'bob-client')));
     await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedTo: 'bob' }));
+    await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedManagerId: 'bob' }));
     await assertSucceeds(updateDoc(doc(admin, 'clients', 'alice-client'), { assignedTo: 'bob' }));
     await assertSucceeds(getDocs(query(collection(alice, 'clients'), where('createdBy', '==', 'alice'))));
     await assertFails(getDocs(collection(alice, 'clients')));
