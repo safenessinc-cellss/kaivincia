@@ -203,13 +203,13 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({
       token,
-      sipUsername: operator.telnyxUsername || '',
+      sipUsername: operator.telnyxUsername || credential.telnyxUsername || credential.username || '',
       credentialId,
-      connectionId: operator.connectionId || process.env.TELNYX_CONNECTION_ID || '',
+      connectionId: operator.connectionId || credential.connectionId || process.env.TELNYX_CONNECTION_ID || '',
       operador: { uid: authUser.uid, nombre: operator.nombre || profile.name || authUser.email || 'Operador', rol: role },
       permissions: {
-        outbound: operator.permiteSalientes === true,
-        inbound: operator.permiteEntrantes === true
+        outbound: isPrivileged || operator.permiteSalientes === true,
+        inbound: isPrivileged || operator.permiteEntrantes === true
       },
       numerosAsignados: numbers,
       allowedNumbers: numbers.map((number: any) => number.phoneNumber),
