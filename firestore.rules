@@ -172,7 +172,7 @@ service cloud.firestore {
       allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
         (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if (isAdmin() && request.resource.data.get('createdBy', '') == request.auth.uid) ||
-        (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid);
+        (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
       allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
     }
@@ -244,7 +244,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
       match /messages/{messageId} {
         allow read: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
-        allow create: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
+        allow create: if isAdmin() || (isApproved() && request.resource.data.get('senderId', '') == request.auth.uid && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow delete: if isAdmin();
       }
@@ -350,7 +350,7 @@ service cloud.firestore {
 
         match /academic_progress/{progressId} {
       allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
-      allow create: if isAdmin() || (isApproved() && ownsRecord(request.resource.data));
+      allow create: if isAdmin() || (isApproved() && ownsRecord(request.resource.data) && hasOnlyOwnAssignments(request.resource.data));
       allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
@@ -441,16 +441,16 @@ service cloud.firestore {
     }
 
     match /invoices/{invoiceId} {
-      allow read: if isAdmin() || ownsRecord(resource.data) ||
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
         (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create, update: if isAdmin() && isValidInvoice(request.resource.data);
       allow delete: if isAdmin();
     }
 
     match /time_logs/{logId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && isValidTimeLog(request.resource.data) && hasOnlyOwnAssignments(request.resource.data);
-      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidTimeLog(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidTimeLog(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -483,7 +483,7 @@ service cloud.firestore {
     match /absence_requests/{requestId} {
       allow read:   if isAdmin() ||
                        (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow create: if isAuthenticated() && hasOnlyOwnAssignments(incoming()) && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
