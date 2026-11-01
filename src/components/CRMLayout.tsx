@@ -165,6 +165,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
     const portalGroup = {
       title: t('nav.groups.portal', 'PORTAL PERSONAL'),
       items: [
+        { name: t('nav.employee_portal', 'Portal de Equipo'), href: '/crm/employee-portal', icon: Users2, color: 'text-emerald-500' },
         { name: t('nav.my_portal', 'Mi Portal'), href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
         { name: t('nav.billing', 'Facturación GPS'), href: '/crm/billing', icon: Receipt, color: 'text-cyan-600' },
       ]
