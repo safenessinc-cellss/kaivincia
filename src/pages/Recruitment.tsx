@@ -219,13 +219,6 @@ export default function Recruitment() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadError(`El análisis de CV con IA no está conectado. No se cargó el archivo ni se creó un candidato: ${file.name}`);
-    e.target.value = '';
-  };
-
   const handleAttendance = async (type: 'in' | 'out') => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
@@ -806,46 +799,11 @@ export default function Recruitment() {
       )}
       {activeTab === 'candidates' && (
         <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
-          {/* AI Intake Board - Reduced Size */}
-          <div className="bg-white rounded-[2.5rem] p-6 border border-gray-100 shadow-xl relative overflow-hidden group mb-2 shrink-0 transition-all hover:shadow-[#00F0FF]/5">
-            <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
-               <Bot className="w-16 h-16 text-[#00F0FF]" />
-            </div>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
-               <div className="max-w-2xl">
-                  <div className="flex items-center gap-3 mb-2">
-                     <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center shadow-xl group-hover:rotate-6 transition-transform">
-                        <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
-                     </div>
-                     <div>
-                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Importación de CV — no conectada</h3>
-                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mt-0.5 italic">Extracción IA no disponible</p>
-                     </div>
-                  </div>
-                  <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                    La extracción automática de CV todavía no está conectada. Seleccionar un archivo no lo sube, no lo analiza y no crea candidatos.
-                  </p>
-                  {uploadError && <p role="alert" className="mt-3 text-[10px] font-semibold text-rose-600">{uploadError}</p>}
-               </div>
-               <div className="flex-1 max-w-sm">
-                  <label className="block">
-                     <div className="border-2 border-dashed border-gray-200 rounded-3xl p-6 bg-gray-50 text-center group/uploader relative overflow-hidden shadow-inner">
-                        <input 
-                           type="file" 
-                           className="hidden" 
-                           accept=".pdf,.doc,.docx"
-                           onChange={handleFileUpload}
-                        />
-                        <div className="absolute top-0 left-0 w-full h-0.5 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
-                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                           Importación no disponible
-                        </p>
-                        <p className="text-[8px] font-black text-gray-300 mt-1 uppercase tracking-tight">PDF • WORD — SIN PROCESAMIENTO</p>
-                     </div>
-                  </label>
-               </div>
-            </div>
+          <div className="bg-white rounded-[2rem] p-6 border border-gray-100 shadow-sm shrink-0">
+            <h3 className="text-sm font-black text-gray-900 uppercase tracking-widest">Recepción de candidaturas</h3>
+            <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+              La importación masiva de CV no está habilitada. Las candidaturas se reciben mediante el formulario público, que extrae texto del CV y lo deja disponible para revisión de RR. HH.
+            </p>
           </div>
 
           <div className="flex-1 flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
@@ -877,11 +835,7 @@ export default function Recruitment() {
                       }}
                       className="bg-white p-5 rounded-[2rem] shadow-[0_10px_25px_-5px_rgba(0,0,0,0.05)] border border-gray-100 hover:border-[#00F0FF]/30 hover:shadow-xl transition-all cursor-pointer group/card relative overflow-hidden active:scale-95"
                     >
-                      {/* Match Score Indicator Line */}
-                      <div className={`absolute top-0 left-0 h-full w-1.5 ${
-                        (candidate.aiScore || 0) >= 90 ? 'bg-green-500' :
-                        (candidate.aiScore || 0) >= 70 ? 'bg-blue-500' : 'bg-amber-500'
-                      }`} />
+                      <div className={`absolute top-0 left-0 h-full w-1.5 ${candidate.hasResume ? 'bg-emerald-500' : 'bg-gray-300'}`} />
 
                       <div className="flex gap-4 items-start mb-4">
                         <div className="h-12 w-12 rounded-2xl bg-gray-50 flex items-center justify-center font-black text-gray-900 border border-gray-100 shadow-inner group-hover/card:scale-110 transition-transform">
@@ -894,18 +848,12 @@ export default function Recruitment() {
                       </div>
 
                       <div className="flex items-center justify-between mt-auto">
-                        <div className="flex -space-x-2">
-                           <div className="w-6 h-6 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-[8px] font-black text-gray-400">IA</div>
-                           <div className="w-6 h-6 rounded-full bg-gray-900 border-2 border-white flex items-center justify-center">
-                              <Zap className="w-3 h-3 text-[#00F0FF]" />
-                           </div>
-                        </div>
-                        <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm ${
-                          (candidate.aiScore || 0) >= 90 ? 'bg-green-500 text-white' :
-                          (candidate.aiScore || 0) >= 70 ? 'bg-blue-500 text-white' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {candidate.aiScore || 0}% AJUSTE
-                        </div>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                          {candidate.hasResume ? 'CV recibido' : 'CV pendiente'}
+                        </span>
+                        <span className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-gray-100 text-gray-600">
+                          {candidate.status || 'Nuevo'}
+                        </span>
                       </div>
                     </motion.div>
                   ))}
@@ -962,43 +910,24 @@ export default function Recruitment() {
                </div>
 
                <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
-                  {/* IA Analysis Panel */}
-                  <div className="bg-gray-900 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl">
-                     <div className="absolute top-0 right-0 p-8">
-                        <Sparkles className="w-10 h-10 text-[#00F0FF]/20 animate-pulse" />
+                  <div className="bg-gray-50 rounded-[2rem] p-8 border border-gray-100 space-y-5">
+                     <div>
+                       <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900">Revisión de Recursos Humanos</h3>
+                       <p className="text-[10px] text-gray-500 mt-2">La evaluación y el avance del candidato son decisiones del equipo de RR. HH.; no se asigna una puntuación automática.</p>
                      </div>
-                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-8">
-                           <div className="h-6 w-1 bg-[#00F0FF] rounded-full" />
-                           <h3 className="text-xs font-black uppercase tracking-[0.3em] text-[#00F0FF]">Auditoría Predictiva IA</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-10">
-                           <div className="space-y-4">
-                              <p className="text-[10px] font-black text-green-400 uppercase tracking-widest flex items-center gap-2">
-                                 <CheckCircle className="w-3 h-3" /> Puntos Fuertes
-                              </p>
-                              <div className="space-y-3">
-                                 {(selectedCandidate.aiPros || ['Perfil sólido', 'Alta concurrencia técnica']).map((pro: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-xs font-medium text-gray-300 leading-relaxed italic">
-                                       <span className="text-[#00F0FF]">•</span> {pro}
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                           <div className="space-y-4">
-                              <p className="text-[10px] font-black text-red-400 uppercase tracking-widest flex items-center gap-2">
-                                 <ShieldAlert className="w-3 h-3" /> Señales de Alerta
-                              </p>
-                              <div className="space-y-3">
-                                 {(selectedCandidate.aiCons || ['Falta experiencia en sector específico', 'Brecha salarial alta']).map((con: string, i: number) => (
-                                    <div key={i} className="flex gap-2 text-xs font-medium text-gray-300 leading-relaxed italic">
-                                       <span className="text-red-500">•</span> {con}
-                                    </div>
-                                 ))}
-                              </div>
-                           </div>
-                        </div>
+                     <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest">
+                       <span className="px-3 py-2 bg-white rounded-xl border border-gray-200">Estado: {selectedCandidate.status || 'Nuevo'}</span>
+                       <span className="px-3 py-2 bg-white rounded-xl border border-gray-200">{selectedCandidate.hasResume ? 'Texto de CV disponible' : 'Sin CV registrado'}</span>
+                     </div>
+                     <div className="space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Texto extraído del currículum</h4>
+                       <div className="max-h-72 overflow-y-auto whitespace-pre-wrap bg-white rounded-2xl border border-gray-200 p-5 text-xs leading-relaxed text-gray-700">
+                         {selectedCandidate.resumeText ? String(selectedCandidate.resumeText).slice(0, 12000) : 'No se ha guardado texto de currículum para esta candidatura.'}
+                       </div>
+                     </div>
+                     <div className="space-y-2">
+                       <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Notas internas de RR. HH.</h4>
+                       <p className="text-xs leading-relaxed text-gray-700 whitespace-pre-wrap">{selectedCandidate.hrNotes || 'Aún no hay notas internas.'}</p>
                      </div>
                   </div>
 
@@ -1316,61 +1245,17 @@ export default function Recruitment() {
                 </div>
               </div>
 
-              {/* IA SECTION - Clearly Distinguishable */}
-              <div className="bg-gray-900 rounded-[2.5rem] p-8 text-white space-y-6 shadow-2xl relative overflow-hidden group border border-[#00F0FF]/20">
-                {/* AI Glow Effect */}
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-[#00F0FF]/20 rounded-full blur-[80px]" />
-                <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px]" />
-                
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 bg-[#00F0FF] text-black rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(181,154,69,0.3)]">
-                      <Bot className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-black uppercase tracking-tighter">Motor de Análisis IA</h4>
-                      <p className="text-[10px] text-[#00F0FF] font-black uppercase tracking-widest">Auditoría Predictiva Activa</p>
-                    </div>
-                  </div>
-                  <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
-                </div>
-
-                <div className="grid grid-cols-1 gap-6 relative z-10">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-xs font-black uppercase tracking-widest text-gray-400">
-                      <span>Score de Concurrencia</span>
-                      <span className="text-[#00F0FF]">{editingCandidate.aiScore || 0}%</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      value={editingCandidate.aiScore || 0}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiScore: parseInt(e.target.value)})}
-                      className="w-full h-1.5 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[#00F0FF]"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Resumen Ejecutivo</label>
-                    <textarea 
-                      value={editingCandidate.aiSummary || ''}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiSummary: e.target.value})}
-                      rows={2}
-                      className="w-full bg-gray-800 border-gray-700 text-gray-300 rounded-xl p-3 text-sm focus:ring-1 focus:ring-[#00F0FF] outline-none border resize-none"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Justificación del Perfil</label>
-                    <textarea 
-                      value={editingCandidate.aiJustification || ''}
-                      onChange={e => setEditingCandidate({...editingCandidate, aiJustification: e.target.value})}
-                      rows={3}
-                      className="w-full bg-gray-800 border-gray-700 text-gray-300 rounded-xl p-3 text-sm focus:ring-1 focus:ring-[#00F0FF] outline-none border resize-none"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Notas internas de RR. HH.</label>
+                <textarea
+                  value={editingCandidate.hrNotes || ''}
+                  onChange={e => setEditingCandidate({...editingCandidate, hrNotes: e.target.value})}
+                  rows={5}
+                  maxLength={5000}
+                  placeholder="Añade observaciones verificables de la entrevista o revisión del perfil..."
+                  className="w-full bg-gray-50 border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-[#00F0FF] outline-none resize-y"
+                />
+                <p className="text-[10px] text-gray-400">Máximo 5.000 caracteres. Solo visible para usuarios con permiso de RR. HH.</p>
               </div>
             </div>
 
