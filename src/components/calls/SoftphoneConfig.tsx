@@ -6,8 +6,10 @@ import {
   UserCheck, 
   Briefcase, 
   Users, 
-  ShieldCheck, 
-  SlidersHorizontal 
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Hand
 } from 'lucide-react';
 import { VoipProvider, SoftphoneState } from '../../types/calls';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -19,6 +21,9 @@ interface SoftphoneConfigProps {
   authorizedCallerIds: string[];
   selectedCallerId: string;
   onSelectCallerId: (id: string) => void;
+  callerIdMode?: 'auto' | 'manual';
+  onCallerIdModeChange?: (mode: 'auto' | 'manual') => void;
+  callerIdAutoReason?: string;
   selectedProject: string;
   onSelectProject: (project: string) => void;
   selectedClientName: string;
@@ -39,6 +44,9 @@ export default function SoftphoneConfig({
   authorizedCallerIds,
   selectedCallerId,
   onSelectCallerId,
+  callerIdMode = 'auto',
+  onCallerIdModeChange,
+  callerIdAutoReason = 'Línea predeterminada asignada',
   selectedProject,
   onSelectProject,
   selectedClientName,
@@ -106,34 +114,66 @@ export default function SoftphoneConfig({
           </select>
         </div>
 
-        {/* Selector de Caller ID Autorizado */}
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-[9px] uppercase font-bold text-slate-600 flex items-center gap-1">
-              <UserCheck className="w-2.5 h-2.5 text-cyan-700" />
-              <span>Caller ID de Salida</span>
+        {/* Caller ID: automático o selección manual, siempre limitado a líneas autorizadas */}
+        <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-2.5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[9px] uppercase font-bold text-slate-700 flex items-center gap-1">
+              <UserCheck className="w-3 h-3 text-blue-700" />
+              <span>Número de salida (Caller ID)</span>
             </label>
-            {authorizedCallerIds.length > 0 && (
-              <span className="text-[9px] text-emerald-700 font-bold">● Habilitado</span>
-            )}
+            <span className="text-[9px] text-emerald-700 font-bold flex items-center gap-1">
+              <ShieldCheck className="w-3 h-3" /> Autorizado
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => onCallerIdModeChange?.('auto')}
+              disabled={callStatus !== 'idle'}
+              aria-pressed={callerIdMode === 'auto'}
+              className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-colors disabled:opacity-50 ${callerIdMode === 'auto' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+            >
+              <Sparkles className="w-3 h-3" /> Automático
+            </button>
+            <button
+              type="button"
+              onClick={() => onCallerIdModeChange?.('manual')}
+              disabled={callStatus !== 'idle'}
+              aria-pressed={callerIdMode === 'manual'}
+              className={`rounded-lg border px-2 py-1.5 text-[10px] font-bold flex items-center justify-center gap-1 transition-colors disabled:opacity-50 ${callerIdMode === 'manual' ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+            >
+              <Hand className="w-3 h-3" /> Manual
+            </button>
           </div>
 
           {authorizedCallerIds.length > 0 ? (
-            <select
-              value={selectedCallerId}
-              onChange={(e) => onSelectCallerId(e.target.value)}
-              disabled={callStatus !== 'idle'}
-              className="w-full bg-slate-50 border border-cyan-500/40 rounded-xl px-2.5 py-1.5 text-xs text-cyan-700 font-mono font-bold focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
-            >
-              {authorizedCallerIds.map(num => (
-                <option key={num} value={num}>
-                  {num} {agentAssignment?.defaultCallerId === num ? '(Default)' : ''}
-                </option>
-              ))}
-            </select>
+            <>
+              <select
+                value={selectedCallerId}
+                onChange={(e) => onSelectCallerId(e.target.value)}
+                disabled={callStatus !== 'idle' || callerIdMode === 'auto'}
+                className="w-full bg-white border border-blue-200 rounded-xl px-2.5 py-2 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-blue-500 disabled:opacity-75 disabled:cursor-not-allowed"
+                aria-label="Número de salida autorizado"
+              >
+                {authorizedCallerIds.map(num => (
+                  <option key={num} value={num}>
+                    {num} {agentAssignment?.defaultCallerId === num ? '(Preferido)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[10px] text-slate-600">
+                {callerIdMode === 'auto' ? callerIdAutoReason : 'Selección manual entre tus líneas asignadas.'}
+              </p>
+              <div className="mt-2 rounded-lg bg-white border border-blue-100 px-2.5 py-2">
+                <div className="text-[9px] uppercase tracking-wide text-slate-500 font-semibold">Caller ID solicitado a Telnyx</div>
+                <div className="text-sm font-bold font-mono text-slate-900">{selectedCallerId || 'Sin línea seleccionada'}</div>
+                <div className="text-[9px] text-slate-500 mt-0.5">La presentación final depende de la validación de Telnyx y de la red de destino.</div>
+              </div>
+            </>
           ) : (
-            <div className="bg-slate-50 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-[10px] text-amber-800 font-medium">
-              Sin números asignados. Contacta a tu supervisor.
+            <div className="bg-white border border-amber-200 rounded-xl px-2.5 py-2 text-[10px] text-amber-800 font-medium">
+              No hay números asignados. Contacta a tu supervisor para solicitar una línea.
             </div>
           )}
         </div>
