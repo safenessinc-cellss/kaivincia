@@ -3,9 +3,12 @@ import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
 const VOIP_ROLES = new Set([
-  ...PRIVILEGED_ROLES, 'supervisor', 'agent', 'agente', 'tlmk',
-  'ventas', 'telemarketing', 'collaborator'
+  ...PRIVILEGED_ROLES, 'supervisor', 'agent', 'collaborator'
 ]);
+const normalizeRole = (value: unknown) => {
+  const raw = String(value || '').toLowerCase().trim();
+  return ({ sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent' } as Record<string, string>)[raw] || raw;
+};
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, private');
@@ -29,8 +32,8 @@ export default async function handler(req: any, res: any) {
 
     const profileSnap = await adminDb.collection('users').doc(authUser.uid).get();
     const profile = profileSnap.data() || {};
-    const role = String(profile.role || '').toLowerCase().trim();
-    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role)) {
+    const role = normalizeRole(profile.role);
+    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role) || !(await hasVoipPermission(authUser.uid, profile, role))) {
       res.statusCode = 403;
       res.end(JSON.stringify({ success: false, numbers: [], error: 'Cuenta sin autorización para telefonía.' }));
       return;
@@ -53,12 +56,19 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    const assigned = await Promise.all(
-      operator.numerosAsignados
-        .filter((id: unknown): id is string => typeof id === 'string')
-        .map((id: string) => adminDb.collection('telnyx_phone_numbers').doc(id).get())
-    );
-    const numbers = assigned
+    const assignmentDoc = await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
+    const assignmentQuery = await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get();
+    const assignment = assignmentDoc.exists ? (assignmentDoc.data() || {}) : (assignmentQuery.docs[0]?.data() || {});
+    const assignedPhones: string[] = Array.isArray(assignment.authorizedNumbers)
+      ? assignment.authorizedNumbers.filter((value: unknown): value is string => typeof value === 'string')
+      : [];
+    const assignedIds: string[] = operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string');
+    const inventory = await adminDb.collection('telnyx_phone_numbers').get();
+    const numbers = inventory.docs.filter((snap: any) => {
+      const data = snap.data() || {};
+      const phone = data.phoneNumber || data.phone_number || '';
+      return assignedIds.includes(snap.id) || assignedPhones.includes(phone);
+    })
       .filter((snap: any) => snap.exists)
       .map((snap: any) => {
         const data = snap.data() || {};
@@ -80,4 +90,16 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({ success: false, numbers: [], error: 'No fue posible consultar los números telefónicos.' }));
   }
+}
+
+
+async function hasVoipPermission(uid: string, profile: any, role: string): Promise<boolean> {
+  const override = profile.permissions?.voip_calls;
+  if (typeof override === 'boolean') return override;
+  const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
+  const matrix = matrixSnap.data()?.matrix || {};
+  const roleMatrix = matrix[role] || (role === 'agent' ? matrix.sales : undefined);
+  const matrixValue = roleMatrix?.voip_calls;
+  if (typeof matrixValue === 'boolean') return matrixValue;
+  return ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'].includes(role);
 }
