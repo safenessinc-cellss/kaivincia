@@ -45,7 +45,12 @@ jobs:
                 name,
                 'range=' + (item.range || 'unknown'),
                 'direct=' + Boolean(item.isDirect),
-                'fix=' + JSON.stringify(item.fixAvailable ?? null)
+                'fix=' + JSON.stringify(item.fixAvailable ?? null),
+                'advisories=' + JSON.stringify((item.via || []).map(advisory =>
+                  typeof advisory === 'string'
+                    ? advisory
+                    : { title: advisory.title, url: advisory.url, range: advisory.range, source: advisory.source }
+                ))
               ].join(' | '));
             }
           } catch (error) {
