@@ -22,6 +22,7 @@ import { isPrivilegedRole } from '../../constants/roles';
 
 interface SoftphoneDialerProps {
   mode?: 'embedded' | 'floating';
+  canManageTelephony?: boolean;
   initialPhoneNumber?: string;
   onCallStart?: (phoneNumber: string) => void;
   onCallEnd?: (record: Partial<CallRecord>) => void;
@@ -56,6 +57,7 @@ const isReservedDemoPhone = (value: string) => /^1\d{3}55501\d{2}$/.test(String(
 // No hardcodear números aquí para evitar el error 403 "originator number is invalid".
 export default function SoftphoneDialer({
   mode = 'embedded',
+  canManageTelephony = false,
   initialPhoneNumber = '',
   onCallStart,
   onCallEnd,
@@ -162,7 +164,7 @@ export default function SoftphoneDialer({
   const [telnyxTokenInput, setTelnyxTokenInput] = useState('');
   const [isSavingTelnyxToken, setIsSavingTelnyxToken] = useState(false);
   const [isGeneratingBackendToken, setIsGeneratingBackendToken] = useState(false);
-  const [currentWebRtcJwt, setCurrentWebRtcJwt] = useState(() => telnyxWebRTCService.getLoginToken());
+  const [currentWebRtcJwt, setCurrentWebRtcJwt] = useState('');
 
   // Sincronizar token en vivo con el servicio
   useEffect(() => {
@@ -172,33 +174,31 @@ export default function SoftphoneDialer({
     return unsub;
   }, []);
 
-  // Inicializar el cliente Telnyx automáticamente al cargar el componente
+  // Cada sesión obtiene su propio JWT desde el backend; nunca reutiliza el token
+  // compartido de otro operador ni lo persiste en settings/telnyx_config.
   useEffect(() => {
     let cancelled = false;
     const initTelnyx = async () => {
       if (authLoading || !user) return;
+      telnyxWebRTCService.clearSession();
       try {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        const result = await telnyxWebRTCService.fetchFreshTokenFromBackend();
         if (cancelled) return;
-        const token = telnyxWebRTCService.getLoginToken();
-        if (!token) {
-          console.log('[SoftphoneDialer] No hay JWT configurado aún. Usa "Configurar JWT" para inicializar Telnyx.');
-          return;
-        }
-        console.log('[SoftphoneDialer] Inicializando cliente Telnyx automáticamente...');
-        const result = await telnyxWebRTCService.initClient(token);
         if (result.success) {
-          console.log('[SoftphoneDialer] ✅ Cliente Telnyx inicializado:', result.message);
+          console.log('[SoftphoneDialer] Cliente Telnyx inicializado con JWT individual.');
         } else {
-          console.warn('[SoftphoneDialer] ⚠️ No se pudo inicializar Telnyx:', result.message);
+          console.warn('[SoftphoneDialer] No se pudo obtener el JWT individual:', result.message);
         }
       } catch (err: any) {
-        console.error('[SoftphoneDialer] Error inicializando Telnyx:', err);
+        if (!cancelled) console.error('[SoftphoneDialer] Error inicializando Telnyx:', err);
       }
     };
-    initTelnyx();
-    return () => { cancelled = true; };
-  }, [user, authLoading, userData?.role]);
+    void initTelnyx();
+    return () => {
+      cancelled = true;
+      telnyxWebRTCService.clearSession();
+    };
+  }, [user?.uid, authLoading, userData?.role]);
 
   // ============================================================
   // Renovación automática del JWT cada 24 horas
@@ -222,8 +222,8 @@ export default function SoftphoneDialer({
               console.log('[SoftphoneDialer] 🔄 Token por expirar, renovando...');
               const res = await telnyxWebRTCService.fetchFreshTokenFromBackend();
               if (res.success && res.token && isMounted) {
-                await telnyxWebRTCService.setLoginToken(res.token, true);
-                console.log('[SoftphoneDialer] ✅ Token renovado');
+                // fetchFreshTokenFromBackend already updates the active client in memory.
+                console.log('[SoftphoneDialer] ✅ Token individual renovado');
               }
             }
           } catch (e) {
@@ -245,6 +245,10 @@ export default function SoftphoneDialer({
   }, [user, userData?.role, authLoading]);
 
   const handleSaveTelnyxToken = async () => {
+    if (!canManageTelephony) {
+      showToast('Solo un administrador de telefonía puede guardar un token compartido.');
+      return;
+    }
     const token = telnyxTokenInput.trim();
     if (!token) {
       showToast('Por favor introduce un JWT válido');
@@ -1002,7 +1006,7 @@ export default function SoftphoneDialer({
                   <p className="text-[10px] text-slate-400 font-medium truncate max-w-[170px] sm:max-w-none">
                     {activeCarrierObj?.name || 'Telnyx WebRTC'} · OPUS
                   </p>
-                  {(selectedCarrier === 'telnyx' || activeCarrierObj?.name?.includes('Telnyx')) && (
+                  {canManageTelephony && (selectedCarrier === 'telnyx' || activeCarrierObj?.name?.includes('Telnyx')) && (
                     <button type="button" onClick={() => { setTelnyxTokenInput(currentWebRtcJwt || ''); setIsTelnyxTokenModalOpen(true); }} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold transition-all cursor-pointer ${currentWebRtcJwt ? 'bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/60' : 'bg-amber-950/70 text-amber-300 border border-amber-500/30 hover:bg-amber-900/60 animate-pulse'}`} title="Configurar o actualizar login_token (JWT) de Telnyx WebRTC">
                       <Radio className="w-2.5 h-2.5 text-cyan-400" />
                       <span>{currentWebRtcJwt ? 'JWT Activo' : 'Configurar JWT'}</span>
@@ -1121,7 +1125,7 @@ export default function SoftphoneDialer({
       <VoipProviderModal isOpen={isProviderModalOpen} onClose={() => { setIsProviderModalOpen(false); setProviderToEdit(null); }} provider={providerToEdit} allProviders={providers} onSaved={(saved) => { setSelectedCarrier(saved.id); }} />
 
       <AnimatePresence>
-        {isTelnyxTokenModalOpen && (
+        {canManageTelephony && isTelnyxTokenModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
             <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -1148,7 +1152,7 @@ export default function SoftphoneDialer({
                   )}
                 </div>
                 <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 resize-none" />
-                <p className="text-[10px] text-slate-400">Este token se guardará en Firestore (<code className="text-cyan-400 font-mono">settings/telnyx_config</code>) y se aplicará de inmediato al cliente WebRTC en esta sesión y para todos los agentes del CRM.</p>
+                <p className="text-[10px] text-slate-400">Este token se guardará en la configuración protegida de telefonía y se aplicará únicamente a esta sesión administrativa. Cada agente debe usar su JWT individual emitido por el backend.</p>
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
                 <button type="button" onClick={handleGenerateBackendTelnyxToken} disabled={isGeneratingBackendToken} className="w-full sm:w-auto px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50" title="Generar automáticamente desde /api/telnyx-token">
