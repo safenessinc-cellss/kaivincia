@@ -23,8 +23,8 @@ import {
   Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, onSnapshot, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { EsimProfile } from '../../types/calls';
