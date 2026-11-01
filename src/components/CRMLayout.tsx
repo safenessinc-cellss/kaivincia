@@ -663,7 +663,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
               transition={{ duration: 0.2 }}
               className="h-full"
             >
-              <Outlet context={{ userData, ceoMode }} />
+              <Outlet context={{ userData, ceoMode, canAccessPermission }} />
             </motion.div>
           </AnimatePresence>
         </main>
