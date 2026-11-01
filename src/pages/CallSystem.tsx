@@ -31,7 +31,7 @@ import OmnichannelInbox from '../components/calls/OmnichannelInbox';
 import VoipCoverageZones from '../components/calls/VoipCoverageZones';
 import TelnyxAdminHub from '../components/calls/TelnyxAdminHub';
 import MetaAdminHub from '../components/integrations/MetaAdminHub';
-import { isPrivilegedRole } from '../constants/roles';
+import { normalizeRole } from '../constants/roles';
 
 const VALID_CALL_TABS = ['monitor', 'softphone', 'telnyx', 'meta', 'logs', 'esim', 'directory', 'inbox', 'cobertura', 'utilidades'];
 
@@ -42,7 +42,7 @@ export default function CallSystem() {
 
   // Roles administrativos autorizados para configurar proveedores y supervisar
   const isAdmin = useMemo(
-    () => isPrivilegedRole(userData?.role),
+    () => ['superadmin', 'admin'].includes(normalizeRole(userData?.role)),
     [userData?.role]
   );
 
