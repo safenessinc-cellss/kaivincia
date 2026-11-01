@@ -206,56 +206,20 @@ export default function TeamManagement() {
             <div className="flex flex-col xl:flex-row gap-6 h-full">
               {/* Column Lateral */}
               <div className="w-full xl:w-1/4 space-y-6">
-                 {/* TALENT MATCHER - Proactive Intelligence */}
-                 <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 flex flex-col gap-6">
+                 {/* Recomendaciones de asignación: sin motor validado no se simulan sugerencias */}
+                 <div className="bg-white rounded-[2rem] p-8 shadow-xl border border-gray-100 flex flex-col gap-4">
                     <div className="flex items-center gap-3">
                        <div className="h-10 w-10 bg-gray-900 rounded-xl flex items-center justify-center text-white shadow-lg">
                           <Cpu className="w-5 h-5 text-[#00F0FF]" />
                        </div>
                        <div>
-                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 italic">Talent Matcher</h3>
-                          <p className="text-[8px] font-black text-[#00F0FF] uppercase tracking-widest">Optimización de Recursos IA</p>
+                          <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900">Asignación de talento</h3>
+                          <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Motor de recomendaciones no conectado</p>
                        </div>
                     </div>
-
-                    <div className="space-y-4">
-                       {[
-                         { project: 'Onboarding TechCorp', ideal: 'Carlos Ruiz', reason: '90% B2B', match: 98, load: 95 },
-                         { project: 'Soporte VIP Premium', ideal: 'Ana Silva', reason: '95% Soporte', match: 96, load: 60 },
-                         { project: 'Automatización Flujos', ideal: 'Miguel Rojas', reason: '100% Projects', match: 92, load: 40 },
-                       ].map((match, i) => (
-                         <div key={i} className="p-4 bg-gray-50 rounded-[1.5rem] border border-gray-100 group hover:border-[#00F0FF]/30 transition-all relative overflow-hidden">
-                            <div className="flex justify-between items-start mb-2">
-                               <p className="text-[10px] font-black text-gray-900 uppercase italic truncate w-32">{match.project}</p>
-                               <span className="text-[9px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{match.match}% MATCH</span>
-                            </div>
-                            
-                            <div className="flex items-center justify-between mb-3">
-                               <p className="text-[10px] text-gray-500 font-bold uppercase italic">ID: <span className="text-gray-900">{match.ideal}</span></p>
-                               <div className="flex flex-col items-end gap-1">
-                                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Carga Actual</p>
-                                  <div className="w-16 h-1 bg-gray-200 rounded-full overflow-hidden">
-                                     <div 
-                                        className={`h-full ${match.load > 85 ? 'bg-red-500' : 'bg-green-500'}`} 
-                                        style={{ width: `${match.load}%` }}
-                                     />
-                                  </div>
-                               </div>
-                            </div>
-
-                            <button 
-                               disabled={match.load > 85}
-                               className={`w-full py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                                  match.load > 85 
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed italic' 
-                                  : 'bg-white border border-gray-100 text-gray-400 group-hover:bg-gray-900 group-hover:text-white group-hover:border-transparent group-hover:shadow-lg'
-                               }`}
-                            >
-                               {match.load > 85 ? 'Sobrecarga Detectada' : 'Asignar con Kaivincia IA'}
-                            </button>
-                         </div>
-                       ))}
-                    </div>
+                    <p className="text-xs leading-relaxed text-gray-500">
+                      No se muestran recomendaciones ni asignaciones automáticas hasta disponer de métricas verificadas y un motor de cálculo validado.
+                    </p>
                  </div>
 
                  {/* Leaderboard 2.0 */}
