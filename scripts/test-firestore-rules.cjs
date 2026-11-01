@@ -24,6 +24,10 @@ async function main() {
       await setDoc(doc(db, 'chat_messages', 'general-message'), { type: 'groups', targetId: 'general', senderId: 'alice', text: 'general' });
       await setDoc(doc(db, 'chat_messages', 'devops-message'), { type: 'groups', targetId: 'dev-ops', senderId: 'admin', text: 'internal' });
       await setDoc(doc(db, 'telnyx_sip_credentials', 'alice-sip'), { assignedTo: 'alice', secret: 'test-only' });
+      await setDoc(doc(db, 'voip_call_history', 'alice-call'), { agentId: 'alice', contactPhone: '+15555550100' });
+      await setDoc(doc(db, 'esim_profiles', 'admin-esim'), { isDemo: false, phone: '+15555550101' });
+      await setDoc(doc(db, 'telnyx_phone_numbers', 'admin-number'), { phoneNumber: '+15555550102' });
+      await setDoc(doc(db, 'telnyx_agent_assignments', 'alice'), { agentId: 'alice', authorizedNumbers: ['+15555550102'] });
     });
 
     const alice = env.authenticatedContext('alice').firestore();
@@ -55,6 +59,14 @@ async function main() {
     await assertSucceeds(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
+    await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(getDoc(doc(alice, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(bob, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(alice, 'esim_profiles', 'admin-esim')));
+    await assertSucceeds(getDoc(doc(admin, 'esim_profiles', 'admin-esim')));
+    await assertFails(getDoc(doc(alice, 'telnyx_phone_numbers', 'admin-number')));
+    await assertSucceeds(getDoc(doc(admin, 'telnyx_phone_numbers', 'admin-number')));
     await assertSucceeds(getDocs(collection(admin, 'clients')));
 
     console.log('Firestore security tests passed: ownership, scoped queries, pending accounts, private chat, group channel roles and SIP assignment.');
