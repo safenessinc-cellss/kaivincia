@@ -67,20 +67,20 @@ export default function CallSystem() {
     });
   };
 
-  // Mantener la pestaña sincronizada con la URL (incluye atrás/adelante).
+  // La pestaña se deriva de la URL: soporta atrás/adelante sin estado duplicado.
   // Los paneles administrativos no se abren desde un query param no autorizado.
+  const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
+  const activeTab = !isAdmin && ['telnyx', 'meta'].includes(requestedTab) ? 'monitor' : requestedTab;
+
   useEffect(() => {
-    const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
-    const permittedTab = !isAdmin && ['telnyx', 'meta'].includes(requestedTab) ? 'monitor' : requestedTab;
-    setActiveTab(permittedTab);
-    if (permittedTab !== currentTabParam) {
+    if (activeTab !== currentTabParam) {
       setSearchParams((previous) => {
         const next = new URLSearchParams(previous);
-        next.set('tab', permittedTab);
+        next.set('tab', activeTab);
         return next;
       }, { replace: true });
     }
-  }, [currentTabParam, isAdmin, setSearchParams]);
+  }, [activeTab, currentTabParam, setSearchParams]);
 
   // Escuchar parámetro 'dial' para abrir marcador
   useEffect(() => {
