@@ -52,8 +52,6 @@ import AuditsSGI from './pages/AuditsSGI';
 import NervousSystem from './pages/NervousSystem';
 import FormTemplates from './pages/FormTemplates';
 import Integrations from './pages/Integrations';
-import CompanyAuth from './pages/b2b/CompanyAuth';
-import CompanyDashboard from './pages/b2b/CompanyDashboard';
 import CallCenterAdmin from './pages/CallCenterAdmin';
 import RouteGuard from "./components/RouteGuard";
 import { hasEffectivePermission, normalizeRole } from "./constants/roles";
