@@ -64,14 +64,9 @@ export class TelnyxBackendService {
   }
 
   public static updateConfig(params: {
-    apiKey?: string;
     connectionId?: string;
     maxConcurrentCalls?: number;
   }) {
-    if (params.apiKey && params.apiKey.trim()) {
-      dynamicApiKey = params.apiKey.trim();
-      process.env.TELNYX_API_KEY = dynamicApiKey;
-    }
     if (params.connectionId && params.connectionId.trim()) {
       dynamicConnectionId = params.connectionId.trim();
       process.env.TELNYX_CONNECTION_ID = dynamicConnectionId;
