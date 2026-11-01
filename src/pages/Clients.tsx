@@ -185,39 +185,26 @@ export default function Clients() {
     }
 
     setLoading(true);
-    // Query directly and sort client-side to avoid index issues and guarantee robust loading
-    const q = collection(db, 'clients');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      list.sort((a: any, b: any) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeB - timeA;
-      });
-      setClients(list);
-      setLoading(false);
-    }, (error) => {
-      console.warn("Clients listener handled:", error?.message);
-      setLoading(false);
-    });
-
-    const unsubCollabs = onSnapshot(collection(db, 'collaborators'), (snapshot) => {
-      setCollaborators(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.warn("Collaborators listener handled:", error?.message);
-    });
-
-    const unsubProspects = onSnapshot(collection(db, 'prospects'), (snapshot) => {
-      setProspects(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      console.warn("Prospects listener handled:", error?.message);
-    });
-
-    return () => {
-      unsubscribe();
-      unsubCollabs();
-      unsubProspects();
+    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase());
+    const records = new Map<string, any>();
+    const publish = () => {
+      const list = Array.from(records.values()).sort((x: any, y: any) => (new Date(y.createdAt || 0).getTime() - new Date(x.createdAt || 0).getTime()));
+      setClients(list); setLoading(false);
     };
+    const clientQueries = isAdmin ? [collection(db, 'clients')] : [
+      query(collection(db, 'clients'), where('createdBy', '==', currentUser.uid)),
+      query(collection(db, 'clients'), where('assignedTo', '==', currentUser.uid)),
+      query(collection(db, 'clients'), where('assignedManagerId', '==', currentUser.uid))
+    ];
+    const unsubClients = clientQueries.map(q => onSnapshot(q, snap => {
+      snap.docChanges().forEach(change => {
+        if (change.type === 'removed') records.delete(change.doc.id);
+        else records.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+      }); publish();
+    }, err => { console.warn('Scoped client query failed:', err.message); setLoading(false); }));
+    const unsubCollabs = isAdmin ? onSnapshot(collection(db, 'collaborators'), snap => setCollaborators(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : () => setCollaborators([]);
+    const unsubProspects = isAdmin ? onSnapshot(collection(db, 'prospects'), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : onSnapshot(query(collection(db, 'prospects'), where('ownerId', '==', currentUser.uid)), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return () => { unsubClients.forEach(fn => fn()); unsubCollabs(); unsubProspects(); };
   }, [currentUser, authLoading]);
 
   useEffect(() => {
@@ -229,6 +216,7 @@ export default function Clients() {
         const opportunities: UpsellOpportunity[] = [];
 
         // 1. Detect from Academic Progress (Students who finished)
+        if (!['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase())) return;
         const academicSnap = await getDocs(collection(db, 'academic_progress'));
         const usersSnap = await getDocs(collection(db, 'users'));
         const usersMap = new Map(usersSnap.docs.map(d => [d.id, d.data()]));
@@ -333,6 +321,7 @@ export default function Clients() {
       await addDoc(collection(db, 'clients'), {
         ...newClient,
         companyName: newClient.company || newClient.name,
+        createdBy: currentUser?.uid,
         amount: Number(newClient.contractValue) || 0,
         pipelineStage: newClient.status === 'Prospecto' || newClient.status === 'Lead' ? 'LEAD_IN' : 'POST_VENTA',
         createdAt: new Date().toISOString()
@@ -742,7 +731,7 @@ export default function Clients() {
         }
 
         if (mappedData.name) {
-          await addDoc(collection(db, 'clients'), mappedData);
+          await addDoc(collection(db, 'clients'), { ...mappedData, createdBy: currentUser?.uid });
           successCount++;
         }
       }
