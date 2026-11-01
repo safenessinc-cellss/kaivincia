@@ -336,7 +336,7 @@ export default function App() {
           <Route path="academy-internal" element={<AcademyInternal />} />
           <Route path="academy-external" element={<AcademyExternal />} />
           <Route path="digital-products" element={<DigitalProducts />} />
-          <Route path="calls" element={requirePermission('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'], <CallSystem />)} />
+          <Route path="calls" element={requirePermission('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'], <CallSystem />)} />
           
           {/* Administrativo */}
           <Route path="recruitment" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'], <Recruitment />)} />
