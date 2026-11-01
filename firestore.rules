@@ -10,6 +10,10 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAccountOwner() {
+      return isAuthenticated() && request.auth.token.email == "safeness.c.a@gmail.com";
+    }
+
     function userRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none");
     }
@@ -154,7 +158,7 @@ service cloud.firestore {
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['role', 'status', 'permissions', 'uid'])
       );
-      allow delete: if isAdmin();
+      allow delete: if isAccountOwner();
     }
 
     match /user_sessions/{sessionId} {
