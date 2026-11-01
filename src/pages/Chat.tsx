@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { GoogleGenAI } from '@google/genai';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -352,105 +351,52 @@ export default function Chat() {
     }
   };
 
-  // Sincronización IA - Generate Smart Suggestions
+  // AI assistance runs on the authenticated server; recent messages are sent to Gemini only after the user invokes it.
   const handleGenerateAiSuggestions = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSuggestions(true);
     setAiSuggestions([]);
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
-      const ai = new GoogleGenAI({ apiKey });
-
       const peer = globalUsers.find(u => u.id === activePrivateUserId);
-      const recentContext = filteredMessages.slice(-6).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
-        return `${name}: ${m.text}`;
-      }).join('\n');
-
-      const prompt = `
-        Actúa como un asistente ejecutivo premium de redactores para Kaivincia Corp.
-        Basándote en los últimos mensajes de este chat corporativo privado con ${peer?.name || 'Colega'}, genera EXACTAMENTE 3 respuestas de trabajo ejecutivas, eficientes y cordiales que "Yo" podría responder de inmediato.
-        
-        Conversación reciente:
-        ${recentContext || "(No hay mensajes recientes. Sugiere un saludo corporativo cortés para iniciar el contacto.)"}
-
-        Devuelve únicamente un objeto JSON estructurado de la siguiente manera:
-        {
-          "suggestions": ["Sugerencia 1", "Sugerencia 2", "Sugerencia 3"]
-        }
-        Asegúrate de que cada sugerencia tenga un tono profesional óptimo en español y sea directa (menos de 10 palabras).
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json"
-        }
+      const messages = filteredMessages.slice(-6).map(m => ({
+        role: m.senderId === auth.currentUser?.uid ? 'user' : 'assistant',
+        text: m.text
+      }));
+      const result = await requestGemini<{ suggestions: string[] }>('chat-suggestions', {
+        consent: true,
+        peerName: peer?.name || 'Colega',
+        messages
       });
-
-      const text = response.text;
-      if (text) {
-        const data = JSON.parse(text);
-        if (data.suggestions && Array.isArray(data.suggestions)) {
-          setAiSuggestions(data.suggestions);
-        }
-      }
+      setAiSuggestions(Array.isArray(result.suggestions) ? result.suggestions : []);
     } catch (err) {
       console.error("Gemini smart suggestions failed:", err);
-      // Fallback
       setAiSuggestions([
         "Entendido. Lo reviso de inmediato y te confirmo.",
-        "Excelente. Quedo atento a las directrices de la CEO.",
-        "Entendido. ¿Te parece si agendamos una llamada rápida en Teams?"
+        "Gracias por la información. Te confirmo los próximos pasos.",
+        "¿Te parece si coordinamos una llamada?"
       ]);
     } finally {
       setIsGeneratingSuggestions(false);
     }
   };
 
-  // Sincronización IA - Generate structured executive summary
   const handleGenerateSummary = async () => {
     if (!activePrivateUserId) return;
     setIsGeneratingSummary(true);
     setConversationSummary('');
     try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY no configurado");
-      const ai = new GoogleGenAI({ apiKey });
-
-      const peer = globalUsers.find(u => u.id === activePrivateUserId);
-      const chatContext = filteredMessages.slice(-12).map(m => {
-        const name = m.senderId === auth.currentUser?.uid ? 'Yo' : m.senderName;
-        return `${name}: ${m.text}`;
-      }).join('\n');
-
-      const prompt = `
-        Analiza los siguientes mensajes de chat corporativo confidencial de Kaivincia Corp con ${peer?.name || 'Colega'}.
-        Genera un informe analítico ejecutivo y un resumen estructurado con viñetas en español.
-        Enfócate en:
-        1. Resumen de temas discutidos (máximo 2 líneas).
-        2. Tareas o compromisos pendientes acordados.
-        3. Tono analítico o sentimiento general detectado.
-        
-        Conversación reciente:
-        ${chatContext || "No hay mensajes suficientes en el chat para analizar."}
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt
+      const messages = filteredMessages.slice(-12).map(m => ({
+        role: m.senderId === auth.currentUser?.uid ? 'user' : 'assistant',
+        text: m.text
+      }));
+      const result = await requestGemini<{ summary: string }>('chat-summary', {
+        consent: true,
+        messages
       });
-
-      if (response.text) {
-        setConversationSummary(response.text);
-      } else {
-        setConversationSummary("La IA no logró extraer suficiente contexto de esta conversación.");
-      }
+      setConversationSummary(result.summary || "No se obtuvo un resumen de la conversación.");
     } catch (err) {
       console.error("Gemini summary failed:", err);
-      setConversationSummary("Error de Conectividad: No se pudo contactar con el Copilot IA de Kaivincia.");
+      setConversationSummary("No se pudo generar el resumen. Puedes continuar utilizando el chat sin IA.");
     } finally {
       setIsGeneratingSummary(false);
     }
