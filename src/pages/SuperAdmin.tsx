@@ -179,13 +179,14 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { status });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        actorUid: user?.uid || null,
+        userEmail: user?.email || null,
         action: 'UPDATE_USER_STATUS',
         resourceType: 'User',
         resourceId: userId,
         details: `Estado actualizado a ${status}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
       triggerFeedback(`Estado de usuario actualizado a "${status}".`);
     } catch (error) {
@@ -288,7 +289,7 @@ export default function SuperAdmin() {
         action: 'DELETE_USER_PERMANENT',
         resourceType: 'User',
         resourceId: userToDelete.id,
-        details: `Usuario ${userToDelete.email || userToDelete.id} purgado definitivamente del sistema.`,
+        details: `Perfil CRM eliminado para ${userToDelete.email || userToDelete.id}; la cuenta de autenticación permanece.`,
         timestamp: serverTimestamp(),
         ipAddress: '127.0.0.1'
       });
@@ -1194,6 +1195,9 @@ export default function SuperAdmin() {
               </button>
             </div>
             <div className="p-6 space-y-4 text-xs">
+              <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-900">
+                Estas opciones todavía no se guardan ni se aplican a las sesiones. Se muestran deshabilitadas para evitar una falsa confirmación.
+              </div>
               <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl border border-gray-200">
                 <div>
                   <p className="font-bold text-gray-900">Tiempo de Expiración de Sesión</p>
@@ -1212,7 +1216,7 @@ export default function SuperAdmin() {
                   <p className="font-bold text-gray-900">Bloqueo por Intentos Fallidos</p>
                   <p className="text-[11px] text-gray-500">Congela temporalmente tras intentos erróneos.</p>
                 </div>
-                <select className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
+                <select disabled className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
                   <option value="5">5 Intentos</option>
                   <option value="3">3 Intentos</option>
                   <option value="10">10 Intentos</option>
