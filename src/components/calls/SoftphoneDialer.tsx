@@ -699,7 +699,13 @@ export default function SoftphoneDialer({
       }
     }
 
-    // Validar que haya un Caller ID seleccionado (viene de telnyx_phone_numbers)
+    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
+    if (isTelnyxCarrier && !telnyxWebRTCService.getState().canMakeOutbound) {
+      showToast('⛔ Este operador no tiene habilitado el permiso de llamadas salientes.');
+      return;
+    }
+
+    // Validar que haya un Caller ID seleccionado y autorizado por el backend.
     if (!selectedCallerId || !authorizedCallerIds.includes(selectedCallerId) || isReservedDemoPhone(selectedCallerId)) {
       showToast('⛔ Caller ID no autorizado para este operador. Selecciona un número asignado por el administrador.');
       return;
@@ -712,7 +718,6 @@ export default function SoftphoneDialer({
     setIsOnHold(false);
     setIsRecording(false);
 
-    const isTelnyxCarrier = selectedCarrier === 'telnyx' || activeCarrierObj.name.includes('Telnyx');
     const telnyxJwt = telnyxWebRTCService.getLoginToken();
 
     setSipLogs(prev => [
