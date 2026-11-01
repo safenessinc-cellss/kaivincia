@@ -16,6 +16,7 @@ async function main() {
         ['bob', { role: 'agent', status: 'approved' }],
         ['pending', { role: 'agent', status: 'pending' }],
         ['hr', { role: 'rrhh', status: 'approved' }],
+        ['owner', { role: 'owner', status: 'approved' }],
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
@@ -76,6 +77,7 @@ async function main() {
     const bob = env.authenticatedContext('bob', { email: 'bob@example.test' }).firestore();
     const pending = env.authenticatedContext('pending').firestore();
     const hr = env.authenticatedContext('hr', { email: 'hr@example.test' }).firestore();
+    const owner = env.authenticatedContext('owner', { email: 'owner@example.test' }).firestore();
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
@@ -222,6 +224,8 @@ async function main() {
     await assertFails(updateDoc(doc(admin, 'settings', 'rbac_matrix'), { matrix: {} }));
     await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
+    await assertSucceeds(getDoc(doc(owner, 'candidates', 'candidate-1')));
+    await assertSucceeds(getDoc(doc(owner, 'attendance_logs', 'alice-attendance')));
     await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
     await assertFails(getDoc(doc(anonymous, 'jobs', 'job-1')));
     await assertSucceeds(getDoc(doc(hr, 'jobs', 'job-1')));
