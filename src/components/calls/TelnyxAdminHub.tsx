@@ -38,6 +38,8 @@ import { useGlobalContext } from '../../contexts/GlobalContext';
 import { TelnyxGlobalConfig, TelnyxPhoneNumber, TelnyxAgentAssignment } from '../../types/calls';
 import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
 
+const isReservedDemoPhone = (value: string) => /^1\d{3}55501\d{2}$/.test(String(value || '').replace(/\D/g, ''));
+
 const DEFAULT_CONFIG: TelnyxGlobalConfig = {
   connectionId: '',
   connectionName: '',
@@ -149,7 +151,7 @@ export default function TelnyxAdminHub() {
     // 2. Suscripción a números de teléfono
     const unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snap) => {
       if (!snap.empty) {
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as TelnyxPhoneNumber));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as TelnyxPhoneNumber)).filter(n => !isReservedDemoPhone(n.phoneNumber));
         setPhoneNumbers(list);
       } else {
         setPhoneNumbers([]);
@@ -161,7 +163,8 @@ export default function TelnyxAdminHub() {
       if (!snap.empty) {
         const map: Record<string, TelnyxAgentAssignment> = {};
         snap.docs.forEach(d => {
-          map[d.id] = { id: d.id, ...d.data() } as TelnyxAgentAssignment;
+          const assignment = d.data();
+          map[d.id] = { id: d.id, ...assignment, authorizedNumbers: (assignment.authorizedNumbers || []).filter((number: string) => !isReservedDemoPhone(number)) } as TelnyxAgentAssignment;
         });
         setAssignments(map);
       }
