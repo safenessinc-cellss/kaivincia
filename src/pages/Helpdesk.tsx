@@ -66,7 +66,7 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
   const [replyText, setReplyText] = useState('');
 
   const isAdminOrManager = canManage;
-  const canAssignTickets = canManage;
+  const canAssignTickets = canManage && ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase().trim());
 
   // 1. Obtener rol del usuario si es admin
   useEffect(() => {
