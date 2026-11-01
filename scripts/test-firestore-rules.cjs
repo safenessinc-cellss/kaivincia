@@ -117,6 +117,7 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'voip_providers', 'telnyx')));
     await assertSucceeds(getDoc(doc(admin, 'settings', 'telnyx_config')));
     await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
+    await assertFails(updateDoc(doc(manager, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(alice, 'telnyx_agent_assignments', 'alice')));
