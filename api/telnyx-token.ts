@@ -89,11 +89,46 @@ export default async function handler(req: any, res: any) {
     }
     const credential = credentialSnap.data() || {};
     const assignedUid = credential.assignedTo || credential.operadorUid || null;
-    if (assignedUid !== authUser.uid) {
+
+    // The assignment collection is the second half of the atomic admin workflow.
+    // Older imported credentials may have a missing assignedTo field, so verify
+    // the reverse mapping before repairing it; never infer ownership from the
+    // operator document alone and never accept a credential mapped to another UID.
+    const directAssignment = await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
+    const assignmentQuery = await adminDb.collection('telnyx_agent_assignments')
+      .where('telnyxCredentialId', '==', credentialId)
+      .limit(2)
+      .get();
+    const matchingAssignments = assignmentQuery.docs;
+    const uniqueReverseAssignment = matchingAssignments.length === 1 &&
+      matchingAssignments[0].data()?.agentId === authUser.uid;
+    const directAssignmentData = directAssignment.exists ? (directAssignment.data() || {}) : {};
+    const directAssignmentMatches = directAssignment.exists &&
+      directAssignmentData.agentId === authUser.uid &&
+      directAssignmentData.telnyxCredentialId === credentialId;
+
+    if (
+      (assignedUid !== null && assignedUid !== authUser.uid) ||
+      (matchingAssignments.length > 1) ||
+      (matchingAssignments.length === 1 && !uniqueReverseAssignment) ||
+      (assignedUid === null && !uniqueReverseAssignment && !directAssignmentMatches) ||
+      (assignedUid === authUser.uid && matchingAssignments.length === 1 && !uniqueReverseAssignment)
+    ) {
       res.statusCode = 403;
-      res.end(JSON.stringify({ error: 'La credencial SIP no está asignada exclusivamente a este operador.' }));
+      res.end(JSON.stringify({ error: 'La credencial SIP no está asignada exclusivamente a este operador. Revisa la asignación desde Administración VoIP.' }));
       return;
     }
+
+    // Repair only a verified, unique legacy mapping. Admin SDK bypasses Firestore
+    // client rules, but the proof above binds the credential to this authenticated UID.
+    if (assignedUid === null && uniqueReverseAssignment) {
+      await credentialSnap.ref.update({
+        assignedTo: authUser.uid,
+        assignedToEmail: authUser.email || '',
+        updatedAt: new Date().toISOString(),
+      });
+    }
+
     if (credential.status !== 'active' || credential.activo !== true) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'La credencial SIP está desactivada o no tiene un estado válido.' }));
@@ -104,9 +139,9 @@ export default async function handler(req: any, res: any) {
     const numberIds: string[] = Array.isArray(operator.numerosAsignados)
       ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
       : [];
-    const directAssignment = await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
-    const assignmentQuery = await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get();
-    const assignment = directAssignment.exists ? (directAssignment.data() || {}) : (assignmentQuery.docs[0]?.data() || {});
+    const assignment = directAssignment.exists
+      ? directAssignmentData
+      : (await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get()).docs[0]?.data() || {};
     const assignedPhones: string[] = Array.isArray(assignment.authorizedNumbers)
       ? assignment.authorizedNumbers.filter((value: unknown): value is string => typeof value === 'string')
       : [];
