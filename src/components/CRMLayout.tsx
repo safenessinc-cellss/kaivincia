@@ -19,6 +19,7 @@ import NotificationCenter from './NotificationCenter';
 import LanguageSelector from './LanguageSelector';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAppearance } from '../contexts/AppearanceContext';
+import { normalizeRole } from '../constants/roles';
 
 export default function CRMLayout({ userData }: { userData: any }) {
   const { t } = useLanguage();
@@ -39,7 +40,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
     'Configuración': false
   });
 
-  const userRole = userData?.role || 'user';
+  const userRole = normalizeRole(userData?.role || 'user');
   const isAdminOrFin = ['superadmin', 'admin', 'billing', 'accounting'].includes(userRole);
   const isSuperAdmin = userRole === 'superadmin';
 
