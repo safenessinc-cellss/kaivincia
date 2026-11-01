@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, updateDoc, doc, addDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -468,39 +468,39 @@ export default function Pipeline() {
     if (newIdx < 0 || newIdx >= PIPELINE_COLUMNS.length) return;
 
     const newStage = PIPELINE_COLUMNS[newIdx].id;
-
-    // Confetti if won
-    if (newStage === 'CIERRE') {
-      confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
-    }
-
-    // Optimistic update
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipelineStage: newStage } : l));
-
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
         pipelineStage: newStage,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
-    } catch (e) {
-      console.warn("Local update kept:", e);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, pipelineStage: newStage } : l));
+      if (newStage === 'CIERRE') {
+        confetti({ particleCount: 70, spread: 60, origin: { y: 0.7 } });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
+
+  
 
   const handleReassignTLMK = async (leadId: string, newTLMK: string) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedTLMK: newTLMK } : l));
+    if (!newTLMK.trim()) throw new Error('Selecciona un agente válido antes de reasignar.');
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
         assignedTLMK: newTLMK,
         setterName: newTLMK,
-        updatedAt: new Date().toISOString()
+        updatedAt: serverTimestamp()
       });
-    } catch (e) {
-      console.warn("Local reassign kept:", e);
+      setLeads(prev => prev.map(l => l.id === leadId ? { ...l, assignedTLMK: newTLMK } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
+
+  
 
   const handleCreateManualLead = async (newLead: Partial<LeadOpportunity>) => {
     try {
@@ -510,51 +510,59 @@ export default function Pipeline() {
         updatedAt: serverTimestamp()
       });
       setLeads(prev => [{ ...newLead, id: docRef.id } as LeadOpportunity, ...prev]);
-    } catch (e) {
-      const tempId = `lead_${Date.now()}`;
-      setLeads(prev => [{ ...newLead, id: tempId } as LeadOpportunity, ...prev]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'clients');
+      throw error;
     }
   };
 
+  
+
   const handleImportLeads = async (importedLeads: Partial<LeadOpportunity>[]) => {
-    const enriched = importedLeads.map((lead, idx) => ({
-      ...lead,
-      id: `imp_${Date.now()}_${idx}`
-    } as LeadOpportunity));
+    if (importedLeads.length === 0) return;
+    if (importedLeads.length > 450) {
+      throw new Error('La importación admite hasta 450 contactos por lote. Divide el CSV en archivos más pequeños.');
+    }
 
-    setLeads(prev => [...enriched, ...prev]);
-
-    // Save batch to Firestore
     try {
-      for (const lead of importedLeads) {
-        await addDoc(collection(db, 'clients'), {
+      const batch = writeBatch(db);
+      const importedWithIds: LeadOpportunity[] = importedLeads.map((lead) => {
+        const ref = doc(collection(db, 'clients'));
+        batch.set(ref, {
           ...lead,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
-      }
-    } catch (e) {
-      console.warn("Batch saved locally:", e);
+        return { ...lead, id: ref.id } as LeadOpportunity;
+      });
+      await batch.commit();
+      setLeads(prev => [...importedWithIds, ...prev]);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'clients');
+      throw error;
     }
   };
+
+  
 
   const handleSaveLeadHeader = async (leadId: string, updatedData: Partial<LeadOpportunity>) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? {
-      ...l,
-      ...updatedData,
-      updatedAt: new Date().toISOString()
-    } : l));
-
     try {
-      const leadRef = doc(db, 'clients', leadId);
-      await updateDoc(leadRef, {
+      await updateDoc(doc(db, 'clients', leadId), {
+        ...updatedData,
+        updatedAt: serverTimestamp()
+      });
+      setLeads(prev => prev.map(l => l.id === leadId ? {
+        ...l,
         ...updatedData,
         updatedAt: new Date().toISOString()
-      });
-    } catch (err) {
-      console.warn("Error updating lead header in Firestore:", err);
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${leadId}`);
+      throw error;
     }
   };
+
+  
 
   const handleSaveAppointment = async (clientId: string, appointment: AppointmentData) => {
     setLeads(prev => prev.map(l => l.id === clientId ? {
