@@ -19,6 +19,8 @@ async function main() {
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
+        ['pending-admin', { role: 'admin', status: 'pending', email: 'pending-admin@example.test' }],
+        ['missing-status-admin', { role: 'admin', email: 'missing-status-admin@example.test' }],
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
         ['support-agent', { role: 'agent', status: 'approved', email: 'support-agent@example.test', permissions: { helpdesk_manage: true } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
@@ -72,6 +74,8 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
+    const pendingAdmin = env.authenticatedContext('pending-admin', { email: 'pending-admin@example.test' }).firestore();
+    const missingStatusAdmin = env.authenticatedContext('missing-status-admin', { email: 'missing-status-admin@example.test' }).firestore();
     const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
     const supportAgent = env.authenticatedContext('support-agent', { email: 'support-agent@example.test' }).firestore();
     const superadmin = env.authenticatedContext('superadmin').firestore();
@@ -84,6 +88,10 @@ async function main() {
     await assertFails(getDoc(doc(anonymous, 'company_profiles', 'alice')));
     await assertFails(getDoc(doc(alice, 'company_profiles', 'alice')));
     await assertSucceeds(getDoc(doc(admin, 'company_profiles', 'alice')));
+    await assertFails(getDoc(doc(pendingAdmin, 'company_profiles', 'alice')));
+    await assertFails(getDoc(doc(missingStatusAdmin, 'company_profiles', 'alice')));
+    await assertFails(getDocs(collection(pendingAdmin, 'clients')));
+    await assertFails(getDocs(collection(missingStatusAdmin, 'clients')));
     await assertFails(setDoc(doc(anonymous, 'company_profiles', 'public-profile'), { name: 'Public' }));
     await assertSucceeds(getDoc(doc(alice, 'clients', 'alice-client')));
     await assertSucceeds(setDoc(doc(alice, 'clients', 'alice-new-client'), { name: 'New client', createdBy: 'alice' }));
