@@ -82,6 +82,7 @@ class TelnyxWebRTCService {
       const data = await res.json();
 
       if (!res.ok || data.error) {
+        if (res.status === 401 || res.status === 403) this.clearSession();
         throw new Error(data.error || `HTTP ${res.status}`);
       }
 
