@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, deleteDoc } = require('firebase/firestore');
 
 const projectId = 'demo-kaivincia-security';
 const rules = fs.readFileSync('firestore.rules', 'utf8');
@@ -65,6 +65,7 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin').firestore();
+    const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
     const agentNoVoip = env.authenticatedContext('agent-no-voip').firestore();
     const manager = env.authenticatedContext('manager').firestore();
@@ -163,6 +164,11 @@ async function main() {
     await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
 
     await assertSucceeds(getDocs(collection(admin, 'clients')));
+
+    // Only the explicitly designated owner account may delete a CRM user profile.
+    await assertFails(deleteDoc(doc(admin, 'users', 'alice')));
+    await assertFails(deleteDoc(doc(manager, 'users', 'bob')));
+    await assertSucceeds(deleteDoc(doc(accountOwner, 'users', 'alice')));
 
     console.log('Firestore security tests passed: ownership, scoped queries, pending accounts, private chat, group channel roles and SIP assignment.');
   } finally {
