@@ -88,10 +88,9 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
         .filter(d => {
           const data = d.data();
           const role = String(data.role || '').toLowerCase().trim();
-          const override = data.permissions?.helpdesk_manage;
-          const roleDefault = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(role);
           return ['approved', 'active'].includes(String(data.status || '').toLowerCase()) &&
-            (override === true || (override !== false && roleDefault));
+            ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(role) &&
+            typeof data.email === 'string' && data.email.trim().length > 0;
         })
         .map(d => ({
           uid: d.id,
