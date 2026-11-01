@@ -52,8 +52,13 @@ export default async function handler(req: any, res: any) {
     // POST: Actualiza la configuración
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      if (body?.apiKey) {
+        res.statusCode = 400;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: 'La API Key de Telnyx se configura exclusivamente como variable de entorno protegida en Vercel.' }));
+        return;
+      }
       const updatedConfig = TelnyxBackendService.updateConfig({
-        apiKey: body?.apiKey,
         connectionId: body?.connectionId,
         maxConcurrentCalls: body?.maxConcurrentCalls
       });
