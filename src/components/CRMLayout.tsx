@@ -193,12 +193,11 @@ export default function CRMLayout({ userData }: { userData: any }) {
     }
 
     if (userRole === 'gestor') {
-      return [telemarketingGroup, coreGroup, operationsGroup, clientGroup, strategyGroup, portalGroup];
+      return [coreGroup, clientGroup, operationsGroup, strategyGroup, portalGroup];
     }
 
     if (userRole === 'ceo' || userRole === 'superadmin') {
       const groups = [
-        telemarketingGroup,
         coreGroup,
         clientGroup,
         operationsGroup,
