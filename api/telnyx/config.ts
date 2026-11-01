@@ -1,58 +1,38 @@
 import { TelnyxBackendService } from '../../server/telnyxBackend.js';
+import { authorizeCrmRequest } from '../../server/authorization.js';
 
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_URL || 'https://www.kaivinciacorp.com');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.setHeader('Allow', 'GET, POST, OPTIONS');
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
-
   try {
-    // GET: Devuelve la configuración actual (sin exponer la API Key completa)
-    if (req.method === 'GET') {
-      const config = TelnyxBackendService.getConfig();
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify(config));
-      return;
+    const principal = await authorizeCrmRequest(req, res, { adminOnly: true });
+    if (!principal) return;
+    if (req.method === 'GET') return res.status(200).json(TelnyxBackendService.getConfig());
+
+    let body = req.body;
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch { return res.status(400).json({ success: false, error: 'JSON inválido.' }); }
     }
-
-    // POST: Actualiza la configuración
-    if (req.method === 'POST') {
-      const authHeader = req.headers['authorization'] || req.headers['Authorization'];
-      const authUser = await TelnyxBackendService.verifyAuthToken(authHeader as string);
-
-      if (!authUser?.uid) {
-        res.statusCode = 401;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: 'No autorizado. Token de Firebase inválido o ausente.' }));
-        return;
-      }
-
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const updatedConfig = TelnyxBackendService.updateConfig({
-        apiKey: body?.apiKey,
-        connectionId: body?.connectionId,
-        maxConcurrentCalls: body?.maxConcurrentCalls
-      });
-
-      res.statusCode = 200;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true, config: updatedConfig }));
-      return;
-    }
-
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+    const updatedConfig = TelnyxBackendService.updateConfig({
+      apiKey: body?.apiKey,
+      connectionId: body?.connectionId,
+      maxConcurrentCalls: body?.maxConcurrentCalls
+    });
+    await (await import('../../server/_lib/firebaseAdmin.js')).adminDb.collection('audit_logs').add({
+      action: 'TELNYX_CONFIG_UPDATE', result: 'SUCCESS', actorUid: principal.uid,
+      actorEmail: principal.email, timestamp: new Date(),
+      changedApiKey: Boolean(body?.apiKey), changedConnectionId: Boolean(body?.connectionId),
+    });
+    return res.status(200).json({ success: true, config: updatedConfig });
   } catch (err: any) {
-    console.error('[API /api/telnyx-config] Error:', err);
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ success: false, error: err.message || 'Error en configuración de Telnyx' }));
+    console.error('[API /api/telnyx/config] Error:', err);
+    return res.status(500).json({ success: false, error: 'Error en configuración de Telnyx.' });
   }
 }
