@@ -245,7 +245,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow create: if isAdmin() || (isApproved() && request.resource.data.get('senderId', '') == request.auth.uid && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
-        allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
+        allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'readAt']));
         allow delete: if isAdmin();
       }
     }
@@ -496,7 +496,7 @@ service cloud.firestore {
 
         match /documents/{documentId} {
       allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
-      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid;
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
       allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
     }
