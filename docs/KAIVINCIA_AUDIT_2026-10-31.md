@@ -85,3 +85,24 @@ Estos hallazgos proceden de lectura estática de los archivos `api/telnyx-token.
 
 ## Estado de producción verificado durante la auditoría
 La consulta del proyecto Vercel `kaivinciacorp2` devolvió el deployment de producción `dpl_poPcxMcebyBGrWg99rbJCay9My3r` en estado `READY`, con alias `www.kaivinciacorp.com`, asociado al commit estable `eab664c88b67fd191496eb4bbfffe966438e3c29`. Esta verificación confirma el estado del deployment en Vercel; no sustituye pruebas funcionales de cada pantalla ni llamadas reales al carrier.
+
+
+## Remediación aplicada en rama fix/secure-telnyx-authorization
+
+Fecha: 2026-10-31. Esta fase contiene cambios propuestos; todavía no están fusionados ni desplegados.
+
+- Añadido `server/authorization.ts`: valida ID token Firebase revocado/no revocado, existencia de perfil CRM, estado `active/approved`, rol y, cuando corresponde, operador activo.
+- `api/telnyx-token.ts`: ya no crea automáticamente un operador ni habilita permisos. Exige perfil CRM autorizado y operador existente activo antes de generar JWT; sólo provisiona la credencial Telnyx para un operador ya habilitado.
+- `api/telnyx-numbers.ts`: administradores pueden consultar inventario de cuenta; agentes sólo reciben números asignados a su UID en el documento de operador.
+- `api/telnyx-test.ts`, `api/telnyx/config.ts`, `api/telnyx/credentials/list.ts`, `api/telnyx/credentials/create.ts` y `api/telnyx/numbers/sync.ts`: requieren rol administrativo; se limita el Connection ID al configurado en servidor para crear/probar credenciales y se agregan eventos de auditoría en operaciones administrativas.
+- `src/constants/roles.ts`: alias retrocompatibles para `agente`, `tlmk`, `telemarketing`, `setter`, `closer` y `operador` como `agent`.
+- Añadidas pruebas unitarias para normalización y jerarquía de roles en `src/constants/roles.test.ts`.
+
+### Validaciones pendientes antes de producción
+1. Ejecutar CI completo (lint, typecheck, tests y build) en GitHub/Vercel y corregir fallos de integración.
+2. Probar con perfiles superadmin/admin/supervisor/agente aprobados, agente pendiente, suspendido y agente sin asignación de caller ID.
+3. Verificar que los flujos UI que llaman a endpoints administrativos envían token y que los roles que los usan corresponden a la política nueva.
+4. Verificar configuración CORS para dominios de preview/producción y política de secretos/credenciales en Firestore.
+5. Revisar endpoints restantes de eSIM, SIP, webhooks, configuración de carrier y reglas Firestore antes de declarar completada la seguridad VoIP.
+
+No se ha realizado deploy de esta rama. No se deben considerar las correcciones activas hasta que PR sea revisada, CI pase y un preview sea probado.
