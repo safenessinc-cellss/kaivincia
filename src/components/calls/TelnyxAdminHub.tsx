@@ -482,6 +482,9 @@ export default function TelnyxAdminHub() {
         // Liberar la credencial anterior del agente (si tenía otra)
         const agentAssignmentRef = doc(db, 'telnyx_agent_assignments', agentUid);
         const agentSnap = await transaction.get(agentAssignmentRef);
+        const operatorRef = doc(db, 'operadores', agentUid);
+        const operatorSnap = await transaction.get(operatorRef);
+        const existingOperator = operatorSnap.exists() ? operatorSnap.data() as any : {};
         if (agentSnap.exists()) {
           const prevCredId = (agentSnap.data() as any)?.telnyxCredentialId;
           if (prevCredId && prevCredId !== cred.id) {
@@ -497,11 +500,28 @@ export default function TelnyxAdminHub() {
 
         // Vincular agente → credencial
         transaction.set(agentAssignmentRef, {
+          agentId: agentUid,
           agentEmail: agent?.email || '',
           agentName: agent?.name || '',
           telnyxCredentialId: cred.id,
           telnyxUsername: cred.sipUsername,
           updatedAt: new Date().toISOString(),
+        }, { merge: true });
+
+        // Crear/actualizar el registro de operador que consulta el backend
+        // antes de emitir un JWT WebRTC.
+        transaction.set(operatorRef, {
+          uid: agentUid,
+          nombre: agent?.name || existingOperator.nombre || '',
+          email: agent?.email || existingOperator.email || '',
+          telnyxCredentialId: cred.id,
+          telnyxUsername: cred.sipUsername,
+          connectionId: cred.connectionId,
+          activo: true,
+          permiteSalientes: existingOperator.permiteSalientes ?? true,
+          permiteEntrantes: existingOperator.permiteEntrantes ?? true,
+          numerosAsignados: Array.isArray(existingOperator.numerosAsignados) ? existingOperator.numerosAsignados : [],
+          actualizadoEn: new Date().toISOString()
         }, { merge: true });
 
         // Vincular credencial → agente (atómico)
