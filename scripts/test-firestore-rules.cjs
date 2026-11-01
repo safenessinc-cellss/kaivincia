@@ -18,9 +18,9 @@ async function main() {
         ['hr', { role: 'rrhh', status: 'approved' }],
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
-        ['admin', { role: 'admin', status: 'approved' }],
-        ['admin-no-helpdesk', { role: 'admin', status: 'approved', permissions: { helpdesk_manage: false } }],
-        ['support-agent', { role: 'agent', status: 'approved', permissions: { helpdesk_manage: true } }],
+        ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
+        ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
+        ['support-agent', { role: 'agent', status: 'approved', email: 'support-agent@example.test', permissions: { helpdesk_manage: true } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
@@ -149,6 +149,18 @@ async function main() {
     // they cannot close, reprioritize or reassign it.
     await assertSucceeds(getDoc(doc(alice, 'support_tickets', 'alice-ticket')));
     await assertFails(getDoc(doc(alice, 'support_tickets', 'bob-ticket')));
+    await assertSucceeds(setDoc(doc(alice, 'support_tickets', 'new-ticket'), {
+      userId: 'alice', userEmail: 'alice@example.test', subject: 'New request',
+      description: 'Need account access', priority: 'medium', status: 'open',
+      assignedTo: null, assignedToEmail: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Need account access', createdAt: Timestamp.now() }]
+    }));
+    await assertFails(setDoc(doc(alice, 'support_tickets', 'spoofed-ticket'), {
+      userId: 'alice', userEmail: 'bob@example.test', subject: 'Spoofed request',
+      description: 'Trying to impersonate', priority: 'medium', status: 'open',
+      assignedTo: null, assignedToEmail: null, createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      messages: [{ senderId: 'alice', senderEmail: 'bob@example.test', text: 'Trying to impersonate', createdAt: Timestamp.now() }]
+    }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { status: 'closed', updatedAt: 'now' }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { priority: 'critical', updatedAt: 'now' }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', updatedAt: 'now' }));
@@ -162,6 +174,8 @@ async function main() {
       updatedAt: serverTimestamp()
     }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { description: 'Changed original report' }));
+    await assertFails(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', assignedToEmail: 'bob@example.test', updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { assignedTo: 'admin', assignedToEmail: 'admin@example.test', updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress', updatedAt: serverTimestamp() }));
     await assertFails(getDoc(doc(adminNoHelpdesk, 'support_tickets', 'bob-ticket')));
     await assertFails(updateDoc(doc(adminNoHelpdesk, 'support_tickets', 'alice-ticket'), { status: 'closed' }));
