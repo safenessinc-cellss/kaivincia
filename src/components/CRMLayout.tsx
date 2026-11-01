@@ -21,7 +21,23 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useAppearance } from '../contexts/AppearanceContext';
 import { normalizeRole } from '../constants/roles';
 
-export default function CRMLayout({ userData }: { userData: any }) {
+const MENU_PERMISSION_POLICIES: Record<string, { permission: string; roles: string[] }> = {
+  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'] },
+  '/crm/call-center': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
+  '/crm/integrations': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
+  '/crm/automations': { permission: 'automations_engine', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
+  '/crm/recruitment': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
+  '/crm/team': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
+  '/crm/payroll': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
+  '/crm/accounting': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'ceo'] },
+  '/crm/billing': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'ceo'] },
+  '/crm/cobranza': { permission: 'view_financial_dashboard', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
+  '/crm/client-management': { permission: 'client_base_global', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
+  '/crm/reports': { permission: 'export_databases', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
+  '/crm/security': { permission: 'security_center', roles: ['superadmin', 'admin', 'ceo'] },
+};
+
+export default function CRMLayout({ userData, canAccessPermission }: { userData: any; canAccessPermission?: (permissionId: string, fallbackRoles: string[]) => boolean }) {
   const { t } = useLanguage();
   const { appearance } = useAppearance();
   const location = useLocation();
@@ -132,6 +148,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
         { name: t('nav.projects', 'Proyectos Activos'), href: '/crm/projects', icon: FolderKanban, color: 'text-orange-500' },
         { name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' },
         { name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' },
+        { name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap, color: 'text-cyan-400' },
         { name: t('nav.sgi_drive', 'SGI Drive'), href: '/crm/drive', icon: HardDrive, color: 'text-indigo-500' },
       ]
     };
@@ -196,7 +213,7 @@ export default function CRMLayout({ userData }: { userData: any }) {
       return [coreGroup, clientGroup, operationsGroup, strategyGroup, portalGroup];
     }
 
-    if (userRole === 'ceo' || userRole === 'superadmin') {
+    if (userRole === 'ceo' || userRole === 'superadmin' || userRole === 'admin') {
       const groups = [
         coreGroup,
         clientGroup,
@@ -207,17 +224,22 @@ export default function CRMLayout({ userData }: { userData: any }) {
         portalGroup,
       ];
 
-      if (isSuperAdmin) {
+      if (['superadmin', 'admin', 'ceo'].includes(userRole)) {
+        const configItems: any[] = [];
+        if (isSuperAdmin) {
+          configItems.push({ name: t('nav.superadmin', 'SuperAdmin'), href: '/crm/superadmin', icon: ShieldAlert });
+        }
+        if (['superadmin', 'admin'].includes(userRole)) {
+          configItems.push({ name: t('nav.appearance', 'Personalización Visual'), href: '/crm/appearance', icon: Palette, color: 'text-[#EC4899]' });
+          configItems.push({ name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' });
+          configItems.push({ name: t('nav.call_center_admin', 'Administración de Telefonía'), href: '/crm/call-center', icon: PhoneCall, color: 'text-emerald-400' });
+        }
+        configItems.push({ name: t('nav.security_center', 'Security Center'), href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' });
+        configItems.push({ name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap });
+        configItems.push({ name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' });
         groups.push({
           title: t('nav.groups.config', 'CONFIGURACIÓN'),
-          items: [
-            { name: t('nav.superadmin', 'SuperAdmin'), href: '/crm/superadmin', icon: ShieldAlert },
-            { name: t('nav.appearance', 'Personalización Visual'), href: '/crm/appearance', icon: Palette, color: 'text-[#EC4899]' },
-            { name: t('nav.security_center', 'Security Center'), href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' },
-            { name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap },
-            { name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' },
-            { name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' },
-          ]
+          items: configItems
         } as any);
       }
       return groups;
@@ -247,8 +269,12 @@ export default function CRMLayout({ userData }: { userData: any }) {
         items: (Array.isArray(group.items) ? group.items : [])
           .filter((item: any) => item && typeof item === 'object')
           .filter((item: any) => typeof item.name === 'string' && typeof item.href === 'string')
+          .filter((item: any) => {
+            const policy = MENU_PERMISSION_POLICIES[item.href.split('?')[0]];
+            return !policy || !canAccessPermission || canAccessPermission(policy.permission, policy.roles);
+          })
       }));
-  }, [menuGroups]);
+  }, [menuGroups, canAccessPermission]);
 
   const filteredMenuGroups = useMemo(() => {
     if (!menuSearch) return normalizedMenuGroups;
