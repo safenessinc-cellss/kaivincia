@@ -167,7 +167,8 @@ class TelnyxWebRTCService {
         this.notify();
       });
 
-      this.client.on('telnyx.warning', async (warning: any) => {
+      const clientForSession = this.client;
+      clientForSession.on('telnyx.warning', async (warning: any) => {
         if (warning?.code === 34001) {
           console.log('[TelnyxWebRTC] 🔄 Token por expirar, renovando automáticamente...');
           try {
@@ -183,9 +184,10 @@ class TelnyxWebRTCService {
             const data = await res.json();
             const newToken = data.token;
             if (!newToken) throw new Error('Respuesta sin token');
+            if (this.client !== clientForSession || auth.currentUser?.uid !== user.uid) return;
 
             await this.setLoginToken(newToken, false);
-            this.client!.updateToken(newToken);
+            clientForSession.updateToken(newToken);
             console.log('[TelnyxWebRTC] ✅ Token renovado correctamente');
           } catch (err: any) {
             console.error('[TelnyxWebRTC] ❌ Fallo al renovar token:', err.message);
