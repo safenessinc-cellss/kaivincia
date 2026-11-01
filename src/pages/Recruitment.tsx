@@ -643,7 +643,7 @@ export default function Recruitment() {
                     <h4 className="text-[10px] font-black text-gray-900 uppercase tracking-widest">Protocolo de Privacidad</h4>
                  </div>
                  <p className="text-[11px] text-gray-500 leading-relaxed italic">
-                   Kaivincia Center asegura que todos los documentos de identidad son encriptados en reposo y cumplen con la normativa GDPR. El acceso está restringido a SuperAdmin.
+                   Este módulo no recibe ni archiva documentos de identidad. No solicites ni cargues DNI, pasaportes u otros documentos sensibles hasta que se habiliten almacenamiento privado, control de acceso y una política de retención verificada.
                  </p>
               </div>
             </div>
@@ -657,11 +657,11 @@ export default function Recruitment() {
            {/* Top Stats: Attendance & Real-time Status */}
            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {[
-                { label: 'En Línea Ahora', val: '42/50', icon: Zap, color: 'text-green-500', bg: 'bg-green-50' },
-                { label: 'En Break', val: '5', icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-50' },
-                { label: 'Fuera de Línea', val: '3', icon: UserPlus, color: 'text-gray-400', bg: 'bg-gray-50' },
-                { label: 'Solicitudes Pend.', val: '2', icon: MessageCircle, color: 'text-blue-500', bg: 'bg-blue-50' }
-              ].map(stat => (
+                { label: 'Mi estado de jornada', val: isCheckedIn ? 'En jornada' : 'Sin fichaje', icon: Zap, color: isCheckedIn ? 'text-green-600' : 'text-gray-400', bg: isCheckedIn ? 'bg-green-50' : 'bg-gray-50' },
+                { label: 'Mis registros', val: String(attendanceLog.length), icon: Coffee, color: 'text-amber-500', bg: 'bg-amber-50' },
+                { label: 'Solicitudes registradas', val: String(absenceRequests.length), icon: UserPlus, color: 'text-blue-500', bg: 'bg-blue-50' },
+                { label: 'Pendientes de RR. HH.', val: String(absenceRequests.filter(item => item.status === 'pending').length), icon: MessageCircle, color: 'text-indigo-500', bg: 'bg-indigo-50' }
+                            ].map(stat => (
                 <div key={stat.label} className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-xl flex items-center gap-4">
                    <div className={`h-12 w-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                       <stat.icon className="w-6 h-6" />
@@ -751,8 +751,7 @@ export default function Recruitment() {
                     </div>
                     </div>
                  </div>
-              </div>
-
+              
               {/* Sidebar: Role Config & Training */}
               <div className="lg:col-span-4 space-y-6">
                  {/* Roles Basados en Experiencia */}
@@ -788,29 +787,13 @@ export default function Recruitment() {
                     </button>
                  </div>
 
-                 {/* Welcome Kit Library */}
                  <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl">
-                    <h3 className="text-sm font-black text-gray-900 uppercase italic tracking-widest mb-6 flex items-center gap-3">
+                    <h3 className="text-sm font-black text-gray-900 uppercase italic tracking-widest mb-4 flex items-center gap-3">
                        <BookOpen className="w-5 h-5 text-indigo-500" /> Kit de Bienvenida
                     </h3>
-                    <div className="space-y-4">
-                       {[
-                         { title: 'Manual de Cultura Kaivincia', type: 'PDF • 4.5MB' },
-                         { title: 'Guía de Herramientas AI', type: 'EPUB • 1.2MB' },
-                         { title: 'Identidad Visual v4', type: 'ZIP • 42MB' }
-                       ].map((doc, i) => (
-                         <div key={i} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl hover:bg-white hover:shadow-xl transition-all border border-transparent hover:border-gray-100 cursor-pointer group">
-                           <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center text-gray-400 group-hover:text-indigo-500">
-                             <FileText className="w-4 h-4" />
-                           </div>
-                           <div className="flex-1">
-                              <p className="text-[10px] font-black text-gray-900 uppercase truncate">{doc.title}</p>
-                              <p className="text-[8px] text-gray-400 uppercase">{doc.type}</p>
-                           </div>
-                           <Download className="w-3 h-3 text-gray-300 group-hover:text-gray-900" />
-                         </div>
-                       ))}
-                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      No hay documentos publicados en la biblioteca de empleados. Los enlaces de descarga aparecerán cuando se conecte un repositorio privado de documentos.
+                    </p>
                  </div>
 
                  {/* Protocolo de Faltas */}
