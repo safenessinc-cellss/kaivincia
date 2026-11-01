@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, limit, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
@@ -13,6 +13,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Contratado"];
+
+const formatAttendanceTime = (value: any) => {
+  const date = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Hora no disponible' : date.toLocaleString();
+};
 
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
@@ -243,7 +248,7 @@ export default function Recruitment() {
     try {
       await updateDoc(doc(db, 'absence_requests', requestId), {
         status,
-        reviewedAt: new Date().toISOString(),
+        reviewedAt: serverTimestamp(),
         reviewedBy: reviewer.uid,
         reviewerEmail: reviewer.email || ''
       });
@@ -258,9 +263,9 @@ export default function Recruitment() {
     try {
       const log = {
         userId: currentUser.uid,
-        userName: currentUser.displayName || currentUser.email || 'Colaborador',
+        userName: currentUser.email || '',
         type,
-        timestamp: new Date().toISOString(),
+        timestamp: serverTimestamp(),
         source: 'web'
       };
       await addDoc(collection(db, 'attendance_logs'), log);
@@ -273,13 +278,18 @@ export default function Recruitment() {
 
   const handleAbsenceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const currentUser = auth.currentUser;
+    if (!currentUser?.email) {
+      alert('Debes iniciar sesión con una cuenta de correo válida para enviar la solicitud.');
+      return;
+    }
     try {
       const request = {
         ...absenceForm,
-        userId: auth.currentUser?.uid || 'guest',
-        userName: auth.currentUser?.displayName || 'Colaborador',
+        userId: currentUser.uid,
+        userName: currentUser.email,
         status: 'pending',
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       };
       await addDoc(collection(db, 'absence_requests'), request);
       alert('Solicitud registrada con estado pendiente. La notificación automática a RRHH/superior no está confirmada.');
@@ -338,7 +348,7 @@ export default function Recruitment() {
                 <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Estado del fichaje</p>
                   <p className="text-5xl font-black text-gray-900 italic tracking-tighter">{isCheckedIn ? 'ENTRADA REGISTRADA' : 'SIN FICHAJE ACTIVO'}</p>
-                  <p className="text-[9px] text-gray-500 mt-3">{attendanceLog[0]?.timestamp ? `Último evento: ${new Date(attendanceLog[0].timestamp).toLocaleString()}` : 'Sin registros de asistencia todavía'}</p>
+                  <p className="text-[9px] text-gray-500 mt-3">{attendanceLog[0]?.timestamp ? `Último evento: ${formatAttendanceTime(attendanceLog[0].timestamp)}` : 'Sin registros de asistencia todavía'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
