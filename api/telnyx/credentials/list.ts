@@ -41,16 +41,40 @@ export default async function handler(req: any, res: any) {
     if (!apiKey) {
       res.statusCode = 503; res.end(JSON.stringify({ success: false, error: 'Servicio Telnyx no configurado.' })); return;
     }
-    const response = await fetch('https://api.telnyx.com/v2/telephony_credentials?page[size]=250', {
-      headers: { Authorization: `Bearer ${apiKey}` }
-    });
-    if (!response.ok) {
-      res.statusCode = 502; res.end(JSON.stringify({ success: false, error: 'Telnyx no pudo devolver las credenciales.' })); return;
+    // Retrieve the complete account inventory instead of silently stopping at
+    // the first page. Telnyx returns credential records across connections.
+    const allCredentials: any[] = [];
+    let pageNumber = 1;
+    let totalPages = 1;
+    while (pageNumber <= totalPages && pageNumber <= 100) {
+      const url = new URL('https://api.telnyx.com/v2/telephony_credentials');
+      url.searchParams.set('page[size]', '250');
+      url.searchParams.set('page[number]', String(pageNumber));
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${apiKey}` }
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        console.error('[telnyx-credentials-list] Telnyx response:', response.status, detail.slice(0, 500));
+        res.statusCode = 502;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ success: false, error: `Telnyx no pudo devolver las credenciales (HTTP ${response.status}).` }));
+        return;
+      }
+      const payload = await response.json();
+      const batch = Array.isArray(payload.data) ? payload.data : [];
+      allCredentials.push(...batch);
+      const reportedPages = Number(payload.meta?.page?.total_pages || payload.meta?.total_pages || 0);
+      totalPages = reportedPages > 0 ? reportedPages : (batch.length === 250 ? pageNumber + 1 : pageNumber);
+      pageNumber += 1;
     }
-    const payload = await response.json();
-    const credentials = (payload.data || []).map((item: any) => ({
-      id: item.id, name: item.name, sipUsername: item.sip_username,
-      connectionId: item.connection_id, createdAt: item.created_at
+    const credentials = allCredentials.map((item: any) => ({
+      id: item.id,
+      name: item.name || item.sip_username || item.id,
+      sipUsername: item.sip_username || '',
+      connectionId: item.connection_id || '',
+      status: item.status || item.status_detail || 'unknown',
+      createdAt: item.created_at
     }));
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
