@@ -14,7 +14,7 @@ import {
   ShieldCheck,
   X
 } from 'lucide-react';
-import { collection, onSnapshot, doc, setDoc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
