@@ -285,15 +285,22 @@ service cloud.firestore {
     // Legacy chat records used channelId before type/targetId were introduced.
     // Infer only the historical schema that the client already recognizes.
     function chatMessageType(data) {
-      return data.get('type', data.get('channelId', '') in ['general', 'dev-ops']
-        ? 'groups'
-        : (data.get('channelId', '') is string && data.get('channelId', '') != ''
-          ? 'clients'
-          : (data.get('senderId', '') is string && data.get('targetId', '') is string ? 'private' : '')));
+      let explicitType = data.get('type', '');
+      let legacyChannel = data.get('channelId', '');
+      return explicitType in ['groups', 'clients', 'private']
+        ? explicitType
+        : (legacyChannel in ['general', 'dev-ops']
+          ? 'groups'
+          : (legacyChannel is string && legacyChannel.size() > 0
+            ? 'clients'
+            : (data.get('senderId', '') is string && data.get('targetId', '') is string ? 'private' : '')));
     }
 
     function chatMessageTarget(data) {
-      return data.get('targetId', data.get('channelId', ''));
+      let explicitTarget = data.get('targetId', '');
+      return explicitTarget is string && explicitTarget.size() > 0
+        ? explicitTarget
+        : data.get('channelId', '');
     }
 
     function canReadChatMessage(data) {
