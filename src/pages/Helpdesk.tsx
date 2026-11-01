@@ -66,7 +66,7 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
   const [replyText, setReplyText] = useState('');
 
   const isAdminOrManager = canManage;
-  const canAssignTickets = canManage && ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase().trim());
+  const canAssignTickets = canManage;
 
   // 1. Obtener rol del usuario si es admin
   useEffect(() => {
@@ -85,8 +85,14 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
       }
       // Lista de operadores para asignación
       const staff = snapshot.docs
-        .filter(d => ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(d.data().role || '').toLowerCase().trim()))
-        .filter(d => ['approved', 'active'].includes(String(d.data().status || '').toLowerCase()))
+        .filter(d => {
+          const data = d.data();
+          const role = String(data.role || '').toLowerCase().trim();
+          const override = data.permissions?.helpdesk_manage;
+          const roleDefault = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(role);
+          return ['approved', 'active'].includes(String(data.status || '').toLowerCase()) &&
+            (override === true || (override !== false && roleDefault));
+        })
         .map(d => ({
           uid: d.id,
           email: d.data().email || 'Sin correo',
@@ -450,16 +456,23 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
 
                 {/* Acciones de Estado & Cierre */}
                 {isAdminOrManager && <div className="flex flex-wrap items-center gap-1.5">
+                  {selectedTicket.status !== 'open' && <button
+                    onClick={() => handleStatusChange('open')}
+                    disabled={actionLoading}
+                    className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-500/10 hover:bg-slate-500/20 text-slate-300 border border-slate-500/30 transition-all disabled:opacity-40"
+                  >
+                    Reabrir
+                  </button>}
                   <button
                     onClick={() => handleStatusChange('in_progress')}
-                    disabled={actionLoading || selectedTicket.status === 'in_progress'}
+                    disabled={actionLoading || ['in_progress', 'resolved', 'closed'].includes(selectedTicket.status)}
                     className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 transition-all disabled:opacity-40"
                   >
                     {t('helpdesk.status_in_progress')}
                   </button>
                   <button
                     onClick={() => handleStatusChange('resolved')}
-                    disabled={actionLoading || selectedTicket.status === 'resolved'}
+                    disabled={actionLoading || ['resolved', 'closed'].includes(selectedTicket.status)}
                     className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 transition-all disabled:opacity-40"
                   >
                     {t('helpdesk.status_resolved')}
