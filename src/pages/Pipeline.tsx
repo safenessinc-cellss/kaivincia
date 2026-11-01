@@ -148,6 +148,7 @@ function KanbanCard({
       <div className={`bg-slate-900/90 border border-slate-800 rounded-xl ${size === 'sm' ? 'p-2 mb-2' : size === 'lg' ? 'p-3 mb-3.5' : 'p-2.5 mb-3'} flex items-center justify-between`}>
         <div className="flex items-center gap-2">
           <button
+            disabled={!lead.phone}
             onClick={() => onCall(lead.phone)}
             className={`${size === 'sm' ? 'w-6 h-6' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7'} rounded-lg bg-emerald-500/20 hover:bg-emerald-500 text-emerald-400 hover:text-black flex items-center justify-center transition-all cursor-pointer shadow-sm`}
             title="Llamar con Discador VoIP"
@@ -401,14 +402,14 @@ export default function Pipeline() {
           id: doc.id,
           name: d.name || d.companyName || 'Lead Sin Nombre',
           companyName: d.companyName || d.company,
-          phone: d.phone || d.telefono || '+12135550192',
+          phone: d.phone || d.telefono || '',
           email: d.email,
           source: d.source || 'meta_ads',
-          campaignName: d.campaignName || 'Campaña Meta Ads USA',
+          campaignName: d.campaignName || 'Sin campaña',
           pipelineStage: d.pipelineStage || 'LEAD_IN',
-          assignedTLMK: d.assignedTLMK || d.setterName || 'Zaydeli De La Rosa',
-          contractValue: d.contractValue || d.amount || 3000,
-          healthScore: d.healthScore || 90,
+          assignedTLMK: d.assignedTLMK || d.setterName || 'Sin asignar',
+          contractValue: Number(d.contractValue ?? d.amount ?? 0),
+          healthScore: Number(d.healthScore ?? 0),
           isOverdue: Boolean(d.isOverdue),
           appointment: d.appointment,
           notes: d.notes || [],
@@ -417,105 +418,8 @@ export default function Pipeline() {
         } as LeadOpportunity;
       });
 
-      // Default sample leads if database has no records yet
-      if (data.length === 0) {
-        data = [
-          {
-            id: 'meta-lead-1',
-            name: 'Carlos Mendoza',
-            companyName: 'Mendoza Logistics LLC',
-            phone: '+1 (213) 489-3320', // California 213
-            email: 'carlos@mendozalog.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Crecimiento Empresarial California',
-            pipelineStage: 'LEAD_IN',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 4500,
-            healthScore: 95,
-            isOverdue: true,
-            createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_1',
-              author: 'Meta Lead Ads API',
-              text: 'Interesado en escalamiento de operaciones. Formulario completado en Instagram.',
-              createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-2',
-            name: 'Elena Rostova',
-            companyName: 'Empire Real Estate NY',
-            phone: '+1 (631) 890-4412', // New York 631
-            email: 'elena@empirerealty.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Inversionistas NY & NJ',
-            pipelineStage: 'CONTACTADO',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 8000,
-            healthScore: 88,
-            createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_2',
-              author: 'Meta Lead Ads API',
-              text: 'Preguntó por integración CRM y discador. Requiere llamada matutina.',
-              createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-3',
-            name: 'David Steinberg',
-            companyName: 'Denver Peaks Consulting',
-            phone: '+1 (720) 651-7890', // Colorado 720
-            email: 'david@denverpeaks.co',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Consultoría High Ticket',
-            pipelineStage: 'SEGUIMIENTO',
-            assignedTLMK: 'Marta García',
-            contractValue: 12000,
-            healthScore: 92,
-            createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_3',
-              author: 'Marta García',
-              text: 'Llamada inicial realizada. Muy receptivo, solicita propuesta y agendar reunión.',
-              createdAt: new Date(Date.now() - 10 * 3600 * 1000).toISOString()
-            }]
-          },
-          {
-            id: 'meta-lead-4',
-            name: 'Marcos Aurelio Santos',
-            companyName: 'Santos & Brothers Corp',
-            phone: '+1 (856) 412-9901', // New Jersey 856
-            email: 'marcos@santostrucking.com',
-            source: 'meta_ads',
-            campaignName: 'Meta Ads: Soluciones Financieras NJ',
-            pipelineStage: 'CITA_AGENDADA',
-            assignedTLMK: 'Zaydeli De La Rosa',
-            contractValue: 6500,
-            healthScore: 96,
-            appointment: {
-              date: new Date(Date.now() + 24 * 3600 * 1000).toISOString().split('T')[0],
-              time: '11:00',
-              assignedAgent: 'Supervisor Comercial',
-              type: 'videollamada',
-              address: 'Google Meet / Zoom Virtual',
-              status: 'programada',
-              notes: 'Revisión de plan de servicios y cierre comercial.'
-            },
-            createdAt: new Date(Date.now() - 20 * 3600 * 1000).toISOString(),
-            updatedAt: new Date().toISOString(),
-            notes: [{
-              id: 'n_4',
-              author: 'Zaydeli De La Rosa',
-              text: 'Cita coordinada con éxito para mañana a las 11:00 AM.',
-              createdAt: new Date(Date.now() - 5 * 3600 * 1000).toISOString()
-            }]
-          }
-        ];
-      }
+      // Never fabricate customer leads in a production CRM. Empty data stays empty
+      // so users do not call demo numbers or mistake examples for real prospects.
 
       setLeads(data);
       setLoading(false);
