@@ -127,7 +127,7 @@ service cloud.firestore {
     match /leads/{leadId} {
       allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || (ownsRecord(resource.data) && ownsRecord(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -141,7 +141,7 @@ service cloud.firestore {
         (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if isApproved() && (ownsRecord(request.resource.data) ||
         (request.resource.data.get('clientId', '') is string && canAccessClient(request.resource.data.get('clientId', ''))));
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
     }
 
@@ -167,7 +167,7 @@ service cloud.firestore {
     }
 
     function canReadChatMessage(data) {
-      return isAuthenticated() && (
+      return isApproved() && (
         (data.get('type', '') == 'groups' && isApproved() && (data.get('targetId', '') == 'general' || isAdmin())) ||
         (data.get('type', '') == 'private' &&
           (data.get('senderId', '') == request.auth.uid || data.get('targetId', '') == request.auth.uid)) ||
@@ -217,12 +217,12 @@ service cloud.firestore {
     match /omnichannel_threads/{threadId} {
       allow read: if isAdmin() || ownsRecord(resource.data);
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
       match /messages/{messageId} {
         allow read: if isAdmin() || ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data);
         allow create: if isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data);
-        allow update: if isAdmin() || ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data);
+        allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow delete: if isAdmin();
       }
     }
@@ -380,7 +380,7 @@ service cloud.firestore {
     // ===============================================================
     match /audit_logs/{logId} {
       allow read:   if isAdmin();
-      allow create: if isAuthenticated() && request.resource.data.get('actorUid', request.auth.uid) == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
@@ -405,7 +405,7 @@ service cloud.firestore {
 
     match /prospects/{prospectId} {
       allow read:   if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.get('ownerId', '') == request.auth.uid;
+      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid;
       allow update: if isAdmin() || existing().get('ownerId', '') == request.auth.uid;
       allow delete: if isAdmin();
     }
@@ -417,7 +417,7 @@ service cloud.firestore {
       allow read: if isAdmin() || ownsRecord(resource.data) ||
         (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if isApproved() && isValidProject(request.resource.data) && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || (ownsRecord(resource.data) && isValidProject(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidProject(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -431,7 +431,7 @@ service cloud.firestore {
     match /time_logs/{logId} {
       allow read: if isAdmin() || ownsRecord(resource.data);
       allow create: if isApproved() && isValidTimeLog(request.resource.data);
-      allow update: if isAdmin() || (ownsRecord(resource.data) && isValidTimeLog(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && isValidTimeLog(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -457,7 +457,7 @@ service cloud.firestore {
     match /attendance_logs/{logId} {
       allow read:   if isAdmin() ||
                        (isAuthenticated() && (existing().get('userId', '') == request.auth.uid || existing().get('userUid', '') == request.auth.uid));
-      allow create: if isAuthenticated() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
+      allow create: if isApproved() && (incoming().get('userId', '') == request.auth.uid || incoming().get('userUid', '') == request.auth.uid);
       allow update, delete: if isAdmin();
     }
 
