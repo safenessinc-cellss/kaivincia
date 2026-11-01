@@ -87,7 +87,7 @@ export default function Recruitment() {
       limit(20)
     );
     return onSnapshot(attendanceQuery, (snapshot) => {
-      const logs = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+      const logs: Array<{ id: string; type?: string; [key: string]: unknown }> = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
       setAttendanceLog(logs);
       setIsCheckedIn(logs[0]?.type === 'in');
     }, (error) => {
