@@ -110,9 +110,14 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
       orderBy('timestamp', 'desc'),
     );
     return onSnapshot(attendanceQuery, (snapshot) => {
-      const logs: Array<{ id: string; type?: string; timestamp?: any; [key: string]: unknown }> = snapshot.docs
-        .map(item => ({ id: item.id, ...item.data() }))
-        .sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
+      const logs = snapshot.docs
+        .map(item => ({ id: item.id, ...item.data() })) as Array<{
+          id: string;
+          type?: string;
+          timestamp?: any;
+          [key: string]: unknown;
+        }>;
+      logs.sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
       setAttendanceLog(logs.slice(0, 20));
       setIsCheckedIn(logs[0]?.type === 'in');
     }, (error) => {
