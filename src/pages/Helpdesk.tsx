@@ -448,7 +448,7 @@ export default function Helpdesk() {
                 </div>
 
                 {/* Acciones de Estado & Cierre */}
-                <div className="flex flex-wrap items-center gap-1.5">
+                {isAdminOrManager && <div className="flex flex-wrap items-center gap-1.5">
                   <button
                     onClick={() => handleStatusChange('in_progress')}
                     disabled={actionLoading || selectedTicket.status === 'in_progress'}
@@ -470,7 +470,7 @@ export default function Helpdesk() {
                   >
                     {t('helpdesk.close_btn')}
                   </button>
-                </div>
+                </div>}
               </div>
 
               {/* Asignación (Visible para Admins / Gestores) */}
@@ -527,7 +527,7 @@ export default function Helpdesk() {
               </div>
 
               {/* Campo de Respuesta */}
-              {selectedTicket.status !== 'closed' ? (
+              {selectedTicket.status !== 'closed' && (isAdminOrManager || ['open', 'in_progress'].includes(selectedTicket.status)) ? (
                 <div className="space-y-2 pt-2 border-t border-slate-800">
                   <textarea
                     rows={3}
