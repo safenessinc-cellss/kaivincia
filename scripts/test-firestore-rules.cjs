@@ -14,6 +14,7 @@ async function main() {
         ['alice', { role: 'agent', status: 'approved' }],
         ['bob', { role: 'agent', status: 'approved' }],
         ['pending', { role: 'agent', status: 'pending' }],
+        ['hr', { role: 'rrhh', status: 'approved' }],
         ['admin', { role: 'admin', status: 'approved' }]
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
@@ -31,11 +32,26 @@ async function main() {
       await setDoc(doc(db, 'esim_profiles', 'admin-esim'), { isDemo: false, phone: '+15555550101' });
       await setDoc(doc(db, 'telnyx_phone_numbers', 'admin-number'), { phoneNumber: '+15555550102' });
       await setDoc(doc(db, 'telnyx_agent_assignments', 'alice'), { agentId: 'alice', authorizedNumbers: ['+15555550102'] });
+      await setDoc(doc(db, 'support_tickets', 'alice-ticket'), {
+        userId: 'alice', userEmail: 'alice@example.test', subject: 'Login issue',
+        description: 'Cannot log in', priority: 'medium', status: 'open',
+        assignedTo: null, assignedToEmail: null, messages: [], createdAt: '2026-11-01'
+      });
+      await setDoc(doc(db, 'support_tickets', 'bob-ticket'), {
+        userId: 'bob', userEmail: 'bob@example.test', subject: 'Billing issue',
+        description: 'Need invoice', priority: 'low', status: 'open',
+        assignedTo: null, assignedToEmail: null, messages: [], createdAt: '2026-11-01'
+      });
+      await setDoc(doc(db, 'candidates', 'candidate-1'), { name: 'Candidate One', email: 'candidate@example.test', status: 'Nuevo' });
+      await setDoc(doc(db, 'jobs', 'job-1'), { title: 'HR Analyst', department: 'People', status: 'active' });
+      await setDoc(doc(db, 'attendance_logs', 'alice-attendance'), { userId: 'alice', type: 'in', timestamp: '2026-11-01T09:00:00Z' });
+      await setDoc(doc(db, 'absence_requests', 'alice-absence'), { userId: 'alice', status: 'pending', reason: 'Personal', startDate: '2026-11-02', endDate: '2026-11-02' });
     });
 
     const alice = env.authenticatedContext('alice').firestore();
     const bob = env.authenticatedContext('bob').firestore();
     const pending = env.authenticatedContext('pending').firestore();
+    const hr = env.authenticatedContext('hr').firestore();
     const admin = env.authenticatedContext('admin').firestore();
     const anonymous = env.unauthenticatedContext().firestore();
 
@@ -78,10 +94,13 @@ async function main() {
     await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
 
-    await assertSucceeds(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
+    await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
+    await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(alice, 'telnyx_agent_assignments', 'alice')));
     await assertFails(getDoc(doc(bob, 'telnyx_agent_assignments', 'alice')));
@@ -89,6 +108,32 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'esim_profiles', 'admin-esim')));
     await assertFails(getDoc(doc(alice, 'telnyx_phone_numbers', 'admin-number')));
     await assertSucceeds(getDoc(doc(admin, 'telnyx_phone_numbers', 'admin-number')));
+    // Helpdesk lifecycle: customers can reply only on their own open ticket;
+    // they cannot close, reprioritize or reassign it.
+    await assertSucceeds(getDoc(doc(alice, 'support_tickets', 'alice-ticket')));
+    await assertFails(getDoc(doc(alice, 'support_tickets', 'bob-ticket')));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { status: 'closed', updatedAt: 'now' }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { priority: 'critical', updatedAt: 'now' }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', updatedAt: 'now' }));
+    await assertSucceeds(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
+      messages: [{ senderId: 'alice', text: 'Additional details' }], updatedAt: 'now'
+    }));
+    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress' }));
+
+    // HR can read and manage recruitment/attendance data, but cannot grant
+    // application roles, permissions or account approval.
+    await assertSucceeds(getDoc(doc(hr, 'users', 'alice')));
+    await assertFails(updateDoc(doc(hr, 'users', 'alice'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(hr, 'users', 'alice'), { status: 'active' }));
+    await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
+    await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista' }));
+    await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
+    await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
+    await assertSucceeds(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
+    await assertSucceeds(getDoc(doc(hr, 'absence_requests', 'alice-absence')));
+    await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), { status: 'approved' }));
+    await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
+
     await assertSucceeds(getDocs(collection(admin, 'clients')));
 
     console.log('Firestore security tests passed: ownership, scoped queries, pending accounts, private chat, group channel roles and SIP assignment.');
