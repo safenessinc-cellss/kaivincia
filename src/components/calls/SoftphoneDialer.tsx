@@ -323,7 +323,7 @@ export default function SoftphoneDialer({
       if (!snapshot.empty) {
         esimList = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter((p: any) => p.isInternalLineActive !== false && p.status !== 'expired')
+          .filter((p: any) => !p.isDemo && p.isInternalLineActive !== false && p.status !== 'expired')
           .map((p: any) => ({
             id: `esim_${p.id}`,
             name: `📱 ${p.lineName || 'Línea eSIM'} (${p.extension || 'Ext. 101'})`,
