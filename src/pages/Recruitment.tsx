@@ -104,25 +104,25 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
       setIsCheckedIn(false);
       return;
     }
-    const attendanceQuery = query(
-      collection(db, 'attendance_logs'),
-      where('userId', '==', uid),
-      orderBy('timestamp', 'desc'),
-    );
-    return onSnapshot(attendanceQuery, (snapshot) => {
-      const logs = snapshot.docs
-        .map(item => ({ id: item.id, ...item.data() })) as Array<{
-          id: string;
-          type?: string;
-          timestamp?: any;
-          [key: string]: unknown;
-        }>;
-      logs.sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
+    // Read both current and legacy owner fields without broad collection reads.
+    const querySnapshots = new Map<number, any[]>();
+    const publishAttendance = () => {
+      const unique = new Map<string, any>();
+      querySnapshots.forEach(items => items.forEach(item => unique.set(item.id, item)));
+      const logs = Array.from(unique.values())
+        .sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
       setAttendanceLog(logs.slice(0, 20));
       setIsCheckedIn(logs[0]?.type === 'in');
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'attendance_logs');
-    });
+    };
+    const queries = [
+      query(collection(db, 'attendance_logs'), where('userId', '==', uid)),
+      query(collection(db, 'attendance_logs'), where('userUid', '==', uid))
+    ];
+    const unsubscribers = queries.map((attendanceQuery, index) => onSnapshot(attendanceQuery, snapshot => {
+      querySnapshots.set(index, snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      publishAttendance();
+    }, error => handleFirestoreError(error, OperationType.GET, 'attendance_logs')));
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [user?.uid]);
 
   // HR sees the review queue; employees see only their own requests.
@@ -132,16 +132,30 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
       setAbsenceRequests([]);
       return;
     }
-    const absenceQuery = canManageRecruitment
-      ? query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'absence_requests'), where('userId', '==', uid), orderBy('createdAt', 'desc'));
-    return onSnapshot(absenceQuery, (snapshot) => {
-      setAbsenceRequests(snapshot.docs
-        .map(item => ({ id: item.id, ...item.data() }))
+    if (canManageRecruitment) {
+      return onSnapshot(query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc')), snapshot => {
+        setAbsenceRequests(snapshot.docs
+          .map(item => ({ id: item.id, ...item.data() }))
+          .sort((a: any, b: any) => getStoredDateMillis(b.createdAt) - getStoredDateMillis(a.createdAt)));
+      }, error => handleFirestoreError(error, OperationType.GET, 'absence_requests'));
+    }
+    // Preserve access to older employee requests stored under userUid.
+    const querySnapshots = new Map<number, any[]>();
+    const publishAbsences = () => {
+      const unique = new Map<string, any>();
+      querySnapshots.forEach(items => items.forEach(item => unique.set(item.id, item)));
+      setAbsenceRequests(Array.from(unique.values())
         .sort((a: any, b: any) => getStoredDateMillis(b.createdAt) - getStoredDateMillis(a.createdAt)));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'absence_requests');
-    });
+    };
+    const queries = [
+      query(collection(db, 'absence_requests'), where('userId', '==', uid)),
+      query(collection(db, 'absence_requests'), where('userUid', '==', uid))
+    ];
+    const unsubscribers = queries.map((absenceQuery, index) => onSnapshot(absenceQuery, snapshot => {
+      querySnapshots.set(index, snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      publishAbsences();
+    }, error => handleFirestoreError(error, OperationType.GET, 'absence_requests')));
+    return () => unsubscribers.forEach(unsubscribe => unsubscribe());
   }, [canManageRecruitment, user?.uid]);
 
   // Full job records include HR metrics and are never queried by employees.
