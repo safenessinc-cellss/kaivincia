@@ -47,7 +47,7 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
   useEffect(() => {
     if (authLoading || !user) return;
 
-    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
     const threadRecords = new Map<string, any>();
     const queries = isAdmin ? [collection(db, 'omnichannel_threads')] : [
       query(collection(db, 'omnichannel_threads'), where('ownerId', '==', user.uid)),
