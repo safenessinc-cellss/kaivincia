@@ -129,7 +129,7 @@ service cloud.firestore {
     match /leads/{leadId} {
       allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data) && request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '') && request.resource.data.get('assignedTo', resource.data.get('assignedTo', '')) == resource.data.get('assignedTo', ''));
       allow delete: if isAdmin();
     }
 
@@ -150,8 +150,8 @@ service cloud.firestore {
     match /tasks/{taskId} {
       allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data)) ||
         (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
-      allow create: if isApproved() && (request.resource.data.get('createdBy', '') == request.auth.uid ||
-        request.resource.data.get('assignedTo', '') == request.auth.uid);
+      allow create: if (isAdmin() && request.resource.data.get('createdBy', '') == request.auth.uid) ||
+        (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid);
       allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data));
       allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
     }
