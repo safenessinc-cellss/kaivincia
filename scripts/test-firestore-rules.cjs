@@ -15,6 +15,8 @@ async function main() {
         ['bob', { role: 'agent', status: 'approved' }],
         ['pending', { role: 'agent', status: 'pending' }],
         ['hr', { role: 'rrhh', status: 'approved' }],
+        ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
+        ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved' }]
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
@@ -52,6 +54,8 @@ async function main() {
     const bob = env.authenticatedContext('bob').firestore();
     const pending = env.authenticatedContext('pending').firestore();
     const hr = env.authenticatedContext('hr').firestore();
+    const hrDenied = env.authenticatedContext('hr-denied').firestore();
+    const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin').firestore();
     const anonymous = env.unauthenticatedContext().firestore();
 
@@ -126,6 +130,8 @@ async function main() {
     await assertFails(updateDoc(doc(hr, 'users', 'alice'), { role: 'admin' }));
     await assertFails(updateDoc(doc(hr, 'users', 'alice'), { status: 'active' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
+    await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
+    await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
     await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista' }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
