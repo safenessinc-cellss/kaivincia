@@ -170,6 +170,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(hr, 'absence_requests', 'alice-absence')));
     await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), { status: 'approved' }));
     await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
+    await assertSucceeds(setDoc(doc(alice, 'audit_logs', 'alice-event'), { actorUid: 'alice', action: 'TEST' }));
+    await assertFails(setDoc(doc(alice, 'audit_logs', 'forged-event'), { actorUid: 'bob', action: 'FORGED' }));
 
     await assertSucceeds(getDocs(collection(admin, 'clients')));
 
