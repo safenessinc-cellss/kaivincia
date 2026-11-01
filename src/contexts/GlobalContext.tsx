@@ -45,7 +45,7 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
         const ownUserRef = doc(db, 'users', user.uid);
         const ownUserSnapshot = await getDoc(ownUserRef);
         if (generation !== authGeneration) return;
-        const ownUser = ownUserSnapshot.exists() ? { id: ownUserSnapshot.id, ...ownUserSnapshot.data() } : null;
+        const ownUser: (Record<string, any> & { id: string }) | null = ownUserSnapshot.exists() ? { id: ownUserSnapshot.id, ...ownUserSnapshot.data() } : null;
         const canReadDirectory = ADMIN_ROLES.has(String(ownUser?.role || '').toLowerCase());
         const userQuery = canReadDirectory
           ? collection(db, 'users')
