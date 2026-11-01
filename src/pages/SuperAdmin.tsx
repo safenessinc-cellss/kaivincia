@@ -198,8 +198,8 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'UPDATE_USER_ROLE',
         resourceType: 'User',
         resourceId: userId,
@@ -262,8 +262,8 @@ export default function SuperAdmin() {
       });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'ASSIGN_CLIENTS_PROJECTS',
         resourceType: 'User',
         resourceId: assignModalUser.id,
@@ -289,8 +289,8 @@ export default function SuperAdmin() {
       await deleteDoc(doc(db, 'users', userToDelete.id));
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'DELETE_USER_PERMANENT',
         resourceType: 'User',
         resourceId: userToDelete.id,
@@ -335,8 +335,8 @@ export default function SuperAdmin() {
     try {
       const inviteId = `invite_${Date.now()}`;
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'INVITE_USER',
         resourceType: 'User',
         resourceId: inviteId,
