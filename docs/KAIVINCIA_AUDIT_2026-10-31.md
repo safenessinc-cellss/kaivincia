@@ -138,3 +138,33 @@ Base protegida: `eab664c88b67fd191496eb4bbfffe966438e3c29`
 5. Pruebas end-to-end por rol, incluyendo deep links y acciones prohibidas.
 
 **No desplegar a producción hasta completar las pruebas de seguridad y funcionales.**
+
+
+## Auditoría funcional — fase 2: CRM Core y comunicación (2026-11-01)
+
+### P0 — Lecturas globales incompatibles con privacidad por asignación
+- `src/contexts/GlobalContext.tsx`: mantiene listeners globales de `clients`, `users` y `tasks` para cualquier usuario autenticado. La regla de `users` permite leer sólo el propio perfil o admin; por tanto, los consumidores no administrativos pueden recibir permission-denied y perder directorio/contexto. La colección `notifications` existe en el contexto pero nunca se carga.
+- `src/pages/Tasks.tsx`: escucha todas las tareas, todos los usuarios, proyectos y clientes. No filtra por `assignedTo`, `createdBy`, `assignedClients` ni permisos de rol. Expone datos en memoria de la UI y el modelo actual de reglas permite lectura/escritura global de tareas.
+- `src/pages/CalendarView.tsx`: escucha todas las tareas, clientes y citas. El calendario puede presentar actividades de otras personas/clientes; además crea tareas sin `createdBy`, `projectId` ni prioridad, mientras el formulario de Tasks exige proyecto al crear desde su propia pantalla.
+- `src/pages/Chat.tsx`: carga toda la colección `chat_messages` y filtra los mensajes privados sólo en el navegador. La regla Firestore actual permite lectura a cualquier autenticado; por tanto, el filtrado visual no protege conversaciones privadas.
+- `src/pages/Clients.tsx`: escucha todos los clientes, colaboradores y prospectos. La detección de upsell lee globalmente `academic_progress` y `users`; la ficha de cliente consulta facturas/proyectos y progreso académico. El acceso a datos financieros/académicos debe depender de rol y cliente asignado.
+
+**Riesgo:** el control visual de menú no limita la lectura de datos. El aislamiento debe aplicarse simultáneamente en reglas y consultas compatibles; no cambiar sólo las reglas porque Firestore no filtra resultados y podría romper listeners.
+
+### P1 — Pipeline mostraba datos de demostración como leads reales
+- `src/pages/Pipeline.tsx` escuchaba `clients`, pero si no había registros insertaba cuatro leads ficticios con nombres, teléfonos, importes, agentes y notas inventados. La tarjeta ofrecía llamar/WhatsApp a esos teléfonos y las acciones de edición intentaban actualizar documentos que no existían.
+- Remediación aplicada en esta fase: se elimina el fallback de leads ficticios; no se inventan teléfonos, importes ni responsables; el pipeline muestra el estado vacío real y deshabilita llamada/WhatsApp cuando el teléfono no existe.
+- Se elimina duplicación de grupos de navegación entre Ventas y Ecosistema de Clientes para roles gestor/CEO/SuperAdmin.
+
+### P1 — Coherencia funcional de tareas y calendario
+- La creación de tareas desde calendario no cumple el mismo contrato de datos que la creación desde Tasks. Antes de unificar el formulario hay que decidir si `projectId` es obligatorio o si las tareas personales pueden existir sin proyecto, y documentar el contrato en tipos y reglas.
+- Los contadores y notificaciones del contexto global no son fiables mientras `notifications` no tenga una fuente real y las tareas no estén limitadas por asignación.
+
+### Próximas correcciones seguras
+1. Definir scope por usuario: admin/superadmin global; manager/supervisor según equipo asignado; agente/colaborador sólo asignaciones propias; cliente sólo portal propio.
+2. Migrar GlobalContext y Tasks/Calendar/Clients a consultas por scope con índices requeridos.
+3. Rediseñar Chat para separar grupos internos, mensajes privados por participante y conversaciones de cliente por asignación; añadir pruebas de lectura cruzada.
+4. Añadir Firebase Emulator Suite y tests positivos/negativos para reglas por colección.
+5. Normalizar contrato de Task y flujo de creación desde calendario.
+
+**No se han cambiado reglas Firestore en esta fase.** Las consultas y estructuras de datos deben migrarse antes para no bloquear operaciones existentes.
