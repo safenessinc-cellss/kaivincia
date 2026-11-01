@@ -98,7 +98,6 @@ export default function DocumentDrive() {
   const submitClassification = () => {
      if (!stagedFile) return;
      
-     const isCiso = formData.category === 'CISO';
      setIsSimulatingUpload(true);
      setClassificationModalOpen(false);
      setUploadProgress(0);
@@ -124,7 +123,7 @@ export default function DocumentDrive() {
            id: formData.code,
            title: stagedFile?.name || 'Documento Importado',
            type: stagedFile?.name.split('.').pop() || 'pdf',
-           status: 'pending',
+           status: 'draft',
            size: stagedFile ? `${(stagedFile.size / (1024 * 1024)).toFixed(1)} MB (local)` : 'Tamaño desconocido',
            date: new Date().toISOString(),
            tags: ['DEMO', 'Sólo sesión local', 'Sin cifrado'],
@@ -185,7 +184,7 @@ export default function DocumentDrive() {
         <div>
           <h1 className="text-3xl font-black uppercase italic tracking-tighter flex items-center gap-3 text-white">
             <ShieldCheck className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" /> 
-            Drive <span className="text-slate-500">// Vault SGI</span>
+            Drive <span className="text-slate-500">// DEMO LOCAL</span>
           </h1>
           <p className="text-slate-400 font-mono text-xs mt-2 uppercase tracking-widest flex items-center gap-2">
             <Shield className="w-3 h-3 text-emerald-400" /> Repositorio documental cifrado (ISO 27001 / 9001)
