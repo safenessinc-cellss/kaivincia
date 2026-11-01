@@ -39,137 +39,7 @@ interface VoipProviderConfigProps {
   onSelectCarrierForDialer?: (carrierId: string) => void;
 }
 
-const INITIAL_PROVIDERS: VoipProvider[] = [
-  {
-    id: 'zadarma',
-    name: 'Zadarma (SIP Cloud)',
-    presetKey: 'zadarma',
-    type: 'sip',
-    status: 'enabled',
-    costPerMinute: '$0.012',
-    currency: 'USD',
-    isDefault: true,
-    priority: 1,
-    failover: 'telnyx',
-    credentials: {
-      domain: 'sip.zadarma.com',
-      port: 5060,
-      transport: 'WSS',
-      username: '345678',
-      password: '••••••••••••',
-      callerId: '+1 (305) 555-0199',
-      callerName: 'KaiVincia Outbound',
-      wsUrl: 'wss://sip.zadarma.com:443/ws',
-      apiBaseUrl: 'https://api.zadarma.com/v1',
-      preferredCodec: 'OPUS',
-      dtmfType: 'RFC2833',
-      recordCallsByDefault: true
-    },
-    latencyMs: 22,
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'telnyx',
-    name: 'Telnyx WebRTC Backbone',
-    presetKey: 'telnyx',
-    type: 'api',
-    status: 'available',
-    costPerMinute: '$0.010',
-    currency: 'USD',
-    priority: 2,
-    failover: 'twilio',
-    credentials: {
-      domain: 'sip.telnyx.com',
-      port: 5060,
-      transport: 'TLS',
-      apiKey: 'KEY0184••••••••••••••••',
-      callerId: '+1 (415) 555-0142',
-      callerName: 'KaiVincia Direct',
-      wsUrl: 'wss://rtc.telnyx.com',
-      apiBaseUrl: 'https://api.telnyx.com/v2',
-      stunServer: 'stun:stun.telnyx.com:3478',
-      preferredCodec: 'OPUS',
-      dtmfType: 'RFC2833',
-      recordCallsByDefault: true
-    },
-    latencyMs: 18,
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'twilio',
-    name: 'Twilio Voice Elastic SIP',
-    presetKey: 'twilio',
-    type: 'sdk',
-    status: 'available',
-    costPerMinute: '$0.015',
-    currency: 'USD',
-    priority: 3,
-    failover: 'zoho_voice',
-    credentials: {
-      domain: 'kaivincia.sip.twilio.com',
-      port: 5061,
-      transport: 'TLS',
-      accountId: 'AC••••••••••••••••',
-      apiKey: 'SK••••••••••••••••',
-      callerId: '+1 (800) 555-0199',
-      callerName: 'KaiVincia Support',
-      apiBaseUrl: 'https://api.twilio.com/2010-04-01',
-      preferredCodec: 'G711U',
-      dtmfType: 'RFC2833',
-      recordCallsByDefault: true
-    },
-    latencyMs: 31,
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'zoho_voice',
-    name: 'Zoho Voice (Trunk Direct)',
-    presetKey: 'zoho_voice',
-    type: 'sip',
-    status: 'configured',
-    costPerMinute: '$0.018',
-    currency: 'USD',
-    priority: 4,
-    failover: 'zadarma',
-    credentials: {
-      domain: 'voice.zoho.com',
-      port: 5060,
-      transport: 'WSS',
-      username: 'kaivincia_zoho',
-      callerId: '+34 91 555 0122',
-      callerName: 'Zoho Madrid Line',
-      wsUrl: 'wss://voice.zoho.com/sip/ws',
-      apiBaseUrl: 'https://voice.zoho.com/api/v1',
-      preferredCodec: 'OPUS',
-      dtmfType: 'RFC2833',
-      recordCallsByDefault: false
-    },
-    latencyMs: 42,
-    lastUpdated: new Date().toISOString()
-  },
-  {
-    id: 'asterisk_local',
-    name: 'Asterisk PBX / FreeSWITCH',
-    presetKey: 'asterisk',
-    type: 'sip',
-    status: 'available',
-    costPerMinute: '$0.005',
-    currency: 'USD',
-    priority: 5,
-    credentials: {
-      domain: 'pbx.kaivincia.internal',
-      port: 5060,
-      transport: 'UDP',
-      username: '101',
-      callerId: '101',
-      callerName: 'Agente Interno',
-      preferredCodec: 'G711U',
-      dtmfType: 'RFC2833'
-    },
-    latencyMs: 5,
-    lastUpdated: new Date().toISOString()
-  }
-];
+
 
 export default function VoipProviderConfig({ 
   isAdmin = true, 
@@ -202,15 +72,12 @@ export default function VoipProviderConfig({
         const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as VoipProvider));
         setProviders(list.sort((a, b) => (a.priority || 99) - (b.priority || 99)));
       } else {
-        INITIAL_PROVIDERS.forEach(p => {
-          setDoc(doc(db, 'voip_providers', p.id), p).catch(console.error);
-        });
-        setProviders(INITIAL_PROVIDERS);
+        setProviders([]);
       }
       setLoading(false);
     }, (err) => {
       console.warn('Error syncing voip_providers, using fallback:', err);
-      setProviders(INITIAL_PROVIDERS);
+      setProviders([]);
       setLoading(false);
     });
 
@@ -286,65 +153,11 @@ export default function VoipProviderConfig({
   // Test de Conexión y Diagnóstico de Latencia
   const handleTestConnection = async (provider: VoipProvider) => {
     setTestingId(provider.id);
-    const startTime = performance.now();
-
-    try {
-      if (provider.credentials?.apiBaseUrl && provider.credentials?.apiKey) {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-
-        try {
-          const res = await fetch(provider.credentials.apiBaseUrl, {
-            method: 'HEAD',
-            signal: controller.signal,
-            headers: { 'Authorization': `Bearer ${provider.credentials.apiKey}` }
-          });
-          clearTimeout(timeout);
-          const duration = Math.round(performance.now() - startTime);
-          setTestResults(prev => ({
-            ...prev,
-            [provider.id]: {
-              success: true,
-              latencyMs: duration,
-              message: `API HTTP ${res.status || 200} OK`
-            }
-          }));
-        } catch {
-          clearTimeout(timeout);
-          const duration = Math.round(performance.now() - startTime);
-          setTestResults(prev => ({
-            ...prev,
-            [provider.id]: {
-              success: true,
-              latencyMs: duration,
-              message: 'API Socket alcanzable'
-            }
-          }));
-        }
-      } else {
-        await new Promise(r => setTimeout(r, 500 + Math.random() * 300));
-        const duration = Math.round(performance.now() - startTime);
-        const hasCredentials = !!(provider.credentials?.domain || provider.credentials?.username);
-
-        setTestResults(prev => ({
-          ...prev,
-          [provider.id]: {
-            success: hasCredentials,
-            latencyMs: duration,
-            message: hasCredentials ? 'SIP 200 OK (Listo)' : 'Credenciales incompletas'
-          }
-        }));
-
-        if (hasCredentials) {
-          await updateDoc(doc(db, 'voip_providers', provider.id), { 
-            status: 'enabled',
-            latencyMs: duration 
-          }).catch(() => {});
-        }
-      }
-    } finally {
-      setTestingId(null);
-    }
+    setTestResults(prev => ({
+      ...prev,
+      [provider.id]: { success: false, latencyMs: 0, message: 'Verificación segura no conectada. No se enviaron credenciales.' }
+    }));
+    setTestingId(null);
   };
 
   // Filtrar lista
