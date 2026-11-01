@@ -25,7 +25,7 @@ export default async function handler(req: any, res: any) {
     const authHeader = req.headers['authorization'] || '';
     const authUser = await MetaBackendService.verifyAuthToken(authHeader);
 
-    if (!authUser && !req.headers['x-dev-uid'] && process.env.NODE_ENV === 'production') {
+    if (!authUser && process.env.NODE_ENV === 'production') {
       res.statusCode = 401;
       res.end(JSON.stringify({
         success: false,
