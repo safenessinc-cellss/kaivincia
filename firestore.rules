@@ -14,6 +14,13 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.token.email == "safeness.c.a@gmail.com";
     }
 
+    function isSuperAdminAccount() {
+      return isAuthenticated() && (
+        request.auth.token.email == "safeness.c.a@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && userRole() == "superadmin")
+      );
+    }
+
     function userRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("role", "none");
     }
@@ -152,8 +159,8 @@ service cloud.firestore {
     // ===============================================================
     match /users/{userId} {
       allow read:   if isAuthenticated() && (isUser(userId) || isAdmin() || isHR());
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (
+      allow create: if isSuperAdminAccount();
+      allow update: if isSuperAdminAccount() || (
         isUser(userId) &&
         !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['role', 'status', 'permissions', 'uid'])
@@ -422,7 +429,7 @@ service cloud.firestore {
     // to evaluate their effective navigation; only admins may modify it.
     match /settings/rbac_matrix {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isSuperAdmin();
+      allow create, update, delete: if isSuperAdminAccount();
     }
 
     match /settings/appearance {
