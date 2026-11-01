@@ -115,6 +115,7 @@ export default function SuperAdmin() {
   }, []);
 
   const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
+  const canDeleteUsers = user?.email === 'safeness.c.a@gmail.com';
 
   // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
   useEffect(() => {
@@ -179,8 +180,8 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { status });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        actorUid: user?.uid || '',
+        actorEmail: user?.email || null,
         action: 'UPDATE_USER_STATUS',
         resourceType: 'User',
         resourceId: userId,
@@ -229,8 +230,8 @@ export default function SuperAdmin() {
       await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: auth.currentUser?.uid || 'unknown',
-        userEmail: auth.currentUser?.email || null,
+        actorUid: auth.currentUser?.uid || '',
+        actorEmail: auth.currentUser?.email || null,
         action: 'UPDATE_USER_PERMISSIONS',
         resourceType: 'User',
         resourceId: userId,
@@ -279,6 +280,10 @@ export default function SuperAdmin() {
 
   const handleDeleteUserPermanently = async () => {
     if (!userToDelete) return;
+    if (!canDeleteUsers) {
+      triggerFeedback('Solo la cuenta propietaria autorizada puede eliminar perfiles.');
+      return;
+    }
     setIsDeleting(true);
     try {
       await deleteDoc(doc(db, 'users', userToDelete.id));
@@ -610,13 +615,13 @@ export default function SuperAdmin() {
                             </button>
 
                             {/* Delete User Permanently */}
-                            <button 
+                            {canDeleteUsers && <button 
                               onClick={() => setUserToDelete(user)}
                               title="Eliminar Usuario Definitivamente" 
                               className="p-2 bg-red-50 text-red-500 hover:text-white hover:bg-red-600 rounded-xl transition-all border border-red-200"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                            </button>}
                           </div>
                         </td>
                       </tr>
