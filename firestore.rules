@@ -52,6 +52,16 @@ service cloud.firestore {
       );
     }
 
+    function preservesOwnership(before, after) {
+      return after.get('ownerId', before.get('ownerId', '')) == before.get('ownerId', '') &&
+        after.get('createdBy', before.get('createdBy', '')) == before.get('createdBy', '') &&
+        after.get('assignedTo', before.get('assignedTo', '')) == before.get('assignedTo', '') &&
+        after.get('assignedManagerId', before.get('assignedManagerId', '')) == before.get('assignedManagerId', '') &&
+        after.get('agentId', before.get('agentId', '')) == before.get('agentId', '') &&
+        after.get('userId', before.get('userId', '')) == before.get('userId', '') &&
+        after.get('userUid', before.get('userUid', '')) == before.get('userUid', '');
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -143,7 +153,7 @@ service cloud.firestore {
         (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if isApproved() && (ownsRecord(request.resource.data) ||
         (request.resource.data.get('clientId', '') is string && canAccessClient(request.resource.data.get('clientId', ''))));
-      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -152,7 +162,7 @@ service cloud.firestore {
         (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if (isAdmin() && request.resource.data.get('createdBy', '') == request.auth.uid) ||
         (isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid);
-      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data));
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data) && preservesOwnership(resource.data, request.resource.data));
       allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
     }
 
