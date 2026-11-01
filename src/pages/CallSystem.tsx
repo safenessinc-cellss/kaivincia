@@ -68,7 +68,7 @@ export default function CallSystem() {
   // La pestaña se deriva de la URL: soporta atrás/adelante sin estado duplicado.
   // Los paneles administrativos no se abren desde un query param no autorizado.
   const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
-  const activeTab = !isAdmin && ['telnyx', 'meta'].includes(requestedTab) ? 'monitor' : requestedTab;
+  const activeTab = !isAdmin && ['telnyx', 'meta', 'esim'].includes(requestedTab) ? 'monitor' : requestedTab;
 
   useEffect(() => {
     if (activeTab !== currentTabParam) {
