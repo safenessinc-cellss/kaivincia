@@ -455,6 +455,7 @@ export default function TelnyxAdminHub() {
             telnyxUsername: cred.sipUsername || '',
             connectionId: cred.connectionId || '',
             activo: true,
+            status: 'active',
             assignedTo: null,
             areaCode: null,
             updatedAt: new Date().toISOString(),
@@ -805,7 +806,7 @@ export default function TelnyxAdminHub() {
               <span>{testResult.message}</span>
             </div>
             {testResult.httpStatus && (
-              <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-black/40 border border-white/10">
+              <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 border border-white/10">
                 HTTP {testResult.httpStatus}
               </span>
             )}
@@ -816,7 +817,7 @@ export default function TelnyxAdminHub() {
         <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="text-slate-500 font-mono text-[11px]">Connection ID:</span>
-            <span className="font-mono font-bold text-white bg-black/40 px-2 py-0.5 rounded-lg border border-slate-800">
+            <span className="font-mono font-bold text-white bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-800">
               {config.connectionId}
             </span>
             <span className="text-[11px] text-cyan-400 font-medium">({config.connectionName})</span>
@@ -1395,10 +1396,10 @@ export default function TelnyxAdminHub() {
 
           {/* Modal para Registrar Número Manual */}
           {showAddNumberModal && (
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-base font-black text-white uppercase tracking-tight">
+                  <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">
                     Registrar Número Telefónico
                   </h4>
                   <button
@@ -1421,7 +1422,7 @@ export default function TelnyxAdminHub() {
                       value={newPhoneNumber}
                       onChange={(e) => setNewPhoneNumber(e.target.value)}
                       placeholder="+1 (305) 555-0199"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-cyan-500"
                     />
                   </div>
 
@@ -1434,7 +1435,7 @@ export default function TelnyxAdminHub() {
                       value={newPhoneFriendlyName}
                       onChange={(e) => setNewPhoneFriendlyName(e.target.value)}
                       placeholder="Ej. Línea Comercial México / Miami"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2 text-xs text-slate-900 focus:outline-none focus:border-cyan-500"
                     />
                   </div>
 
@@ -1446,7 +1447,7 @@ export default function TelnyxAdminHub() {
                       <select
                         value={newPhoneTag}
                         onChange={(e) => setNewPhoneTag(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3 py-2 text-xs text-white font-bold"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-900 font-bold"
                       >
                         <option value="Ventas">Ventas</option>
                         <option value="Soporte">Soporte</option>
@@ -1598,11 +1599,11 @@ export default function TelnyxAdminHub() {
 
           {/* Modal de Configuración de Asignación */}
           {selectedAgentForModal && (
-            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5">
+            <div className="fixed inset-0 z-50 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="text-base font-black text-white uppercase tracking-tight">
+                    <h4 className="text-base font-black text-slate-900 uppercase tracking-tight">
                       Asignar Números a {selectedAgentForModal.name}
                     </h4>
                     <span className="text-xs text-slate-400">{selectedAgentForModal.email}</span>
@@ -1687,7 +1688,7 @@ export default function TelnyxAdminHub() {
                           defaultCallerId: e.target.value
                         }
                       })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 font-mono font-bold focus:outline-none focus:border-cyan-500"
                     >
                       <option value="">-- Selecciona el número predeterminado --</option>
                       {(selectedAgentForModal.assignment?.authorizedNumbers || []).map((p: string) => (
