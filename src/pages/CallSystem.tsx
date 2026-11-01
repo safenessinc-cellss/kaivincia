@@ -42,7 +42,7 @@ export default function CallSystem() {
 
   // Roles administrativos autorizados para configurar proveedores y supervisar
   const isAdmin = useMemo(
-    () => ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(normalizeRole(userData?.role)),
+    () => ['superadmin', 'admin'].includes(normalizeRole(userData?.role)),
     [userData?.role]
   );
 
