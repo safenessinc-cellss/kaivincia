@@ -363,9 +363,11 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
               <MessageSquare className="w-5 h-5" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </Link>
-            <Link to="/crm/calls" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.voip_softphone', 'Sistema de Llamadas')}>
-              <PhoneCall className="w-5 h-5" />
-            </Link>
+            {canAccessPermission?.('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator']) && (
+              <Link to="/crm/calls" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.voip_softphone', 'Sistema de Llamadas')}>
+                <PhoneCall className="w-5 h-5" />
+              </Link>
+            )}
             <Link to="/crm/tasks" className="p-2 rounded-lg hover:bg-gray-800 hover:text-[#00F0FF] transition-colors group" title={t('nav.tasks', 'Mis Tareas')}>
               <CheckSquare className="w-5 h-5" />
             </Link>
@@ -599,15 +601,17 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
               </div>
             )}
 
-            {/* QUICK OPERATIONAL SHORTCUTS FOR TLMK */}
-            <button 
-              onClick={() => navigate('/crm/calls?dialer=open')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500 hover:text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
-              title={t('voip.title', 'Abrir Discador Telefónico VoIP')}
-            >
-              <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
-              <span className="hidden md:inline">{t('header.voip_shortcut', 'Discador VoIP')}</span>
-            </button>
+            {/* Quick dialer shortcut follows the same effective permission as the route. */}
+            {canAccessPermission?.('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator']) && (
+              <button
+                onClick={() => navigate('/crm/calls?dialer=open')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 hover:bg-emerald-500 hover:text-white text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-sm"
+                title={t('voip.title', 'Abrir Discador Telefónico VoIP')}
+              >
+                <PhoneCall className="w-3.5 h-3.5 animate-pulse" />
+                <span className="hidden md:inline">{t('header.voip_shortcut', 'Discador VoIP')}</span>
+              </button>
+            )}
 
             <button 
               onClick={() => navigate('/crm/pipeline')}
