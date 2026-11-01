@@ -85,88 +85,14 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
   }, [profiles, selectedProfileId]);
 
   // Simular consumo de datos en la demo
-  const handleSimulateUsage = async (profileId: string) => {
-    if (isSimulatingId) return;
-    console.info('eSIM usage simulation disabled: no carrier usage integration is connected.');
-    return;
-    setIsSimulatingId(profileId);
-
-    const prof = profiles.find(p => p.id === profileId);
-    if (!prof) {
-      setIsSimulatingId(null);
-      return;
-    }
-
-    const currentUsed = prof.usedDataGB || 0;
-    const total = prof.totalDataGB || 10;
-    const nextUsed = parseFloat(Math.min(total, currentUsed + 0.5).toFixed(1));
-    const nextStatus = nextUsed >= total ? 'expired' : prof.status;
-
-    try {
-      await updateDoc(doc(db, 'esim_profiles', profileId), {
-        usedDataGB: nextUsed,
-        status: nextStatus
-      });
-    } catch (err) {
-      console.warn('Error updating eSIM usage simulation:', err);
-    } finally {
-      setIsSimulatingId(null);
-    }
+  const handleSimulateUsage = async (_profileId: string) => {
+    setIntegrationNotice('Consumo de datos no disponible: el operador no proporciona métricas en tiempo real.');
   };
 
   // Crear nuevo perfil eSIM (con configuración completa de línea y WhatsApp)
   const handleCreateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIntegrationNotice('No se creó ninguna línea: conecta un proveedor eSIM real para aprovisionar perfiles.');
-    return;
-    const newId = 'esim_' + Date.now().toString().slice(-6);
-    const totalGB = parseInt(formPackage, 10);
-    const generatedPhone = formPhone.trim() || (formRegion === 'USA' ? '+1 (323) 555-' + Math.floor(1000 + Math.random() * 9000) : '+34 690 ' + Math.floor(100000 + Math.random() * 900000));
-    
-    const newProfile = {
-      id: newId,
-      agentName: formAgent,
-      phone: generatedPhone,
-      lineName: `Línea eSIM • ${formCarrier}`,
-      extension: formExtension || 'Ext 104',
-      carrier: formCarrier,
-      region: formRegion,
-      planName: `${formRegion} Roaming Pro ${totalGB}GB`,
-      status: 'active',
-      isInternalLineActive: true,
-      isWhatsAppActive: formIsSharedWhatsApp,
-      isSharedWithAllOperators: formIsSharedWhatsApp,
-      assignedOperators: formIsSharedWhatsApp ? ['Todos los Operadores (Línea Compartida)'] : [formAgent],
-      smdpServer: `rsp.${formCarrier.toLowerCase().replace(/\s+/g, '')}.com`,
-      activationCode: `LPA:1$RSP.${formCarrier.toUpperCase()}$${newId.toUpperCase()}`,
-      totalDataGB: totalGB,
-      usedDataGB: 0.1,
-      expirationDate: new Date(Date.now() + 86400000 * 30).toISOString().slice(0, 10),
-      signalStrength: 4,
-      iccid: '89' + Math.floor(10000000000000000 + Math.random() * 90000000000000000).toString(),
-      isDemo: true,
-      whatsAppConfig: {
-        phoneNumberId: '10928374' + Math.floor(10000 + Math.random() * 90000),
-        wabaId: 'WABA-' + formCarrier.toUpperCase().slice(0, 4),
-        displayName: 'Kaivincia CRM Corporativo',
-        sharedMode: formIsSharedWhatsApp ? 'all_operators' : 'assigned_only',
-        webhookStatus: 'verified',
-        multiAgentEnabled: true
-      },
-      sipCredentials: {
-        sipUsername: generatedPhone.replace(/\D/g, ''),
-        sipDomain: 'sip.zadarma.com',
-        callerId: generatedPhone
-      }
-    };
-
-    try {
-      await setDoc(doc(db, 'esim_profiles', newId), newProfile);
-      setSelectedProfileId(newId);
-      setShowProvisionModal(false);
-    } catch (err) {
-      console.error('Error creating eSIM profile:', err);
-    }
   };
 
   const handleOpenConfigModal = (profileToEdit: any) => {
