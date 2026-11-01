@@ -37,11 +37,6 @@ class TelnyxWebRTCService {
 
   private listeners: Array<(state: TelnyxWebRTCState) => void> = [];
 
-  constructor() {
-    // WebRTC JWTs are issued per authenticated operator by /api/telnyx-token.
-    // Never hydrate a shared login token into another user's browser session.
-  }
-
   /**
    * Actualiza el login_token (JWT) en memoria y opcionalmente en Firestore
    */
