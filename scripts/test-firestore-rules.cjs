@@ -18,6 +18,8 @@ async function main() {
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved' }],
+        ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
+        ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
         ['manager', { role: 'ceo', status: 'approved' }]
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
@@ -63,6 +65,8 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin').firestore();
+    const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
+    const agentNoVoip = env.authenticatedContext('agent-no-voip').firestore();
     const manager = env.authenticatedContext('manager').firestore();
     const anonymous = env.unauthenticatedContext().firestore();
 
@@ -107,6 +111,7 @@ async function main() {
 
     await assertFails(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(getDoc(doc(manager, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(getDoc(doc(adminNoTelephony, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
@@ -114,6 +119,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(manager, 'voip_call_history', 'alice-call')));
     await assertFails(getDoc(doc(manager, 'voip_providers', 'telnyx')));
     await assertFails(getDoc(doc(manager, 'settings', 'telnyx_config')));
+    await assertFails(getDoc(doc(adminNoTelephony, 'settings', 'telnyx_config')));
+    await assertFails(getDoc(doc(agentNoVoip, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(admin, 'voip_providers', 'telnyx')));
     await assertSucceeds(getDoc(doc(admin, 'settings', 'telnyx_config')));
     await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
@@ -121,6 +128,7 @@ async function main() {
     await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(alice, 'telnyx_agent_assignments', 'alice')));
+    await assertFails(getDoc(doc(agentNoVoip, 'telnyx_agent_assignments', 'alice')));
     await assertFails(getDoc(doc(bob, 'telnyx_agent_assignments', 'alice')));
     await assertFails(getDoc(doc(alice, 'esim_profiles', 'admin-esim')));
     await assertSucceeds(getDoc(doc(admin, 'esim_profiles', 'admin-esim')));
