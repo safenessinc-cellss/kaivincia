@@ -20,6 +20,9 @@ async function main() {
         ['admin', { role: 'admin', status: 'approved' }]
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
+      await setDoc(doc(db, 'settings', 'rbac_matrix'), {
+        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false } }
+      });
       await setDoc(doc(db, 'company_profiles', 'alice'), { ownerUid: 'alice', email: 'alice@example.test', status: 'pending' });
       await setDoc(doc(db, 'clients', 'alice-client'), { name: 'Alice Client', createdBy: 'alice', assignedTo: 'alice' });
       await setDoc(doc(db, 'clients', 'bob-client'), { name: 'Bob Client', createdBy: 'bob', assignedTo: 'bob' });
