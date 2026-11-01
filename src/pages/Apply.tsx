@@ -4,7 +4,6 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import { CheckCircle2, UploadCloud, FileText, Image as ImageIcon, X, Bot, Loader2, Circle, ArrowLeft } from 'lucide-react';
 import { LOGO_FULL } from '../constants/images';
 import * as pdfjsLib from 'pdfjs-dist';
-import { GoogleGenAI } from '@google/genai';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 // Configure PDF.js worker
@@ -105,90 +104,6 @@ export default function Apply() {
     }
   };
 
-  const analyzeResumeWithAI = async (resumeText: string, role: string) => {
-    try {
-      const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
-      if (apiKey && apiKey !== '') {
-        const ai = new GoogleGenAI({ apiKey });
-        
-        const prompt = `
-          Actúa como un reclutador experto de Kaivincia Corp. Analiza el siguiente currículum para el puesto de "${role}".
-          Primero, infiere los Términos de Referencia (TDR) clave para este puesto en un entorno de alto rendimiento.
-          Luego, extrae las habilidades, experiencia y formación del candidato.
-          Compara el CV contra el TDR inferido.
-          Asigna una puntuación de compatibilidad (Match Score) del 1 al 100 basada en experiencia real, herramientas y competencias clave.
-          Genera una justificación estructurada y un resumen ejecutivo de 2 a 3 líneas.
-
-          Devuelve un objeto JSON estricto con la siguiente estructura:
-          {
-            "score": (número entero del 1 al 100),
-            "summary": (resumen ejecutivo estructurado sobre el candidato),
-            "justification": (justificación detallada comparando experiencia vs TDR del puesto),
-            "extractedSkills": (un arreglo de 4 a 6 habilidades clave encontradas)
-          }
-          
-          Currículum:
-          ${resumeText.substring(0, 12000)}
-        `;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-          }
-        });
-
-        const resultText = response.text;
-        if (resultText) {
-          const parsed = JSON.parse(resultText);
-          return {
-            score: Math.min(100, Math.max(40, Number(parsed.score) || 82)),
-            summary: parsed.summary || "Perfil profesional evaluado automáticamente por el motor de IA Kaivincia.",
-            justification: parsed.justification || "Compatibilidad validada contra los requisitos del puesto.",
-            extractedSkills: Array.isArray(parsed.extractedSkills) && parsed.extractedSkills.length > 0
-              ? parsed.extractedSkills 
-              : ['Ventas Consultivas', 'Negociación', 'Gestión de CRM', 'Resolución de Problemas']
-          };
-        }
-      }
-    } catch (error) {
-      console.warn("AI Generation fallback invoked:", error);
-    }
-
-    // Heuristic NLP scoring fallback based on keywords and role alignment
-    const lowerText = resumeText.toLowerCase();
-    const roleWords = role.toLowerCase().split(' ');
-    let matches = 0;
-    roleWords.forEach(w => {
-      if (w.length > 3 && lowerText.includes(w)) matches++;
-    });
-
-    const keySalesWords = ['ventas', 'clientes', 'crm', 'leads', 'negociacion', 'metas', 'llamadas', 'outbound', 'kpi', 'revenue', 'prospeccion', 'pipeline'];
-    let keywordHits = 0;
-    keySalesWords.forEach(w => {
-      if (lowerText.includes(w)) keywordHits++;
-    });
-
-    const baseScore = Math.min(96, Math.max(65, 70 + (matches * 6) + Math.min(20, keywordHits * 2)));
-
-    const detectedSkills = [];
-    if (lowerText.includes('crm') || lowerText.includes('hubspot') || lowerText.includes('salesforce')) detectedSkills.push('Gestión de CRM');
-    if (lowerText.includes('ventas') || lowerText.includes('closer') || lowerText.includes('cierre')) detectedSkills.push('Venta Consultiva');
-    if (lowerText.includes('prospeccion') || lowerText.includes('outbound') || lowerText.includes('setter')) detectedSkills.push('Prospección Outbound');
-    if (lowerText.includes('negociacion') || lowerText.includes('comunicacion')) detectedSkills.push('Negociación Persuasiva');
-    if (detectedSkills.length === 0) {
-      detectedSkills.push('Comunicación Estratégica', 'Gestión de Cuentas', 'Orientación a Resultados');
-    }
-
-    return {
-      score: baseScore,
-      summary: `Candidato con perfil competitivo enfocado en ${role}. Presenta alineación adecuada con los requerimientos operativos y objetivos de conversión.`,
-      justification: `El perfil evidencia destrezas operativas clave en ${detectedSkills.slice(0, 2).join(' y ')}. Cuenta con una compatibilidad estimada del ${baseScore}% según los estándares de Kaivincia.`,
-      extractedSkills: detectedSkills
-    };
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resumeFile) {
@@ -201,22 +116,16 @@ export default function Apply() {
       setAiStatus('Leyendo currículum...');
       const resumeText = await extractTextFromFile(resumeFile);
       
-      setAiStatus('Analizando perfil con Inteligencia Artificial...');
-      const aiAnalysis = await analyzeResumeWithAI(resumeText, formData.role);
-
-      setAiStatus('Guardando postulación...');
+      setAiStatus('Guardando postulación para revisión de RR. HH....');
       await addDoc(collection(db, 'candidates'), {
         ...formData,
         jobId: jobId || 'general-pool',
-        skills: skills.length > 0 ? skills : aiAnalysis.extractedSkills,
+        skills: skills.slice(0, 30),
         status: 'Nuevo',
-        aiScore: aiAnalysis.score,
-        aiSummary: aiAnalysis.summary,
-        aiJustification: aiAnalysis.justification || '',
-        aiExtractedSkills: aiAnalysis.extractedSkills,
         hasPhoto: !!photoFile,
         hasResume: !!resumeFile,
-        resumeFileName: resumeFile.name,
+        resumeFileName: resumeFile.name.slice(0, 180),
+        resumeText: resumeText.slice(0, 15000),
         createdAt: new Date().toISOString()
       });
       
@@ -237,7 +146,7 @@ export default function Apply() {
           <CheckCircle2 className="mx-auto h-16 w-16 text-green-500 mb-4" />
           <h2 className="text-3xl font-extrabold text-gray-900 mb-2">¡Postulación Enviada!</h2>
           <p className="text-gray-600">
-            Nuestra Inteligencia Artificial ha procesado tu perfil. El equipo de reclutamiento se pondrá en contacto contigo pronto.
+            Hemos recibido tu postulación. El equipo de Recursos Humanos revisará tu perfil y se pondrá en contacto contigo pronto.
           </p>
         </div>
       </div>
