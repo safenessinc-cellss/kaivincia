@@ -390,7 +390,10 @@ service cloud.firestore {
     // Reclutamiento
     // ===============================================================
     match /candidates/{candidateId} {
-      allow read, update, delete: if isHR();
+      allow read, delete: if isHR();
+      allow update: if isHR() &&
+        request.resource.data.get('hrNotes', '') is string &&
+        request.resource.data.get('hrNotes', '').size() <= 5000;
       allow create: if request.resource.data.keys().hasOnly([
         'name', 'email', 'phone', 'city', 'linkedin', 'role', 'experience', 'jobId',
         'skills', 'status', 'hasPhoto', 'hasResume', 'resumeFileName', 'resumeText', 'createdAt'
