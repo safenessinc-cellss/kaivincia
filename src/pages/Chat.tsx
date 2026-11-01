@@ -85,7 +85,7 @@ export default function Chat() {
     { id: 'general', name: 'Kaivincia Interno', type: 'team', sentimentEmoji: '🔥', lastMessage: 'Chat de equipo activo' },
     { id: 'dev-ops', name: 'DevOps & Scaling', type: 'group', sentimentEmoji: '⚡', lastMessage: 'Infraestructura estable' }
   ];
-  const canViewDevOps = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserDoc?.role || '').toLowerCase());
+  const canViewDevOps = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserDoc?.role || '').toLowerCase());
   const visibleBaseChannels = baseChannels.filter(channel => channel.id === 'general' || canViewDevOps);
 
   // Derive client list for sidebar
