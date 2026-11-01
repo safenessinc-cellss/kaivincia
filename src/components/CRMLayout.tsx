@@ -231,12 +231,9 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
         }
         if (['superadmin', 'admin'].includes(userRole)) {
           configItems.push({ name: t('nav.appearance', 'Personalización Visual'), href: '/crm/appearance', icon: Palette, color: 'text-[#EC4899]' });
-          configItems.push({ name: t('nav.integrations', 'Integraciones Externas'), href: '/crm/integrations', icon: Share2, color: 'text-violet-400' });
           configItems.push({ name: t('nav.call_center_admin', 'Administración de Telefonía'), href: '/crm/call-center', icon: PhoneCall, color: 'text-emerald-400' });
         }
         configItems.push({ name: t('nav.security_center', 'Security Center'), href: '/crm/security', icon: ShieldCheck, color: 'text-[#FACC15]' });
-        configItems.push({ name: t('nav.automations', 'Automatizaciones'), href: '/crm/automations', icon: Zap });
-        configItems.push({ name: t('nav.form_templates', 'Plantillas de Ficha'), href: '/crm/form-templates', icon: LayoutTemplate, color: 'text-[#00F0FF]' });
         groups.push({
           title: t('nav.groups.config', 'CONFIGURACIÓN'),
           items: configItems
