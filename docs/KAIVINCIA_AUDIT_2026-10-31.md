@@ -181,3 +181,24 @@ Base protegida: `eab664c88b67fd191496eb4bbfffe966438e3c29`
 - El run de GitHub Actions para el HEAD `be505870756b3cdec536640e4475b4a2ab2399ab` quedó en cola/pending al momento de esta revisión; todavía no hay resultado de jobs que permita afirmar tests aprobados.
 - Preview Vercel anterior del commit `a0098de8a2b0f311c2f6a62099646384b18d965c` terminó READY. El preview posterior del commit `d5ba5142c1a88ebce587aaeb2bc970ad5833596c` seguía BUILDING; no equivale al HEAD actual y debe repetirse tras estabilizar el código.
 - Producción sigue fuera de alcance y no ha recibido alias ni promoción desde esta rama.
+
+
+## Auditoría de rutas y navegación — inventario App.tsx
+
+Se identificaron **53 declaraciones Route** en `src/App.tsx` (incluye rutas públicas, B2B, rutas CRM y alias). No son 100+ rutas; la complejidad adicional está en pestañas internas y acciones de cada módulo.
+
+### Hallazgo P0: RBAC de navegación no aplicado uniformemente
+- La mayoría de las rutas CRM sólo redirigen si `role === 'alumno'`; eso no equivale a comprobar permisos de módulo.
+- Rutas como `tasks`, `calendar`, `chat`, `cobranza`, `billing`, `academy-internal`, `academy-external`, `digital-products`, `manuales`, `client-portal` y `user-portal` no tienen un control de rol/permisos específico en la definición de ruta.
+- `clients`, `pipeline`, `accounting`, `payroll`, `recruitment`, `reports`, `projects`, `commissions`, `drive`, `audits`, `marketing`, `operations` y varias más sólo bloquean al alumno; un usuario autenticado de otro rol puede intentar abrirlas por URL directa.
+- Las rutas `call-center`, `superadmin`, `appearance` y `security` sí tienen restricciones explícitas, aunque algunas comparan roles crudos y no consultan la matriz RBAC por módulo.
+- La matriz de SuperAdmin define 12 permission IDs (`view_financial_dashboard`, `accounting_gps`, `client_base_global`, `client_base_assigned`, `academy_management`, `voip_calls`, `recruitment_payroll`, `telephony_config`, `automations_engine`, `security_center`, `export_databases`, `delete_records`), pero `App.tsx` no consume esa matriz para decidir acceso a rutas.
+
+### Remediación aplicada
+- El redirect de entrada a CRM ahora normaliza roles históricos; las cuentas `sales/ventas/tlmk/telemarketing/setter/closer/agente/operador` llegan a Pipeline como `agent`, sin editar su documento de usuario.
+
+### Pendiente antes de aplicar route-level RBAC
+- Definir un mapa validado `route → permission ID → scope de datos → acciones permitidas` con el propietario del negocio.
+- Aplicar matriz con override por usuario y fallback por rol; denegar por defecto sólo después de comprobar las rutas legítimas de cada perfil.
+- Corregir primero las consultas globales de Firestore; un guard de ruta no evita que un módulo abierto lea datos fuera de asignación.
+- Añadir tests de deep link para los 11 roles y pruebas de acceso a endpoints/Firestore; no basarse sólo en que el menú oculte enlaces.
