@@ -49,10 +49,10 @@ export default function CallSystem() {
     [userData?.role]
   );
   const canManageTelephony = useMemo(
-    () => isAdmin && (canAccessPermission
+    () => normalizeRole(userData?.role) === 'superadmin' || (isAdmin && (canAccessPermission
       ? canAccessPermission('telephony_config', ['superadmin', 'admin'])
-      : userData?.permissions?.telephony_config !== false),
-    [isAdmin, canAccessPermission, userData?.permissions]
+      : userData?.permissions?.telephony_config !== false)),
+    [isAdmin, canAccessPermission, userData?.permissions, userData?.role]
   );
 
   // Manejo de pestaña activa vía URL o estado
