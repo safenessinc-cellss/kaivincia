@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
+import { adminAuth, adminDb  , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, private');
