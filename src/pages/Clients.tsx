@@ -185,7 +185,7 @@ export default function Clients() {
     }
 
     setLoading(true);
-    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase());
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase());
     const records = new Map<string, any>();
     const publish = () => {
       const list = Array.from(records.values()).sort((x: any, y: any) => (new Date(y.createdAt || 0).getTime() - new Date(x.createdAt || 0).getTime()));
@@ -216,7 +216,7 @@ export default function Clients() {
         const opportunities: UpsellOpportunity[] = [];
 
         // 1. Detect from Academic Progress (Students who finished)
-        if (!['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase())) return;
+        if (!['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(currentUserData?.role || '').toLowerCase())) return;
         const academicSnap = await getDocs(collection(db, 'academic_progress'));
         const usersSnap = await getDocs(collection(db, 'users'));
         const usersMap = new Map(usersSnap.docs.map(d => [d.id, d.data()]));
@@ -841,7 +841,7 @@ export default function Clients() {
 
   const filteredClients = clients.filter(c => {
     // Scoping por rol: Si es colaborador / ventas / tutor (no superadmin, ceo, admin o gestor), solo ve sus asignados
-    if (currentUserData && !['superadmin', 'admin', 'ceo', 'gestor'].includes(currentUserData.role)) {
+    if (currentUserData && !['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(currentUserData.role)) {
       const isAssigned = 
         c.assignedManagerId === currentUserData.uid || 
         c.assignedTo === currentUserData.uid ||
