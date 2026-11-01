@@ -49,7 +49,7 @@ export default function Tasks() {
     }
 
     const profile = globalUsers.find(item => item.id === user.uid);
-    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(profile?.role || '').toLowerCase());
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(profile?.role || '').toLowerCase());
     const projectQuery = isAdmin ? collection(db, 'projects') : query(collection(db, 'projects'), where('createdBy', '==', user.uid));
     const projectRecords = new Map<string, any>();
     const unsubProjects = onSnapshot(projectQuery, snapshot => {
