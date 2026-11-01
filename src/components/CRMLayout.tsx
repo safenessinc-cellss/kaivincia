@@ -22,19 +22,19 @@ import { useAppearance } from '../contexts/AppearanceContext';
 import { normalizeRole } from '../constants/roles';
 
 const MENU_PERMISSION_POLICIES: Record<string, { permission: string; roles: string[] }> = {
-  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'] },
+  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'] },
   '/crm/call-center': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
   '/crm/integrations': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
   '/crm/automations': { permission: 'automations_engine', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
-  '/crm/recruitment': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
-  '/crm/team': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
-  '/crm/payroll': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'ceo', 'rrhh'] },
-  '/crm/accounting': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'ceo'] },
-  '/crm/billing': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'ceo'] },
-  '/crm/cobranza': { permission: 'view_financial_dashboard', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
-  '/crm/client-management': { permission: 'client_base_global', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
-  '/crm/reports': { permission: 'export_databases', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
-  '/crm/security': { permission: 'security_center', roles: ['superadmin', 'admin', 'ceo'] },
+  '/crm/recruitment': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/team': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/payroll': { permission: 'recruitment_payroll', roles: ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'] },
+  '/crm/accounting': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
+  '/crm/billing': { permission: 'accounting_gps', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
+  '/crm/cobranza': { permission: 'view_financial_dashboard', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/client-management': { permission: 'client_base_global', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/reports': { permission: 'export_databases', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] },
+  '/crm/security': { permission: 'security_center', roles: ['superadmin', 'admin', 'owner', 'ceo'] },
 };
 
 export default function CRMLayout({ userData, canAccessPermission }: { userData: any; canAccessPermission?: (permissionId: string, fallbackRoles: string[]) => boolean }) {
@@ -57,7 +57,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
   });
 
   const userRole = normalizeRole(userData?.role || 'user');
-  const isAdminOrFin = ['superadmin', 'admin', 'billing', 'accounting'].includes(userRole);
+  const isAdminOrFin = ['superadmin', 'admin', 'owner', 'billing', 'accounting'].includes(userRole);
   const isSuperAdmin = userRole === 'superadmin';
 
   useEffect(() => {
@@ -213,7 +213,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
       return [coreGroup, clientGroup, operationsGroup, strategyGroup, portalGroup];
     }
 
-    if (userRole === 'ceo' || userRole === 'superadmin' || userRole === 'admin') {
+    if (userRole === 'ceo' || userRole === 'superadmin' || userRole === 'admin' || userRole === 'owner') {
       const groups = [
         coreGroup,
         clientGroup,
