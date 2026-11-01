@@ -15,6 +15,8 @@ export interface TelnyxWebRTCState {
   isInitialized: boolean;
   isConnected: boolean;
   loginToken: string;
+  canMakeOutbound: boolean;
+  canReceiveInbound: boolean;
   activeCallId: string | null;
   lastError: string | null;
 }
@@ -27,6 +29,8 @@ class TelnyxWebRTCService {
     isInitialized: false,
     isConnected: false,
     loginToken: TELNYX_WEBRTC_LOGIN_TOKEN,
+    canMakeOutbound: false,
+    canReceiveInbound: false,
     activeCallId: null,
     lastError: null
   };
@@ -89,6 +93,8 @@ class TelnyxWebRTCService {
       if (data.token) {
         // Per-operator JWTs stay in memory and are never written to the shared
         // settings/telnyx_config document.
+        this.state.canMakeOutbound = data.permissions?.outbound === true;
+        this.state.canReceiveInbound = data.permissions?.inbound === true;
         await this.setLoginToken(data.token, false);
         if (this.client?.updateToken && this.state.isInitialized) {
           this.client.updateToken(data.token);
@@ -186,6 +192,8 @@ class TelnyxWebRTCService {
             if (!newToken) throw new Error('Respuesta sin token');
             if (this.client !== clientForSession || auth.currentUser?.uid !== user.uid) return;
 
+            this.state.canMakeOutbound = data.permissions?.outbound === true;
+            this.state.canReceiveInbound = data.permissions?.inbound === true;
             await this.setLoginToken(newToken, false);
             clientForSession.updateToken(newToken);
             console.log('[TelnyxWebRTC] ✅ Token renovado correctamente');
@@ -193,6 +201,8 @@ class TelnyxWebRTCService {
             console.error('[TelnyxWebRTC] ❌ Fallo al renovar token:', err.message);
             try { this.client?.disconnect(); } catch {}
             this.state.isConnected = false;
+            this.state.canMakeOutbound = false;
+            this.state.canReceiveInbound = false;
             this.state.lastError = 'Sesión expirada. Vuelve a autenticarte.';
             this.notify();
           }
@@ -284,6 +294,8 @@ class TelnyxWebRTCService {
       isInitialized: false,
       isConnected: false,
       loginToken: '',
+      canMakeOutbound: false,
+      canReceiveInbound: false,
       activeCallId: null,
       lastError: null
     };
