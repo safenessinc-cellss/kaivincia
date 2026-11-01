@@ -268,7 +268,9 @@ export default function TeamManagement() {
                     </div>
                     
                     <div className="space-y-4 relative z-10">
-                       {[...normalizedMembers].sort((a,b) => (b.current || 0) - (a.current || 0)).map((member, index) => (
+                       {normalizedMembers.length === 0 ? (
+                         <p className="text-xs text-gray-400">Sin empleados registrados.</p>
+                       ) : [...normalizedMembers].sort((a,b) => (b.current || 0) - (a.current || 0)).map((member, index) => (
                          <div key={member.id} className="bg-white/5 rounded-2xl p-4 flex items-center gap-4 border border-white/5 hover:bg-white/[0.08] transition-all">
                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm relative ${
                                index === 0 ? 'bg-[#00F0FF] text-white shadow-lg' :
@@ -387,8 +389,8 @@ export default function TeamManagement() {
                       </div>
                     </div>
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email || 'Especialista'}</h2>
-                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {activeMember?.role || 'Nodo'}</p>
+                      <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">{activeMember?.name || activeMember?.email || 'Sin empleado seleccionado'}</h2>
+                      <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">{activeMember ? `Especialista de Equipo • ${activeMember.role}` : 'No hay registros reales de empleados'}</p>
                     </div>
                   </div>
                   {canManageAccess && <button 
