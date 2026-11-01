@@ -28,9 +28,9 @@ export default function SoftphoneSipConsole({
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 hover:text-cyan-400 py-1 px-3 rounded-lg hover:bg-slate-50/60 transition-all cursor-pointer"
+          className="flex items-center gap-1.5 text-[10px] font-mono text-slate-600 hover:text-blue-700 py-1 px-3 rounded-lg hover:bg-slate-50/60 transition-all cursor-pointer"
         >
-          <Terminal className="w-3 h-3 text-cyan-400" />
+          <Terminal className="w-3 h-3 text-blue-700" />
           <span>{isOpen ? 'Ocultar consola SIP WebRTC' : 'Mostrar consola SIP WebRTC'}</span>
           {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           {logs.length > 0 && (
@@ -48,7 +48,7 @@ export default function SoftphoneSipConsole({
           {callStatus === 'connected' && (
             <div className="p-2 bg-slate-50/80 rounded-xl border border-slate-200 flex items-center justify-between text-[10px] font-mono text-slate-400">
               <span className="flex items-center gap-1">
-                <Activity className="w-3 h-3 text-cyan-400" />
+                <Activity className="w-3 h-3 text-blue-700" />
                 <span>Latencia: <strong className="text-slate-800">{liveLatency}ms</strong></span>
               </span>
               <span>Jitter: <strong className="text-slate-800">{liveJitter}ms</strong></span>
@@ -67,7 +67,7 @@ export default function SoftphoneSipConsole({
                 <button
                   type="button"
                   onClick={onClearLogs}
-                  className="text-slate-500 hover:text-rose-400 flex items-center gap-1 transition-colors"
+                  className="text-slate-500 hover:text-rose-700 flex items-center gap-1 transition-colors"
                   title="Limpiar logs"
                 >
                   <Trash2 className="w-2.5 h-2.5" />
@@ -81,11 +81,11 @@ export default function SoftphoneSipConsole({
             ) : (
               logs.map((log, idx) => {
                 let colorClass = 'text-emerald-700';
-                if (log.includes('INVITE')) colorClass = 'text-cyan-300';
-                else if (log.includes('200 OK') || log.includes('ESTABLISHED')) colorClass = 'text-emerald-300 font-bold';
-                else if (log.includes('BYE') || log.includes('FINALIZADA')) colorClass = 'text-amber-300';
-                else if (log.includes('FORCED')) colorClass = 'text-cyan-400 font-bold';
-                else if (log.includes('ERROR') || log.includes('FAIL')) colorClass = 'text-rose-400';
+                if (log.includes('INVITE')) colorClass = 'text-blue-700';
+                else if (log.includes('200 OK') || log.includes('ESTABLISHED')) colorClass = 'text-emerald-700 font-bold';
+                else if (log.includes('BYE') || log.includes('FINALIZADA')) colorClass = 'text-amber-700';
+                else if (log.includes('FORCED')) colorClass = 'text-blue-700 font-bold';
+                else if (log.includes('ERROR') || log.includes('FAIL')) colorClass = 'text-rose-700';
 
                 return (
                   <div key={idx} className={`leading-relaxed break-words ${colorClass}`}>
