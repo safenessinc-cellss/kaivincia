@@ -18,7 +18,12 @@ export default async function handler(req: any, res: any) {
     const decoded = await adminAuth.verifyIdToken(header.slice(7), true);
     const profileSnap = await adminDb.collection('users').doc(decoded.uid).get();
     const profile = profileSnap.data() || {};
-    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !ADMIN_ROLES.has(String(profile.role || '').toLowerCase())) {
+    const role = String(profile.role || '').toLowerCase();
+    const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
+    const matrixValue = matrixSnap.data()?.matrix?.[role]?.telephony_config;
+    const override = profile.permissions?.telephony_config;
+    const permission = typeof override === 'boolean' ? override : (typeof matrixValue === 'boolean' ? matrixValue : ADMIN_ROLES.has(role));
+    if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !ADMIN_ROLES.has(role) || !permission) {
       res.statusCode = 403; res.end(JSON.stringify({ error: 'Solo superadministradores y administradores pueden crear credenciales.' })); return;
     }
 
