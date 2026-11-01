@@ -62,7 +62,8 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
           ? [collection(db, 'clients')]
           : [
               query(collection(db, 'clients'), where('createdBy', '==', user.uid)),
-              query(collection(db, 'clients'), where('assignedTo', '==', user.uid))
+              query(collection(db, 'clients'), where('assignedTo', '==', user.uid)),
+              query(collection(db, 'clients'), where('assignedManagerId', '==', user.uid))
             ];
         clientQueries.forEach(clientQuery => {
           unsubClients.push(onSnapshot(clientQuery, snapshot => {
