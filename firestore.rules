@@ -46,6 +46,7 @@ service cloud.firestore {
         data.get('createdBy', '') == request.auth.uid ||
         data.get('assignedTo', '') == request.auth.uid ||
         data.get('assignedAgentUid', '') == request.auth.uid ||
+        data.get('agentId', '') == request.auth.uid ||
         data.get('userId', '') == request.auth.uid ||
         data.get('userUid', '') == request.auth.uid
       );
@@ -215,7 +216,7 @@ service cloud.firestore {
     // Omnicanal & VoIP
     // ===============================================================
     match /omnichannel_threads/{threadId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
       allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
@@ -243,13 +244,12 @@ service cloud.firestore {
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read: if isAdmin() || (isApproved() &&
-        (resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('agentUid', '') == request.auth.uid));
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
-      allow read:  if isAdmin() || existing().get('agentUid', '') == request.auth.uid;
+      allow read: if isAdmin() || (isApproved() && existing().get('agentId', '') == request.auth.uid);
       allow write: if isAdmin();
     }
 
