@@ -137,6 +137,7 @@ async function main() {
     await assertFails(setDoc(doc(alice, 'chat_messages', 'devops-forged'), { type: 'groups', targetId: 'dev-ops', senderId: 'alice' }));
     await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
+    await assertSucceeds(getDoc(doc(owner, 'chat_messages', 'devops-message')));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-general-message')));
     await assertFails(getDoc(doc(alice, 'chat_messages', 'legacy-devops-message')));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'legacy-devops-message')));
