@@ -50,16 +50,14 @@ export default function CallSystem() {
   const currentTabParam = searchParams.get('tab') || 'monitor';
   const dialParam = searchParams.get('dial') || '';
 
-  const [activeTab, setActiveTab] = useState<string>(currentTabParam);
   const [isSoftphoneFloating, setIsSoftphoneFloating] = useState(false);
   const [dialTargetNumber, setDialTargetNumber] = useState<string>(dialParam);
 
   // Llamada activa simulada/en curso para monitor
   const [activeCallSession, setActiveCallSession] = useState<any | null>(null);
 
-  // Sincronizar URL cuando cambia la pestaña
+  // La URL es la única fuente de verdad para la pestaña activa.
   const handleTabChange = (tabId: string) => {
-    setActiveTab(tabId);
     setSearchParams(prev => {
       const p = new URLSearchParams(prev);
       p.set('tab', tabId);
