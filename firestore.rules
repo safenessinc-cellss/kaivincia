@@ -389,7 +389,7 @@ service cloud.firestore {
 
         match /voip_call_history/{callId} {
       allow read: if isVoipUser() && (isAdmin() || ownsRecord(resource.data));
-      allow create: if isTelephonyAdmin() || (isVoipUser() && request.resource.data.get('agentId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow create: if isVoipUser() && request.resource.data.get('agentId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
       // Call records are immutable for agents after creation; only administrators
       // may correct an audited record.
       allow update: if isTelephonyAdmin();
