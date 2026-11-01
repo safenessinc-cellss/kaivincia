@@ -106,7 +106,9 @@ export default async function handler(req: any, res: any) {
         if (PRIVILEGED_ROLES.has(role)) return true;
         const data = snap.data() || {};
         const phone = data.phoneNumber || data.phone_number || '';
-        return numberIds.includes(snap.id) || assignedPhones.includes(phone);
+        const status = String(data.status || '').toLowerCase();
+        const isUsable = !['disabled', 'deleted', 'inactive', 'released'].includes(status);
+        return isUsable && (numberIds.includes(snap.id) || assignedPhones.includes(phone));
       })
       .map((snap: any) => {
         const data = snap.data() || {};
