@@ -304,38 +304,38 @@ service cloud.firestore {
     }
 
     match /voip_providers/{providerId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     match /operadores/{operatorId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     match /telnyx_phone_numbers/{numberId} {
       allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
       allow read: if isAdmin() || (isApproved() && existing().get('agentId', '') == request.auth.uid);
-      allow write: if isAdmin();
+      allow write: if isSuperAdmin();
     }
 
     match /telnyx_sip_credentials/{sipId} {
-      // Agents receive short-lived WebRTC JWTs from the backend; they never
-      // need direct access to encrypted SIP credential documents.
-      allow read: if isAdmin();
-      allow create: if isAdmin() && incoming().get('assignedTo', null) == null;
-      allow update: if isAdmin() && (
+      // Agents and managers receive short-lived WebRTC JWTs from the backend;
+      // only platform admins can read or mutate the underlying SIP credentials.
+      allow read: if isSuperAdmin();
+      allow create: if isSuperAdmin() && incoming().get('assignedTo', null) == null;
+      allow update: if isSuperAdmin() && (
         existing().get('assignedTo', null) == null ||
         incoming().get('assignedTo', null) == null ||
         isSuperAdmin()
       );
-      allow delete: if isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     match /esim_profiles/{profileId} {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
         match /shared_whatsapp_chats/{chatId} {
@@ -415,18 +415,18 @@ service cloud.firestore {
     }
 
     match /settings/voip_providers {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     match /settings/integrations {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isSuperAdmin();
       match /{subcollection}/{docId} {
         allow read, write: if isSuperAdmin() || isAdmin();
       }
     }
 
     match /settings_integrations/{integrationId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     // ===============================================================
@@ -560,7 +560,7 @@ service cloud.firestore {
     }
 
     match /settings/telnyx_config {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     // ===============================================================
