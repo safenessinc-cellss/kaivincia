@@ -96,12 +96,13 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
       time: 'Ahora'
     };
 
-    setThreads(prev => prev.map(t => t.id === selectedThread.id ? updatedThread : t));
-    setReplyText('');
-
     try {
       await setDoc(doc(db, 'omnichannel_threads', selectedThread.id), updatedThread, { merge: true });
-    } catch (e) {}
+      setThreads(prev => prev.map(t => t.id === selectedThread.id ? updatedThread : t));
+      setReplyText('');
+    } catch (error) {
+      console.error('Could not save omnichannel reply:', error);
+    }
   };
 
   const handleCreateNewThread = async (e: React.FormEvent) => {
@@ -109,6 +110,9 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
     const newId = 'th_' + Date.now().toString().slice(-6);
     const threadData = {
       id: newId,
+      ownerId: user?.uid,
+      createdBy: user?.uid,
+      assignedTo: user?.uid,
       name: newName || 'Nuevo Contacto',
       phone: newTarget,
       email: '',
@@ -127,13 +131,14 @@ export default function OmnichannelInbox({ onStartCallWithContact, className = '
       ]
     };
 
-    setThreads(prev => [threadData, ...prev]);
-    setSelectedThreadId(newId);
-    setShowNewModal(false);
-
     try {
       await setDoc(doc(db, 'omnichannel_threads', newId), threadData);
-    } catch (e) {}
+      setThreads(prev => [threadData, ...prev]);
+      setSelectedThreadId(newId);
+      setShowNewModal(false);
+    } catch (error) {
+      console.error('Could not create omnichannel thread:', error);
+    }
   };
 
   return (
