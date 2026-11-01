@@ -527,47 +527,41 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
         </div>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs: HR controls are hidden from employee self-service accounts. */}
       <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar">
-        <button
-          onClick={() => setActiveTab('candidates')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Pipeline
-        </button>
-        <button
-          onClick={() => setActiveTab('jobs')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${
-            activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Vacantes
-        </button>
-        <button
-          onClick={() => setActiveTab('docs')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'docs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <FileText className="w-4 h-4" /> Gestión Documental
-        </button>
+        {canManageRecruitment && (
+          <>
+            <button
+              onClick={() => setActiveTab('candidates')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${activeTab === 'candidates' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Pipeline
+            </button>
+            <button
+              onClick={() => setActiveTab('jobs')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap ${activeTab === 'jobs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              Vacantes
+            </button>
+            <button
+              onClick={() => setActiveTab('docs')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'docs' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <FileText className="w-4 h-4" /> Gestión Documental
+            </button>
+            <button
+              onClick={() => setActiveTab('portal')}
+              className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+            >
+              <Globe className="w-4 h-4" /> Portal Público
+            </button>
+          </>
+        )}
         <button
           onClick={() => setActiveTab('employee-portal')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'employee-portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'employee-portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
         >
           <Users className="w-4 h-4" /> Portal de Equipo
-        </button>
-        <button
-          onClick={() => setActiveTab('portal')}
-          className={`py-3 px-6 text-sm font-black uppercase tracking-widest border-b-2 transition-all whitespace-nowrap flex items-center gap-2 ${
-            activeTab === 'portal' ? 'border-[#00F0FF] text-[#00F0FF] bg-cyan-50/50' : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          <Globe className="w-4 h-4" /> Portal Público
         </button>
       </div>
       
@@ -799,10 +793,12 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
               <div className="lg:col-span-4 space-y-6">
                  <div className="bg-[#0B0E14] rounded-[3rem] p-10 border border-gray-800 shadow-2xl text-white">
                     <h3 className="text-lg font-black uppercase italic tracking-tighter mb-4 flex items-center gap-3">
-                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Permisos de RR. HH.
+                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> {canManageRecruitment ? 'Permisos de RR. HH.' : 'Acceso personal'}
                     </h3>
                     <p className="text-xs text-gray-300 leading-relaxed">
-                      El acceso a candidatos, directorio y solicitudes de ausencia depende del rol y de los permisos individuales. La asignación de roles y permisos del sistema queda reservada a SuperAdmin.
+                      {canManageRecruitment
+                        ? 'El acceso a candidatos, directorio y solicitudes de ausencia depende del rol y de los permisos individuales. La asignación de roles y permisos del sistema queda reservada a SuperAdmin.'
+                        : 'Este portal muestra únicamente tus fichajes y tus solicitudes. Las decisiones de aprobación y el acceso a expedientes de candidatos están reservados al equipo de RR. HH.'}
                     </p>
                  </div>
 
