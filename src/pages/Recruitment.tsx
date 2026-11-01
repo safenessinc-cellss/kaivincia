@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, updateDoc, doc, addDoc, deleteDoc, where, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import { 
   Video, ExternalLink, Calendar, CheckCircle, XCircle, Globe, Bot, 
@@ -14,6 +14,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Contratado"];
+
+const getStoredDateMillis = (value: any) => {
+  const date = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
 
 const formatAttendanceTime = (value: any) => {
   const date = value && typeof value.toDate === 'function' ? value.toDate() : new Date(value);
@@ -103,11 +108,12 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
       collection(db, 'attendance_logs'),
       where('userId', '==', uid),
       orderBy('timestamp', 'desc'),
-      limit(20)
     );
     return onSnapshot(attendanceQuery, (snapshot) => {
-      const logs: Array<{ id: string; type?: string; [key: string]: unknown }> = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
-      setAttendanceLog(logs);
+      const logs: Array<{ id: string; type?: string; timestamp?: any; [key: string]: unknown }> = snapshot.docs
+        .map(item => ({ id: item.id, ...item.data() }))
+        .sort((a, b) => getStoredDateMillis(b.timestamp) - getStoredDateMillis(a.timestamp));
+      setAttendanceLog(logs.slice(0, 20));
       setIsCheckedIn(logs[0]?.type === 'in');
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'attendance_logs');
@@ -125,7 +131,9 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
       ? query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc'))
       : query(collection(db, 'absence_requests'), where('userId', '==', uid), orderBy('createdAt', 'desc'));
     return onSnapshot(absenceQuery, (snapshot) => {
-      setAbsenceRequests(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+      setAbsenceRequests(snapshot.docs
+        .map(item => ({ id: item.id, ...item.data() }))
+        .sort((a: any, b: any) => getStoredDateMillis(b.createdAt) - getStoredDateMillis(a.createdAt)));
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'absence_requests');
     });
