@@ -156,7 +156,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
     const talentGroup = {
       title: t('nav.groups.talent', 'MÓDULO DE TALENTO'),
       items: [
-        { name: t('nav.recruitment', 'Reclutamiento AI'), href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
+        { name: t('nav.recruitment', 'Reclutamiento y RR. HH.'), href: '/crm/recruitment', icon: UserPlus, color: 'text-pink-500' },
         { name: t('nav.team', 'Gestión de Equipo'), href: '/crm/team', icon: Users2, color: 'text-orange-500' },
         { name: t('nav.payroll', 'Módulo Nómina'), href: '/crm/payroll', icon: DollarSign, color: 'text-green-500' },
       ]
