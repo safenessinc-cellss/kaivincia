@@ -20,6 +20,7 @@ async function main() {
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved' }],
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', permissions: { helpdesk_manage: false } }],
+        ['support-agent', { role: 'agent', status: 'approved', permissions: { helpdesk_manage: true } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
@@ -72,6 +73,7 @@ async function main() {
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
     const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
+    const supportAgent = env.authenticatedContext('support-agent', { email: 'support-agent@example.test' }).firestore();
     const superadmin = env.authenticatedContext('superadmin').firestore();
     const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
@@ -163,6 +165,9 @@ async function main() {
     await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress' }));
     await assertFails(getDoc(doc(adminNoHelpdesk, 'support_tickets', 'bob-ticket')));
     await assertFails(updateDoc(doc(adminNoHelpdesk, 'support_tickets', 'alice-ticket'), { status: 'closed' }));
+    await assertSucceeds(getDoc(doc(supportAgent, 'support_tickets', 'alice-ticket')));
+    await assertFails(getDoc(doc(supportAgent, 'users', 'alice')));
+    await assertSucceeds(updateDoc(doc(supportAgent, 'support_tickets', 'alice-ticket'), { status: 'resolved' }));
     await assertFails(deleteDoc(doc(admin, 'support_tickets', 'alice-ticket')));
 
     // HR can read and manage recruitment/attendance data, but cannot grant
@@ -196,6 +201,9 @@ async function main() {
     await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
     await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista', hrNotes: 'Revisión inicial completada.' }));
     await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { hrNotes: 'x'.repeat(5001) }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { aiScore: 100 }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { userId: 'hr' }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Contratado automáticamente' }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
     await assertFails(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
