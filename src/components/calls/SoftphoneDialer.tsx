@@ -50,6 +50,8 @@ const DEFAULT_PROVIDERS: VoipProvider[] = [
   { id: 'telnyx', name: 'Telnyx WebRTC', type: 'api', status: 'available', costPerMinute: '' }
 ];
 
+const isReservedDemoPhone = (value: string) => /^1\d{3}55501\d{2}$/.test(String(value || '').replace(/\D/g, ''));
+
 // Números de Caller ID: se cargan SOLO desde Telnyx (telnyx_phone_numbers en Firestore).
 // No hardcodear números aquí para evitar el error 403 "originator number is invalid".
 const REAL_TELNYX_CALLER_IDS: string[] = [];
@@ -353,7 +355,7 @@ export default function SoftphoneDialer({
       }
 
       const authorized: string[] = Array.isArray(assignmentData?.authorizedNumbers)
-        ? assignmentData.authorizedNumbers.filter(Boolean)
+        ? assignmentData.authorizedNumbers.filter((number: string) => Boolean(number) && !isReservedDemoPhone(number))
         : [];
       setAuthorizedCallerIds(authorized);
 
@@ -372,7 +374,7 @@ export default function SoftphoneDialer({
       unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
         const dbNumbers = snapshot.docs
           .map(d => d.data())
-          .filter((n: any) => n.status !== 'disabled' && n.phoneNumber)
+          .filter((n: any) => n.status !== 'disabled' && n.phoneNumber && !isReservedDemoPhone(n.phoneNumber))
           .map((n: any) => n.phoneNumber)
           .filter(Boolean);
         allTelnyxNumbers = dbNumbers;
