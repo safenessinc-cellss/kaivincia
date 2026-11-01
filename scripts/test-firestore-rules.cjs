@@ -17,7 +17,8 @@ async function main() {
         ['hr', { role: 'rrhh', status: 'approved' }],
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
-        ['admin', { role: 'admin', status: 'approved' }]
+        ['admin', { role: 'admin', status: 'approved' }],
+        ['manager', { role: 'ceo', status: 'approved' }]
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
       await setDoc(doc(db, 'settings', 'rbac_matrix'), {
@@ -37,6 +38,8 @@ async function main() {
       await setDoc(doc(db, 'esim_profiles', 'admin-esim'), { isDemo: false, phone: '+15555550101' });
       await setDoc(doc(db, 'telnyx_phone_numbers', 'admin-number'), { phoneNumber: '+15555550102' });
       await setDoc(doc(db, 'telnyx_agent_assignments', 'alice'), { agentId: 'alice', authorizedNumbers: ['+15555550102'] });
+      await setDoc(doc(db, 'voip_providers', 'telnyx'), { name: 'Telnyx', apiKey: 'test-only' });
+      await setDoc(doc(db, 'settings', 'telnyx_config'), { login_token: 'test-only-jwt' });
       await setDoc(doc(db, 'support_tickets', 'alice-ticket'), {
         userId: 'alice', userEmail: 'alice@example.test', subject: 'Login issue',
         description: 'Cannot log in', priority: 'medium', status: 'open',
@@ -60,6 +63,7 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin').firestore();
+    const manager = env.authenticatedContext('manager').firestore();
     const anonymous = env.unauthenticatedContext().firestore();
 
     await assertFails(getDoc(doc(anonymous, 'company_profiles', 'alice')));
@@ -102,10 +106,16 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
 
     await assertFails(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertFails(getDoc(doc(manager, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(getDoc(doc(manager, 'voip_call_history', 'alice-call')));
+    await assertFails(getDoc(doc(manager, 'voip_providers', 'telnyx')));
+    await assertFails(getDoc(doc(manager, 'settings', 'telnyx_config')));
+    await assertSucceeds(getDoc(doc(admin, 'voip_providers', 'telnyx')));
+    await assertSucceeds(getDoc(doc(admin, 'settings', 'telnyx_config')));
     await assertFails(updateDoc(doc(alice, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertSucceeds(updateDoc(doc(admin, 'voip_call_history', 'alice-call'), { contactPhone: '+15555550999' }));
     await assertFails(getDoc(doc(bob, 'voip_call_history', 'alice-call')));
