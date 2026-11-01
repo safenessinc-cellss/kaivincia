@@ -205,7 +205,7 @@ export default function Clients() {
     const unsubCollabs = isAdmin ? onSnapshot(collection(db, 'collaborators'), snap => setCollaborators(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : () => setCollaborators([]);
     const unsubProspects = isAdmin ? onSnapshot(collection(db, 'prospects'), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() })))) : onSnapshot(query(collection(db, 'prospects'), where('ownerId', '==', currentUser.uid)), snap => setProspects(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
     return () => { unsubClients.forEach(fn => fn()); unsubCollabs(); unsubProspects(); };
-  }, [currentUser, authLoading]);
+  }, [currentUser, authLoading, currentUserData?.role]);
 
   useEffect(() => {
     if (authLoading || !currentUser || loading) return;
