@@ -16,7 +16,6 @@ const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Co
 
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -24,6 +23,7 @@ export default function Recruitment() {
   // Attendance State
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [attendanceLog, setAttendanceLog] = useState<any[]>([]);
+  const [absenceRequests, setAbsenceRequests] = useState<any[]>([]);
 
   // Absence Form State
   const [absenceForm, setAbsenceForm] = useState({
@@ -92,6 +92,16 @@ export default function Recruitment() {
       setIsCheckedIn(logs[0]?.type === 'in');
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'attendance_logs');
+    });
+  }, []);
+
+  // HR review queue: real absence requests only, no sample records.
+  useEffect(() => {
+    const absenceQuery = query(collection(db, 'absence_requests'), orderBy('createdAt', 'desc'));
+    return onSnapshot(absenceQuery, (snapshot) => {
+      setAbsenceRequests(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'absence_requests');
     });
   }, []);
 
@@ -216,6 +226,21 @@ export default function Recruitment() {
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, `jobs/${jobId}`);
       }
+    }
+  };
+
+  const handleAbsenceStatusChange = async (requestId: string, status: 'approved' | 'rejected') => {
+    const reviewer = auth.currentUser;
+    if (!reviewer) return;
+    try {
+      await updateDoc(doc(db, 'absence_requests', requestId), {
+        status,
+        reviewedAt: new Date().toISOString(),
+        reviewedBy: reviewer.uid,
+        reviewerEmail: reviewer.email || ''
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `absence_requests/${requestId}`);
     }
   };
 
@@ -696,30 +721,34 @@ export default function Recruitment() {
                     </div>
 
                     <div className="space-y-4">
-                       {[
-                         { user: 'Marcos Gil', type: 'Día Libre', date: '15 May - 16 May', status: 'pending', reason: 'Asuntos familiares' },
-                         { user: 'Sofia Lopez', type: 'Cambio Turno', date: 'Hoy (Tarde)', status: 'approved', reason: 'Cita médica dental' }
-                       ].map((req, i) => (
-                         <div key={i} className="flex items-center gap-6 p-6 bg-gray-50/50 border border-gray-100 rounded-3xl group hover:border-blue-200 transition-all">
-                            <div className={`h-12 w-12 rounded-2xl flex items-center justify-center ${req.status === 'approved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
-                               <Calendar className="w-6 h-6" />
+                       {absenceRequests.length === 0 ? (
+                         <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-xs text-gray-500">
+                           No hay solicitudes registradas.
+                         </div>
+                       ) : absenceRequests.map((req) => (
+                         <div key={req.id} className="flex items-center gap-4 p-5 bg-gray-50/50 border border-gray-100 rounded-3xl">
+                            <div className={`h-11 w-11 rounded-2xl flex items-center justify-center ${req.status === 'approved' ? 'bg-green-100 text-green-600' : req.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                               <Calendar className="w-5 h-5" />
                             </div>
-                            <div className="flex-1">
-                               <div className="flex items-center gap-3">
-                                  <h4 className="text-sm font-black text-gray-900 uppercase italic tracking-tighter">{req.user}</h4>
-                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${req.status === 'approved' ? 'bg-green-500 text-white' : 'bg-amber-500 text-white'}`}>
-                                     {req.status === 'approved' ? 'Aprobado' : 'Pendiente'}
+                            <div className="flex-1 min-w-0">
+                               <div className="flex flex-wrap items-center gap-2">
+                                  <h4 className="text-sm font-black text-gray-900 truncate">{req.userName || req.userEmail || 'Colaborador'}</h4>
+                                  <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${req.status === 'approved' ? 'bg-green-500 text-white' : req.status === 'rejected' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'}`}>
+                                     {req.status === 'approved' ? 'Aprobada' : req.status === 'rejected' ? 'Rechazada' : 'Pendiente'}
                                   </span>
                                </div>
-                               <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type} • {req.date}</p>
-                               <p className="text-xs text-gray-500 mt-2 italic">"{req.reason}"</p>
+                               <p className="text-[10px] font-black text-gray-400 uppercase mt-1">{req.type || 'Ausencia'} • {req.startDate || '—'} – {req.endDate || '—'}</p>
+                               <p className="text-xs text-gray-500 mt-2 whitespace-pre-wrap">{req.reason || 'Sin motivo indicado'}</p>
                             </div>
-                            <div className="flex gap-2">
-                               <button className="p-3 bg-white border border-gray-100 text-emerald-500 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
-                               <button className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
-                            </div>
+                            {req.status === 'pending' && (
+                              <div className="flex gap-2 shrink-0">
+                                <button onClick={() => handleAbsenceStatusChange(req.id, 'approved')} title="Aprobar solicitud" className="p-3 bg-white border border-gray-100 text-emerald-600 rounded-xl hover:shadow-lg transition-all"><CheckCircle className="w-4 h-4" /></button>
+                                <button onClick={() => handleAbsenceStatusChange(req.id, 'rejected')} title="Rechazar solicitud" className="p-3 bg-white border border-gray-100 text-red-500 rounded-xl hover:shadow-lg transition-all"><XCircle className="w-4 h-4" /></button>
+                              </div>
+                            )}
                          </div>
                        ))}
+                    </div>
                     </div>
                  </div>
               </div>
@@ -791,7 +820,7 @@ export default function Recruitment() {
                        <h4 className="text-[10px] font-black uppercase tracking-widest">Protocolo S.O.P. Ausencias</h4>
                     </div>
                     <p className="text-[10px] text-red-900/60 leading-relaxed italic">
-                      Las ausencias injustificadas activan automáticamente un strike en el expediente del colaborador. 3 strikes resultan en auditoría disciplinaria obligatoria.
+                      Las solicitudes requieren revisión y aprobación manual por RR. HH. Este módulo no aplica sanciones automáticas ni modifica expedientes disciplinarios.
                     </p>
                  </div>
               </div>
@@ -1010,7 +1039,7 @@ export default function Recruitment() {
                    <tr>
                      <th className="px-10 py-6">Puesto / Nodo</th>
                      <th className="px-10 py-6">Departamento</th>
-                     <th className="px-10 py-6">Metadatos (IA)</th>
+                     <th className="px-10 py-6">Datos de la vacante</th>
                      <th className="px-10 py-6">Sincronización</th>
                      <th className="px-10 py-6 text-right">Dirección</th>
                    </tr>
@@ -1093,7 +1122,7 @@ export default function Recruitment() {
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Sincronización Web Externa Automática</p>
               </div>
               <p className="text-[11px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                Este portal es la cara pública de tu empresa. Todas las vacantes marcadas como <b className="text-gray-900 uppercase">ONLINE</b> en la pestaña anterior se publicarán automáticamente aquí. Los candidatos podrán postularse y sus perfiles entrarán directamente a tu Pipeline de IA.
+                Este portal es la cara pública de tu empresa. Todas las vacantes marcadas como <b className="text-gray-900 uppercase">ONLINE</b> en la pestaña anterior se publicarán automáticamente aquí. Los candidatos podrán postularse y sus perfiles entrarán directamente al pipeline de selección.
               </p>
               <div className="flex gap-4">
                 <a 
