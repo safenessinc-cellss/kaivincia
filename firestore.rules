@@ -107,16 +107,21 @@ service cloud.firestore {
     }
 
     function isVoipUser() {
-      return isApproved() && hasEffectivePermission(
-        "voip_calls",
-        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor", "supervisor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
+      // Superadmins are the account-wide telephony owners; per-user RBAC
+      // overrides must not accidentally remove their call-center access.
+      return isApproved() && (
+        userRole() == "superadmin" ||
+        hasEffectivePermission(
+          "voip_calls",
+          userRole() in ["admin", "owner", "ceo", "gestor", "supervisor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
+        )
       );
     }
 
     function isTelephonyAdmin() {
       return isApproved() &&
         userRole() in ["superadmin", "admin"] &&
-        hasEffectivePermission("telephony_config", true);
+        (userRole() == "superadmin" || hasEffectivePermission("telephony_config", true));
     }
 
     function isApproved() {
