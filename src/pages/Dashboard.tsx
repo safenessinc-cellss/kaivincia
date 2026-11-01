@@ -136,7 +136,7 @@ export default function Dashboard() {
             <Cpu className="w-8 h-8 animate-pulse" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Nervous System</h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Dashboard Ejecutivo</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
@@ -348,7 +348,7 @@ export default function Dashboard() {
                   { 
                     type: 'alert', 
                     message: "Alerta de Salud: 2 clientes muestran deserción en el Módulo de Academia. Impacto proyectado: -$4.2k MRR.",
-                    action: { label: "Intervenir Academia", onClick: () => navigate('/crm/academia') }
+                    action: { label: "Intervenir Academia", onClick: () => navigate('/crm/academy-internal') }
                   }
                 ]}
               />
@@ -513,7 +513,7 @@ export default function Dashboard() {
           {/* D. INTEL GROWTH HUB (ACADEMIA/SALES) */}
           <motion.div 
             whileHover={{ scale: 1.01 }}
-            onClick={() => navigate('/crm/academia')}
+            onClick={() => navigate('/crm/academy-internal')}
             className="bg-[#151921] border border-white/5 rounded-[2.5rem] p-8 relative overflow-hidden group shadow-2xl cursor-pointer"
           >
             <div className="flex justify-between items-start mb-8 relative z-10">
