@@ -123,6 +123,7 @@ export default async function handler(req: any, res: any) {
 
 
 async function hasVoipPermission(uid: string, profile: any, role: string): Promise<boolean> {
+  if (PRIVILEGED_ROLES.has(role)) return true;
   const override = profile.permissions?.voip_calls;
   if (typeof override === 'boolean') return override;
   const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
