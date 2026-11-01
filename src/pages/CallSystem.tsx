@@ -221,6 +221,7 @@ export default function CallSystem() {
             <SoftphoneDialer
               initialPhoneNumber={dialTargetNumber}
               mode="embedded"
+              canManageTelephony={canManageTelephony}
             />
           </div>
         )}
@@ -274,6 +275,7 @@ export default function CallSystem() {
           <SoftphoneDialer
             initialPhoneNumber={dialTargetNumber}
             mode="floating"
+            canManageTelephony={canManageTelephony}
             onClose={() => setIsSoftphoneFloating(false)}
           />
         )}
