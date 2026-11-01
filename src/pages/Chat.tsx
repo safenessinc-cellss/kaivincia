@@ -14,6 +14,7 @@ import { format, parseISO } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useGlobalContext } from '../contexts/GlobalContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { requestGemini } from '../services/geminiApi';
 
 type ChatFilter = 'all' | 'groups' | 'clients' | 'private' | 'contacts';
 
