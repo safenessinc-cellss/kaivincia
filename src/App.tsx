@@ -343,8 +343,8 @@ export default function App() {
           {/* Administrativo */}
           <Route path="recruitment" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'], <Recruitment canManageRecruitment={true} initialTab="candidates" />)} />
           <Route path="employee-portal" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : userData?.role === 'cliente' ? <Navigate to="/crm/client-portal" /> : <Recruitment canManageRecruitment={false} initialTab="employee-portal" />} />
-          <Route path="team" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <TeamManagement />)} />
-          <Route path="payroll" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <Payroll />)} />
+          <Route path="team" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'], <TeamManagement />)} />
+          <Route path="payroll" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'], <Payroll />)} />
           <Route path="accounting" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'owner', 'ceo'], <Accounting />)} />
           <Route path="client-management" element={requirePermission('client_base_global', ['superadmin', 'admin', 'owner', 'ceo', 'gestor'], <ClientManagement />)} />
           <Route path="billing" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'ceo'], <Billing />)} />
