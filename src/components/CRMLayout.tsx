@@ -249,6 +249,7 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
       {
         title: t('common.welcome', 'BIENVENIDO'),
         items: [
+          ...(userRole !== 'cliente' ? [{ name: t('nav.employee_portal', 'Portal de Equipo'), href: '/crm/employee-portal', icon: Users2, color: 'text-emerald-500' }] : []),
           { name: t('nav.my_portal', 'Mi Portal'), href: '/crm/user-portal', icon: UserCircle, color: 'text-gray-400' },
           { name: t('nav.helpdesk', 'Centro de Soporte'), href: '/crm/helpdesk', icon: HelpCircle, color: 'text-cyan-400' },
         ]
