@@ -40,6 +40,17 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function ownsRecord(data) {
+      return isAuthenticated() && (
+        data.get('ownerId', '') == request.auth.uid ||
+        data.get('createdBy', '') == request.auth.uid ||
+        data.get('assignedTo', '') == request.auth.uid ||
+        data.get('assignedAgentUid', '') == request.auth.uid ||
+        data.get('userId', '') == request.auth.uid ||
+        data.get('userUid', '') == request.auth.uid
+      );
+    }
+
     function incoming() {
       return request.resource.data;
     }
@@ -87,33 +98,31 @@ service cloud.firestore {
     }
 
     match /user_sessions/{sessionId} {
-      allow read:   if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || resource.data.get('uid', '') == request.auth.uid || resource.data.get('userId', '') == request.auth.uid;
+      allow create: if isAuthenticated() && (request.resource.data.get('uid', '') == request.auth.uid || request.resource.data.get('userId', '') == request.auth.uid);
+      allow update, delete: if isAdmin() || resource.data.get('uid', '') == request.auth.uid || resource.data.get('userId', '') == request.auth.uid;
     }
 
     // ===============================================================
     // Clients
     // ===============================================================
     match /clients/{clientId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() &&
-                       request.resource.data.get('createdBy', '') == request.auth.uid;
-      allow update: if isAdmin() ||
-                       existing().get('createdBy', '') == request.auth.uid ||
-                       existing().get('assignedTo', '') == request.auth.uid;
+      allow read: if canAccessClient(clientId);
+      allow create: if isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if canAccessClient(clientId) &&
+        request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '') &&
+        request.resource.data.get('assignedTo', resource.data.get('assignedTo', '')) == resource.data.get('assignedTo', '');
       allow delete: if isAdmin();
-
       match /{subcollection}/{document=**} {
-        allow read:  if isAuthenticated();
-        allow write: if isAdmin() ||
-          get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
-          get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid;
+        allow read, create, update: if canAccessClient(clientId);
+        allow delete: if isAdmin();
       }
     }
 
     match /leads/{leadId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || (ownsRecord(resource.data) && ownsRecord(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -124,15 +133,21 @@ service cloud.firestore {
     }
 
     match /client_interactions/{interactionId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
+      allow read: if isAdmin() || ownsRecord(resource.data) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if isApproved() && (ownsRecord(request.resource.data) ||
+        (request.resource.data.get('clientId', '') is string && canAccessClient(request.resource.data.get('clientId', ''))));
+      allow update: if isAdmin() || ownsRecord(resource.data);
       allow delete: if isAdmin();
     }
 
     match /tasks/{taskId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAdmin() || ownsRecord(resource.data) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if isApproved() && (request.resource.data.get('createdBy', '') == request.auth.uid ||
+        request.resource.data.get('assignedTo', '') == request.auth.uid);
+      allow update: if isAdmin() || (ownsRecord(resource.data) && ownsRecord(request.resource.data));
+      allow delete: if isAdmin() || resource.data.get('createdBy', '') == request.auth.uid;
     }
 
     function canAccessClient(clientId) {
@@ -210,12 +225,12 @@ service cloud.firestore {
     }
 
     match /voip_providers/{providerId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read:  if isAuthenticated();
+      allow read: if isAdmin() || (isApproved() &&
+        (resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('agentUid', '') == request.auth.uid));
       allow write: if isAdmin();
     }
 
@@ -236,12 +251,16 @@ service cloud.firestore {
     }
 
     match /esim_profiles/{profileId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow delete: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
     }
 
     match /shared_whatsapp_chats/{chatId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || ownsRecord(resource.data);
       allow delete: if isAdmin();
     }
 
@@ -255,12 +274,16 @@ service cloud.firestore {
     }
 
     match /appointments/{appointmentId} {
-      allow read, create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow delete: if isAdmin() || resource.data.get('createdBy', '') == request.auth.uid;
     }
 
     match /call_dispositions/{dispositionId} {
-      allow read, create, update: if isAuthenticated();
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || ownsRecord(resource.data);
       allow delete: if isAdmin();
     }
 
@@ -268,10 +291,9 @@ service cloud.firestore {
     // Reclutamiento
     // ===============================================================
     match /candidates/{candidateId} {
-      allow read:   if isAuthenticated();
-      allow create: if true;
-      allow update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, update, delete: if isAdmin();
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'phone', 'position', 'resumeUrl', 'message', 'createdAt', 'status']) &&
+        request.resource.data.get('name', '') is string && request.resource.data.get('email', '') is string;
     }
 
     match /jobs/{jobId} {
@@ -284,13 +306,11 @@ service cloud.firestore {
     // B2B, suscripciones, academia
     // ===============================================================
     match /b2b_entities/{entityId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /subscriptions/{subId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /academic_progress/{progressId} {
@@ -330,9 +350,7 @@ service cloud.firestore {
     // Integraciones
     // ===============================================================
     match /integrations/{integrationId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /integration_test_logs/{logId} {
@@ -358,20 +376,16 @@ service cloud.firestore {
     }
 
     match /automation_rules/{ruleId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /automation_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read, create: if isAdmin();
       allow update, delete: if false;
     }
 
     match /collaborators/{collaboratorId} {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /prospects/{prospectId} {
@@ -455,8 +469,7 @@ service cloud.firestore {
     }
 
     match /settings/telnyx_config {
-      allow read:  if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     // ===============================================================
