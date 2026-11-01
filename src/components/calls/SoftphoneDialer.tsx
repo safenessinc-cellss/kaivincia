@@ -54,8 +54,6 @@ const isReservedDemoPhone = (value: string) => /^1\d{3}55501\d{2}$/.test(String(
 
 // Números de Caller ID: se cargan SOLO desde Telnyx (telnyx_phone_numbers en Firestore).
 // No hardcodear números aquí para evitar el error 403 "originator number is invalid".
-const REAL_TELNYX_CALLER_IDS: string[] = [];
-
 export default function SoftphoneDialer({
   mode = 'embedded',
   initialPhoneNumber = '',
