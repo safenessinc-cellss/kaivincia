@@ -15,7 +15,6 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
   const defaultCampaign = 'Campaña sin especificar';
-  const assignedTLMK = tlmkList[0] || '';
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -62,9 +61,12 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
       const email = String(row.email || row.correo || row.Email || '').trim();
       const company = String(row.company || row.empresa || row.Company || '').trim();
       const campaign = String(row.campaign || row.campaign_name || row.campana || defaultCampaign).trim();
-      const assignedAgent = String(
-        row.tlmk || row.agente || (tlmkList.length > 0 ? tlmkList[idx % tlmkList.length] : assignedTLMK) || ''
-      ).trim();
+      const requestedAgent = String(row.tlmk || row.agente || '').trim();
+      // Never distribute leads arbitrarily across agents. Only accept an
+      // explicitly supplied agent that exists in the authorized agent list.
+      const assignedAgent = requestedAgent && tlmkList.includes(requestedAgent)
+        ? requestedAgent
+        : '';
       const rawValue = Number(row.value ?? row.monto ?? 0);
 
       acc.push({
@@ -181,7 +183,7 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
                       <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
                         {lead.campaignName}
                       </span>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Asignado a: <strong className="text-white">{lead.assignedTLMK}</strong></p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Asignación: <strong className="text-white">{lead.assignedTLMK || 'Sin asignar'}</strong></p>
                     </div>
                   </div>
                 ))}
