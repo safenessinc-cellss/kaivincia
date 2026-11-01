@@ -286,7 +286,8 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
 
   const handleAttendance = async (type: 'in' | 'out') => {
     const currentUser = auth.currentUser;
-    if (!currentUser) return;
+    if (!currentUser?.email) return;
+    if ((type === 'in' && isCheckedIn) || (type === 'out' && !isCheckedIn)) return;
     try {
       const log = {
         userId: currentUser.uid,
