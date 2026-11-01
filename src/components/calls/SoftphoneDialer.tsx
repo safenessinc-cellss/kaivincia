@@ -154,6 +154,15 @@ export default function SoftphoneDialer({
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
   const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
   const [selectedCallerId, setSelectedCallerId] = useState<string>('');
+  const [callerIdMode, setCallerIdMode] = useState<'auto' | 'manual'>(() => {
+    try {
+      return localStorage.getItem('kaivincia_caller_id_mode') === 'manual' ? 'manual' : 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+  const [preferredCallerId, setPreferredCallerId] = useState<string>('');
+  const [callerIdAutoReason, setCallerIdAutoReason] = useState('Línea predeterminada asignada');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
   const [agentAssignment, setAgentAssignment] = useState<any | null>(null);
@@ -357,11 +366,13 @@ export default function SoftphoneDialer({
       setAuthorizedCallerIds(authorized);
 
       const defaultId = assignmentData?.defaultCallerId;
-      if (defaultId && authorized.includes(defaultId)) {
-        setSelectedCallerId(defaultId);
-      } else {
-        setSelectedCallerId(authorized[0] || '');
-      }
+      const preferred = defaultId && authorized.includes(defaultId) ? defaultId : (authorized[0] || '');
+      setPreferredCallerId(preferred);
+      setCallerIdAutoReason('Línea predeterminada asignada');
+      setSelectedCallerId((current) => {
+        if (callerIdMode === 'auto' || !authorized.includes(current)) return preferred;
+        return current;
+      });
     };
 
     // The backend is the source of truth for both full admin inventory and
@@ -421,21 +432,30 @@ export default function SoftphoneDialer({
     };
   }, [user, authLoading, userData?.role]);
 
-  // ── Auto-selección de Caller ID por código de área del destino ──────────
+  // ── Selección automática: preferencia asignada y coincidencia de área US ──
   useEffect(() => {
+    if (callerIdMode !== 'auto') return;
     const digits = String(phoneNumber || '').replace(/\D/g, '');
-    // Solo cuando el destino es un número US completo (11 dígitos: 1 + 10)
-    if (digits.length !== 11 || !digits.startsWith('1')) return;
-    const destArea = digits.slice(1, 4);
-    if (!destArea) return;
-    const match = authorizedCallerIds.find((cid) => {
+    const isUsNumber = digits.length === 11 && digits.startsWith('1');
+    const destArea = isUsNumber ? digits.slice(1, 4) : '';
+    const match = destArea ? authorizedCallerIds.find((cid) => {
       const cd = String(cid).replace(/\D/g, '');
-      return cd.startsWith('1') && cd.slice(1, 4) === destArea;
-    });
-    if (match && match !== selectedCallerId) {
-      setSelectedCallerId(match);
+      return cd.length === 11 && cd.startsWith('1') && cd.slice(1, 4) === destArea;
+    }) : undefined;
+    const nextCallerId = match || preferredCallerId || authorizedCallerIds[0] || '';
+    setCallerIdAutoReason(match
+      ? `Coincidencia de área ${destArea}`
+      : 'Línea predeterminada asignada');
+    if (nextCallerId && nextCallerId !== selectedCallerId) setSelectedCallerId(nextCallerId);
+  }, [callerIdMode, phoneNumber, authorizedCallerIds, preferredCallerId, selectedCallerId]);
+
+  const handleCallerIdModeChange = (mode: 'auto' | 'manual') => {
+    setCallerIdMode(mode);
+    try { localStorage.setItem('kaivincia_caller_id_mode', mode); } catch {}
+    if (mode === 'auto') {
+      setSelectedCallerId(preferredCallerId || authorizedCallerIds[0] || '');
     }
-  }, [phoneNumber, authorizedCallerIds]);
+  };
 
   const clearAllTimeouts = useCallback(() => {
     timeoutsRef.current.forEach(id => clearTimeout(id));
@@ -1039,6 +1059,9 @@ export default function SoftphoneDialer({
                 authorizedCallerIds={authorizedCallerIds}
                 selectedCallerId={selectedCallerId}
                 onSelectCallerId={setSelectedCallerId}
+                callerIdMode={callerIdMode}
+                onCallerIdModeChange={handleCallerIdModeChange}
+                callerIdAutoReason={callerIdAutoReason}
                 selectedProject={selectedProject}
                 onSelectProject={setSelectedProject}
                 selectedClientName={selectedClientName}
