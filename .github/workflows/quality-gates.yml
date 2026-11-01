@@ -61,6 +61,10 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm test
+      - name: Firestore rules emulator tests
+        run: |
+          npm install --no-save --package-lock=false @firebase/rules-unit-testing firebase-tools
+          npx firebase emulators:exec --only firestore --project demo-kaivincia-security "node scripts/test-firestore-rules.cjs"
       - name: Production build
         run: npm run build
       - name: Legacy lint report (non-blocking)
