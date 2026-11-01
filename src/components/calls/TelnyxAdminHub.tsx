@@ -140,8 +140,9 @@ export default function TelnyxAdminHub() {
           setLoginTokenInput(jwtFromDb);
         }
       } else {
-        // Inicializar documento base
-        setDoc(doc(db, 'settings', 'telnyx_config'), DEFAULT_CONFIG).catch(console.error);
+        setConfig(DEFAULT_CONFIG);
+        setConnectionIdInput('');
+        setConnectionNameInput('');
       }
     }, (err) => console.warn('Could not load telnyx_config:', err));
 
