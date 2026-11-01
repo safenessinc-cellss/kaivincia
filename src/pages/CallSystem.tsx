@@ -36,7 +36,10 @@ import { normalizeRole } from '../constants/roles';
 const VALID_CALL_TABS = ['monitor', 'softphone', 'telnyx', 'meta', 'logs', 'esim', 'directory', 'inbox', 'cobertura', 'utilidades'];
 
 export default function CallSystem() {
-  const { userData } = useOutletContext<{ userData: any }>() || {};
+  const { userData, canAccessPermission } = useOutletContext<{
+    userData: any;
+    canAccessPermission?: (permissionId: string, fallbackRoles: string[]) => boolean;
+  }>() || {};
   const { t } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -44,6 +47,12 @@ export default function CallSystem() {
   const isAdmin = useMemo(
     () => ['superadmin', 'admin'].includes(normalizeRole(userData?.role)),
     [userData?.role]
+  );
+  const canManageTelephony = useMemo(
+    () => isAdmin && (canAccessPermission
+      ? canAccessPermission('telephony_config', ['superadmin', 'admin'])
+      : userData?.permissions?.telephony_config !== false),
+    [isAdmin, canAccessPermission, userData?.permissions]
   );
 
   // Manejo de pestaña activa vía URL o estado
@@ -68,7 +77,10 @@ export default function CallSystem() {
   // La pestaña se deriva de la URL: soporta atrás/adelante sin estado duplicado.
   // Los paneles administrativos no se abren desde un query param no autorizado.
   const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
-  const activeTab = !isAdmin && ['telnyx', 'meta', 'esim', 'directory'].includes(requestedTab) ? 'monitor' : requestedTab;
+  const activeTab = (
+    (!isAdmin && ['telnyx', 'meta', 'esim', 'directory'].includes(requestedTab)) ||
+    (requestedTab === 'telnyx' && !canManageTelephony)
+  ) ? 'monitor' : requestedTab;
 
   useEffect(() => {
     if (activeTab !== currentTabParam) {
@@ -169,7 +181,7 @@ export default function CallSystem() {
 
       {/* Navegación por Pestañas */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800 no-scrollbar">
-        {TABS.filter((tab) => !tab.adminOnly || isAdmin).map((tab) => {
+        {TABS.filter((tab) => (!tab.adminOnly || isAdmin) && (tab.id !== 'telnyx' || canManageTelephony)).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -213,7 +225,7 @@ export default function CallSystem() {
           </div>
         )}
 
-        {activeTab === 'telnyx' && isAdmin && (
+        {activeTab === 'telnyx' && canManageTelephony && (
           <TelnyxAdminHub />
         )}
 
@@ -235,7 +247,7 @@ export default function CallSystem() {
 
         {activeTab === 'directory' && (
           <VoipProviderConfig
-            isAdmin={isAdmin}
+            isAdmin={canManageTelephony}
           />
         )}
 
