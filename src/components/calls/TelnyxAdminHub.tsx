@@ -837,7 +837,7 @@ export default function TelnyxAdminHub() {
       </div>
 
       {/* Navegación por Sub-Pestañas */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-200 pb-2 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-2 border-b border-slate-200 border-slate-200 pb-2 overflow-x-auto no-scrollbar">
         {[
           { id: 'connection', label: '1. Conexión & Webhooks', icon: Server, badge: 'Plataforma' },
           { id: 'numbers', label: '2. Números Telefónicos (DIDs)', icon: Phone, badge: `${phoneNumbers.length}` },
@@ -854,7 +854,7 @@ export default function TelnyxAdminHub() {
               className={`px-4 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
                 isActive
                   ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(0,240,255,0.25)]'
-                  : 'bg-white dark:bg-white text-slate-500 dark:text-slate-600 hover:text-slate-900 dark:hover:text-slate-900 border border-slate-200 dark:border-slate-200'
+                  : 'bg-white bg-white text-slate-500 text-slate-600 hover:text-slate-900 hover:text-slate-900 border border-slate-200 border-slate-200'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -873,13 +873,13 @@ export default function TelnyxAdminHub() {
       {activeSubTab === 'connection' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Panel Izquierdo: Configuración de Conexión & Claves */}
-          <div className="lg:col-span-2 bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 sm:p-7 shadow-sm space-y-6">
+          <div className="lg:col-span-2 bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 sm:p-7 shadow-sm space-y-6">
             <div>
-              <h4 className="text-base font-black text-slate-900 dark:text-slate-900 uppercase tracking-tight italic flex items-center gap-2">
+              <h4 className="text-base font-black text-slate-900 text-slate-900 uppercase tracking-tight italic flex items-center gap-2">
                 <Sliders className="w-4 h-4 text-cyan-500" />
                 <span>Parámetros de Conexión Telnyx</span>
               </h4>
-              <p className="text-xs text-slate-500 dark:text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-500 text-slate-600 mt-0.5">
                 Modifica y actualiza la conexión de Telnyx compartida para toda la plataforma sin necesidad de tocar el código fuente.
               </p>
             </div>
@@ -894,7 +894,7 @@ export default function TelnyxAdminHub() {
             <form onSubmit={handleSaveConfig} className="space-y-4">
               {/* Connection ID */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-600 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 text-slate-600 uppercase tracking-wider mb-1.5">
                   TELNYX_CONNECTION_ID (Plataforma)
                 </label>
                 <div className="relative">
@@ -903,7 +903,7 @@ export default function TelnyxAdminHub() {
                     value={connectionIdInput}
                     onChange={(e) => setConnectionIdInput(e.target.value)}
                     placeholder="Ej. 3046958032463333200"
-                    className="w-full bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-slate-900 font-mono font-bold focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 text-slate-900 font-mono font-bold focus:outline-none focus:border-cyan-500"
                   />
                 </div>
                 <p className="text-[11px] text-slate-600 mt-1">
@@ -914,7 +914,7 @@ export default function TelnyxAdminHub() {
               {/* Nombre de la Conexión */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-600 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 text-slate-600 uppercase tracking-wider mb-1.5">
                     Nombre Identificador
                   </label>
                   <input
@@ -922,18 +922,18 @@ export default function TelnyxAdminHub() {
                     value={connectionNameInput}
                     onChange={(e) => setConnectionNameInput(e.target.value)}
                     placeholder="Kaivincia-Voice-Test"
-                    className="w-full bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-slate-900 font-bold focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 text-slate-900 font-bold focus:outline-none focus:border-cyan-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-600 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 text-slate-600 uppercase tracking-wider mb-1.5">
                     Tipo de Conexión Telnyx
                   </label>
                   <select
                     value={connectionTypeInput}
                     onChange={(e) => setConnectionTypeInput(e.target.value as any)}
-                    className="w-full bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-slate-900 font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                    className="w-full bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 text-slate-900 font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
                   >
                     <option value="sip_credential">SIP Trunking (Credential Connection) - Actual</option>
                     <option value="call_control">Programmable Voice (Call Control App WebRTC)</option>
@@ -942,28 +942,28 @@ export default function TelnyxAdminHub() {
               </div>
 
               {/* API Key gestionada exclusivamente como variable de entorno */}
-              <div className="p-4 bg-slate-50 dark:bg-white/70 rounded-2xl border border-slate-200 dark:border-slate-200 space-y-2">
+              <div className="p-4 bg-slate-50 bg-white/70 rounded-2xl border border-slate-200 border-slate-200 space-y-2">
                 <div className="flex items-center gap-2">
                   <Lock className="w-4 h-4 text-amber-400" />
-                  <label className="text-xs font-black text-slate-900 dark:text-slate-900 uppercase tracking-wider">
+                  <label className="text-xs font-black text-slate-900 text-slate-900 uppercase tracking-wider">
                     TELNYX_API_KEY · Secreto del servidor
                   </label>
                 </div>
-                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-600">
+                <p className="text-[11px] leading-relaxed text-slate-500 text-slate-600">
                   Por seguridad, esta clave no se introduce ni se almacena desde el navegador. Configúrala en Vercel → Project Settings → Environment Variables con el nombre <code>TELNYX_API_KEY</code> y vuelve a desplegar.
                 </p>
               </div>
 
               {/* TELNYX WebRTC SDK — login_token (JWT) */}
-              <div className="p-4 bg-slate-50 dark:bg-white/70 rounded-2xl border border-slate-200 dark:border-cyan-200 space-y-3 relative overflow-hidden">
+              <div className="p-4 bg-slate-50 bg-white/70 rounded-2xl border border-slate-200 border-cyan-200 space-y-3 relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Radio className="w-4 h-4 text-cyan-700" />
                     <div>
-                      <label className="text-xs font-black text-slate-900 dark:text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <label className="text-xs font-black text-slate-900 text-slate-900 uppercase tracking-wider flex items-center gap-2">
                         <span>Telnyx WebRTC SDK — login_token (JWT)</span>
                       </label>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-600 mt-0.5">
+                      <p className="text-[11px] text-slate-500 text-slate-600 mt-0.5">
                         Token JWT de autenticación para el cliente <code className="text-cyan-700 font-mono text-[10px]">TelnyxRTC(&#123; login_token &#125;)</code> en /crm/calls
                       </p>
                     </div>
@@ -990,8 +990,8 @@ export default function TelnyxAdminHub() {
 
                 {!isEditingLoginToken ? (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2 bg-white dark:bg-white border border-slate-200 dark:border-slate-200 px-3.5 py-2.5 rounded-xl">
-                      <div className="flex-1 font-mono text-xs text-slate-700 dark:text-slate-600 font-semibold truncate select-all">
+                    <div className="flex items-center justify-between gap-2 bg-white bg-white border border-slate-200 border-slate-200 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex-1 font-mono text-xs text-slate-700 text-slate-600 font-semibold truncate select-all">
                         {loginTokenInput ? (
                           showLoginTokenPlain ? (
                             <span className="break-all">{loginTokenInput}</span>
@@ -1041,7 +1041,7 @@ export default function TelnyxAdminHub() {
                       value={loginTokenInput}
                       onChange={(e) => setLoginTokenInput(e.target.value)}
                       placeholder="Pega aquí el nuevo login_token JWT de Telnyx (eyJhbGciOi...)"
-                      className="w-full bg-white dark:bg-white border border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 dark:text-slate-900 focus:outline-none resize-none"
+                      className="w-full bg-white bg-white border border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-slate-900 text-slate-900 focus:outline-none resize-none"
                     />
                     <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
                       <span>Este token se persistirá en Firestore (<code className="text-cyan-700 font-mono">settings/telnyx_config</code>) y se aplicará inmediatamente a las llamadas.</span>
@@ -1107,7 +1107,7 @@ export default function TelnyxAdminHub() {
               {/* Límites de Concurrencia & Opciones */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-600 uppercase tracking-wider mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 text-slate-600 uppercase tracking-wider mb-1.5">
                     Límite de Llamadas Simultáneas
                   </label>
                   <input
@@ -1116,13 +1116,13 @@ export default function TelnyxAdminHub() {
                     max="100"
                     value={maxCallsInput}
                     onChange={(e) => setMaxCallsInput(parseInt(e.target.value) || 1)}
-                    className="w-full bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-4 py-2 text-xs text-slate-900 dark:text-slate-900 font-bold focus:outline-none focus:border-cyan-500"
+                    className="w-full bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-4 py-2 text-xs text-slate-900 text-slate-900 font-bold focus:outline-none focus:border-cyan-500"
                   />
                   <span className="text-[10px] text-slate-600">Alerta preventiva al alcanzar este límite</span>
                 </div>
 
                 <div className="flex flex-col justify-center">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-600 uppercase tracking-wider mb-2">
+                  <label className="text-xs font-bold text-slate-700 text-slate-600 uppercase tracking-wider mb-2">
                     Grabación por Defecto
                   </label>
                   <label className="flex items-center gap-2.5 cursor-pointer">
@@ -1154,20 +1154,20 @@ export default function TelnyxAdminHub() {
           {/* Panel Derecho: Webhook URL & Estado en Vivo */}
           <div className="space-y-6">
             {/* Tarjeta de Webhook */}
-            <div className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 shadow-sm space-y-4">
+            <div className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 shadow-sm space-y-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400">
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <h5 className="text-sm font-black text-slate-900 dark:text-slate-900 uppercase tracking-tight">
+                  <h5 className="text-sm font-black text-slate-900 text-slate-900 uppercase tracking-tight">
                     Webhook URL de Kaivincia
                   </h5>
                   <span className="text-[10px] text-slate-600">Requerido en Telnyx Portal</span>
                 </div>
               </div>
 
-              <p className="text-xs text-slate-500 dark:text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-500 text-slate-600 leading-relaxed">
                 Este es el endpoint público de Kaivincia que debes pegar en tu <strong>Call Control Application</strong> o en tu Webhook de Telnyx para recibir estados de llamadas y grabaciones:
               </p>
 
@@ -1194,7 +1194,7 @@ export default function TelnyxAdminHub() {
                 </button>
               </div>
 
-              <div className="p-3 bg-slate-50 dark:bg-slate-50 rounded-xl border border-slate-200 dark:border-slate-200 text-[11px] text-slate-600 space-y-1">
+              <div className="p-3 bg-slate-50 bg-slate-50 rounded-xl border border-slate-200 border-slate-200 text-[11px] text-slate-600 space-y-1">
                 <strong className="text-slate-900 block">Eventos que Kaivincia procesa:</strong>
                 <div>• <span className="text-cyan-700 font-mono">call.initiated</span> (Llamada iniciada)</div>
                 <div>• <span className="text-emerald-700 font-mono">call.answered</span> (Contestada)</div>
@@ -1221,20 +1221,20 @@ export default function TelnyxAdminHub() {
       {activeSubTab === 'numbers' && (
         <div className="space-y-6">
           {/* Barra de Filtro y Acciones de Números */}
-          <div className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <input
                 type="text"
                 value={numberSearch}
                 onChange={(e) => setNumberSearch(e.target.value)}
                 placeholder="Buscar número, alias o etiqueta..."
-                className="w-full sm:w-72 bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-4 py-2 text-xs text-slate-900 dark:text-slate-900 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
+                className="w-full sm:w-72 bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-4 py-2 text-xs text-slate-900 text-slate-900 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500"
               />
 
               <select
                 value={numberStatusFilter}
                 onChange={(e) => setNumberStatusFilter(e.target.value as any)}
-                className="bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-900 dark:text-slate-900 font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                className="bg-slate-50 bg-white border border-slate-200 border-slate-200 rounded-2xl px-3 py-2 text-xs text-slate-900 text-slate-900 font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
               >
                 <option value="all">Todos los Estados</option>
                 <option value="available">Disponibles</option>
@@ -1266,10 +1266,10 @@ export default function TelnyxAdminHub() {
           </div>
 
           {/* Tabla de Números */}
-          <div className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 overflow-hidden shadow-sm">
+          <div className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 dark:bg-white/70 border-b border-slate-200 dark:border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
+                <thead className="bg-slate-50 bg-white/70 border-b border-slate-200 border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
                   <tr>
                     <th className="py-3.5 px-5">Número E.164 & Alias</th>
                     <th className="py-3.5 px-4">Estado</th>
@@ -1279,7 +1279,7 @@ export default function TelnyxAdminHub() {
                     <th className="py-3.5 px-5 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                <tbody className="divide-y divide-slate-100 divide-slate-100 font-medium">
                   {filteredNumbers.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center py-10 text-slate-600">
@@ -1288,10 +1288,10 @@ export default function TelnyxAdminHub() {
                     </tr>
                   ) : (
                     filteredNumbers.map(num => (
-                      <tr key={num.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-100/40 transition-colors">
+                      <tr key={num.id} className="hover:bg-slate-50/50 hover:bg-slate-100/40 transition-colors">
                         <td className="py-4 px-5">
                           <div className="space-y-0.5">
-                            <div className="font-mono text-sm font-bold text-slate-900 dark:text-slate-900 flex items-center gap-2">
+                            <div className="font-mono text-sm font-bold text-slate-900 text-slate-900 flex items-center gap-2">
                               <span>{num.phoneNumber}</span>
                               {(num.tags || []).map(t => (
                                 <span key={t} className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-700 border border-slate-200 text-[9px] font-bold">
@@ -1299,7 +1299,7 @@ export default function TelnyxAdminHub() {
                                 </span>
                               ))}
                             </div>
-                            <span className="text-xs text-slate-500 dark:text-slate-600">
+                            <span className="text-xs text-slate-500 text-slate-600">
                               {num.friendlyName || 'Línea Kaivincia'}
                             </span>
                           </div>
@@ -1332,7 +1332,7 @@ export default function TelnyxAdminHub() {
                           {num.assignedAgentNames && num.assignedAgentNames.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {num.assignedAgentNames.map(name => (
-                                <span key={name} className="px-2 py-0.5 rounded-lg bg-slate-100 bg-slate-100 text-[11px] font-bold text-slate-700 dark:text-slate-600">
+                                <span key={name} className="px-2 py-0.5 rounded-lg bg-slate-100 bg-slate-100 text-[11px] font-bold text-slate-700 text-slate-600">
                                   {name}
                                 </span>
                               ))}
@@ -1496,14 +1496,14 @@ export default function TelnyxAdminHub() {
       {/* PESTAÑA 3: ASIGNACIÓN A COLABORADORAS & PERMISOS */}
       {activeSubTab === 'assignments' && (
         <div className="space-y-6">
-          <div className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 shadow-sm">
+          <div className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
-                <h4 className="text-base font-black text-slate-900 dark:text-slate-900 uppercase tracking-tight italic flex items-center gap-2">
+                <h4 className="text-base font-black text-slate-900 text-slate-900 uppercase tracking-tight italic flex items-center gap-2">
                   <UserCheck className="w-4 h-4 text-cyan-500" />
                   <span>Control de Números Autorizados por Colaboradora</span>
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-500 text-slate-600 mt-0.5">
                   Establece qué números puede usar cada colaboradora como identificador de salida. Por seguridad, no podrán llamar con números asignados a otras colaboradoras.
                 </p>
               </div>
@@ -1527,7 +1527,7 @@ export default function TelnyxAdminHub() {
               return (
                 <div
                   key={agent.id}
-                  className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 shadow-sm space-y-4 relative"
+                  className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 shadow-sm space-y-4 relative"
                 >
                   {/* Header de la Colaboradora */}
                   <div className="flex items-center justify-between">
@@ -1536,7 +1536,7 @@ export default function TelnyxAdminHub() {
                         {agent.avatar}
                       </div>
                       <div>
-                        <h5 className="text-sm font-black text-slate-900 dark:text-slate-900">
+                        <h5 className="text-sm font-black text-slate-900 text-slate-900">
                           {agent.name}
                         </h5>
                         <span className="text-[11px] text-slate-600">{agent.email} ({agent.role})</span>
@@ -1546,7 +1546,7 @@ export default function TelnyxAdminHub() {
                     <button
                       type="button"
                       onClick={() => setSelectedAgentForModal({ ...agent, assignment })}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 bg-slate-100 hover:bg-cyan-500 hover:text-black text-slate-700 dark:text-slate-600 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 bg-slate-100 hover:bg-cyan-500 hover:text-black text-slate-700 text-slate-600 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                     >
                       Configurar
                     </button>
@@ -1567,7 +1567,7 @@ export default function TelnyxAdminHub() {
                               className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 ${
                                 isDefault
                                   ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-200'
-                                  : 'bg-slate-100 bg-slate-100 text-slate-700 dark:text-slate-600'
+                                  : 'bg-slate-100 bg-slate-100 text-slate-700 text-slate-600'
                               }`}
                             >
                               <span>{phone}</span>
@@ -1582,7 +1582,7 @@ export default function TelnyxAdminHub() {
                   </div>
 
                   {/* Reglas de Seguridad */}
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-200 grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="pt-3 border-t border-slate-100 border-slate-200 grid grid-cols-2 gap-2 text-[11px]">
                     <div className="flex items-center gap-1.5">
                       <span className={`w-2 h-2 rounded-full ${assignment.strictMode ? 'bg-emerald-400' : 'bg-slate-600'}`} />
                       <span className="text-slate-600">Modo Estricto: <strong className="text-slate-200">{assignment.strictMode ? 'Activo' : 'Inactivo'}</strong></span>
@@ -1762,22 +1762,22 @@ export default function TelnyxAdminHub() {
 
       {/* PESTAÑA 4: GUÍA TÉCNICA SIP TRUNKING VS CALL CONTROL */}
       {activeSubTab === 'guide' && (
-        <div className="bg-white dark:bg-white rounded-3xl border border-slate-200 dark:border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="bg-white bg-white rounded-3xl border border-slate-200 border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div>
-            <h4 className="text-lg font-black text-slate-900 dark:text-slate-900 uppercase tracking-tight italic">
+            <h4 className="text-lg font-black text-slate-900 text-slate-900 uppercase tracking-tight italic">
               Arquitectura de Voz: SIP Trunking vs Programmable Voice (Call Control)
             </h4>
-            <p className="text-xs text-slate-500 dark:text-slate-600 mt-1">
+            <p className="text-xs text-slate-500 text-slate-600 mt-1">
               Respuesta a tu consulta sobre el tipo de conexión Telnyx adecuado para la operación dentro de Kaivincia.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Opción A */}
-            <div className="p-6 rounded-3xl bg-slate-50 dark:bg-white border border-slate-200 dark:border-slate-200 space-y-3">
+            <div className="p-6 rounded-3xl bg-slate-50 bg-white border border-slate-200 border-slate-200 space-y-3">
               <div className="flex items-center gap-2 text-cyan-700">
                 <Server className="w-5 h-5" />
-                <h5 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-900">
+                <h5 className="text-sm font-black uppercase tracking-wider text-slate-900 text-slate-900">
                   1. SIP Trunking (Credential Connection) - Tu Conexión Actual
                 </h5>
               </div>
@@ -1811,7 +1811,7 @@ export default function TelnyxAdminHub() {
           </div>
 
           {/* Pasos para dar de alta Call Control en Telnyx cuando desees */}
-          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-white/70 border border-slate-200 dark:border-slate-200 space-y-2">
+          <div className="p-5 rounded-2xl bg-slate-50 bg-white/70 border border-slate-200 border-slate-200 space-y-2">
             <h6 className="text-xs font-black uppercase tracking-wider text-cyan-700">
               ¿Cómo crear la Call Control Application en Telnyx (Opcional pero Recomendado)?
             </h6>
