@@ -48,12 +48,11 @@ const RBAC_PERMISSIONS: RBACPermission[] = [
   { id: 'automations_engine', name: 'Motor de Automatizaciones & Reglas', module: 'Automatizaciones' },
   { id: 'security_center', name: 'Centro de Seguridad & Auditoría', module: 'Seguridad' },
   { id: 'export_databases', name: 'Exportar Bases de Datos & Reportes', module: 'Datos' },
-  { id: 'delete_records', name: 'Eliminar Registros & Cuentas de Usuario', module: 'Seguridad' },
 ];
 
 const DEFAULT_MATRIX_STATE: Record<string, Record<string, boolean>> = {
-  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, delete_records: true },
-  ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, delete_records: false },
+  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true },
+  ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true },
   admin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, delete_records: false },
   gestor: { view_financial_dashboard: true, accounting_gps: false, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: true, security_center: false, export_databases: true, delete_records: false },
   sales: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false, delete_records: false },
@@ -617,7 +616,7 @@ export default function SuperAdmin() {
                             {/* Delete User Permanently */}
                             {canDeleteUsers && <button 
                               onClick={() => setUserToDelete(user)}
-                              title="Eliminar Usuario Definitivamente" 
+                              title="Eliminar Perfil CRM (solo cuenta propietaria)" 
                               className="p-2 bg-red-50 text-red-500 hover:text-white hover:bg-red-600 rounded-xl transition-all border border-red-200"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -882,7 +881,7 @@ export default function SuperAdmin() {
                       <h5 className="text-xs font-black text-red-900 uppercase">Protocolo de Baja & Eliminación Permanente</h5>
                     </div>
                     <p className="text-xs text-red-800 leading-relaxed">
-                      Para suspender temporalmente el acceso, cambie el estado a <b>suspended</b> en el menú desplegable. Si se requiere la revocación total y purga de la cuenta de usuario, presione el ícono de papelera roja, que exigirá tipear textualmente la palabra <code className="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold font-mono">ELIMINAR</code> antes de ejecutar <code className="text-[11px] bg-red-100 px-1 rounded font-mono">deleteDoc</code> en Firestore.
+                      Para suspender temporalmente el acceso, cambie el estado a <b>suspended</b>. La eliminación disponible aquí borra únicamente el perfil CRM de Firestore; no elimina la cuenta de Firebase Authentication. Solo la cuenta propietaria autorizada puede ejecutarla y debe confirmar escribiendo <code className="bg-red-200 text-red-900 px-1.5 py-0.5 rounded font-bold font-mono">ELIMINAR</code>.
                     </p>
                   </div>
                 </div>
