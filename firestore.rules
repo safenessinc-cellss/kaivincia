@@ -36,7 +36,11 @@ service cloud.firestore {
       let matrix = exists(/databases/$(database)/documents/settings/rbac_matrix)
         ? get(/databases/$(database)/documents/settings/rbac_matrix).data.get("matrix", {})
         : {};
-      let rolePermissions = matrix.get(userRole(), {});
+      let rawRole = userRole();
+      let matrixRole = rawRole in ["agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent"]
+        ? "sales"
+        : rawRole;
+      let rolePermissions = matrix.get(matrixRole, {});
       return overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
     }
 
@@ -45,6 +49,19 @@ service cloud.firestore {
         "recruitment_payroll",
         userRole() in ["superadmin", "admin", "owner", "ceo", "rrhh"]
       );
+    }
+
+    function isVoipUser() {
+      return isApproved() && hasEffectivePermission(
+        "voip_calls",
+        userRole() in ["superadmin", "admin", "owner", "ceo", "gestor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
+      );
+    }
+
+    function isTelephonyAdmin() {
+      return isApproved() &&
+        userRole() in ["superadmin", "admin"] &&
+        hasEffectivePermission("telephony_config", true);
     }
 
     function isApproved() {
@@ -295,47 +312,41 @@ service cloud.firestore {
     }
 
         match /voip_call_history/{callId} {
-      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
-      allow create: if isSuperAdmin() || (isApproved() && request.resource.data.get('agentId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
+      allow read: if isVoipUser() && (isAdmin() || ownsRecord(resource.data));
+      allow create: if isTelephonyAdmin() || (isVoipUser() && request.resource.data.get('agentId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data));
       // Call records are immutable for agents after creation; only administrators
       // may correct an audited record.
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow update: if isTelephonyAdmin();
+      allow delete: if isTelephonyAdmin();
     }
 
     match /voip_providers/{providerId} {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     match /operadores/{operatorId} {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     match /telnyx_phone_numbers/{numberId} {
-      allow read: if isAdmin();
-      allow write: if isSuperAdmin();
+      allow read: if isVoipUser() && isAdmin();
+      allow write: if isTelephonyAdmin();
     }
 
     match /telnyx_agent_assignments/{assignmentId} {
-      allow read: if isAdmin() || (isApproved() && existing().get('agentId', '') == request.auth.uid);
-      allow write: if isSuperAdmin();
+      allow read: if isVoipUser() && (isAdmin() || existing().get('agentId', '') == request.auth.uid);
+      allow write: if isTelephonyAdmin();
     }
 
     match /telnyx_sip_credentials/{sipId} {
       // Agents and managers receive short-lived WebRTC JWTs from the backend;
-      // only platform admins can read or mutate the underlying SIP credentials.
-      allow read: if isSuperAdmin();
-      allow create: if isSuperAdmin() && incoming().get('assignedTo', null) == null;
-      allow update: if isSuperAdmin() && (
-        existing().get('assignedTo', null) == null ||
-        incoming().get('assignedTo', null) == null ||
-        isSuperAdmin()
-      );
-      allow delete: if isSuperAdmin();
+      // only admins with effective telephony_config permission can access SIP secrets.
+      allow read, create, update, delete: if isTelephonyAdmin();
+      allow create: if isTelephonyAdmin() && incoming().get('assignedTo', null) == null;
     }
 
     match /esim_profiles/{profileId} {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
         match /shared_whatsapp_chats/{chatId} {
@@ -415,7 +426,7 @@ service cloud.firestore {
     }
 
     match /settings/voip_providers {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     match /settings/integrations {
@@ -560,7 +571,7 @@ service cloud.firestore {
     }
 
     match /settings/telnyx_config {
-      allow read, write: if isSuperAdmin();
+      allow read, write: if isTelephonyAdmin();
     }
 
     // ===============================================================
