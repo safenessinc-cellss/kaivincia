@@ -60,7 +60,7 @@ export default async function handler(req: any, res: any) {
 
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
     const operator = operatorSnap.data() || {};
-    if (!operatorSnap.exists || operator.activo === false) {
+    if (!operatorSnap.exists || operator.activo !== true) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ success: true, numbers: [], message: 'No hay números asignados a este operador.' }));
