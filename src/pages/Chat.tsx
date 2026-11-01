@@ -85,6 +85,8 @@ export default function Chat() {
     { id: 'general', name: 'Kaivincia Interno', type: 'team', sentimentEmoji: '🔥', lastMessage: 'Chat de equipo activo' },
     { id: 'dev-ops', name: 'DevOps & Scaling', type: 'group', sentimentEmoji: '⚡', lastMessage: 'Infraestructura estable' }
   ];
+  const canViewDevOps = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(currentUserDoc?.role || '').toLowerCase());
+  const visibleBaseChannels = baseChannels.filter(channel => channel.id === 'general' || canViewDevOps);
 
   // Derive client list for sidebar
   const clientChannels = clients.map(c => ({
@@ -536,7 +538,7 @@ export default function Chat() {
                   </span>
                 </div>
                 <div className="space-y-0.5">
-                  {baseChannels.map(channel => {
+                  {visibleBaseChannels.map(channel => {
                     const isSelected = activeFilter === 'groups' && activeChannelId === channel.id;
                     return (
                       <button
