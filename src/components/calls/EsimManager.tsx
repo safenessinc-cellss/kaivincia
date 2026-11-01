@@ -328,10 +328,10 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
                             e.stopPropagation();
                             handleSimulateUsage(prof.id);
                           }}
-                          disabled={isSimulatingId === prof.id || isExpired}
+                          disabled
                           className="text-slate-400 hover:text-white underline cursor-pointer disabled:opacity-40"
                         >
-                          {isSimulatingId === prof.id ? 'Simulando...' : '⚡ Simular Datos (+500MB)'}
+                          Consumo no conectado
                         </button>
                       </div>
                     </div>
