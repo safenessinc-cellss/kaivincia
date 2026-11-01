@@ -306,7 +306,7 @@ export default function App() {
           path="/crm" 
           element={
             <RouteGuard>
-              <CRMLayout userData={effectiveUserData} />
+              <CRMLayout userData={effectiveUserData} canAccessPermission={canAccessPermission} />
             </RouteGuard>
           }
         >
