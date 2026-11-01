@@ -50,7 +50,7 @@ export default function VoipProviderConfig({
   const { user, loading: authLoading } = useAuth();
   const [, setSearchParams] = useSearchParams();
 
-  const [providers, setProviders] = useState<VoipProvider[]>(INITIAL_PROVIDERS);
+  const [providers, setProviders] = useState<VoipProvider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Partial<VoipProvider> | null>(null);
