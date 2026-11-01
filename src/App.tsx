@@ -56,7 +56,7 @@ import CompanyAuth from './pages/b2b/CompanyAuth';
 import CompanyDashboard from './pages/b2b/CompanyDashboard';
 import CallCenterAdmin from './pages/CallCenterAdmin';
 import RouteGuard from "./components/RouteGuard";
-import { normalizeRole } from "./constants/roles";
+import { hasEffectivePermission, normalizeRole } from "./constants/roles";
 export default function App() {
   const [user, setUser] = useState<any>(() => {
     try {
@@ -266,17 +266,14 @@ export default function App() {
 
   // Apply per-user overrides first, then the persisted role matrix, and only
   // then the documented role defaults for legacy profiles without a matrix.
-  const canAccessPermission = (permissionId: string, fallbackRoles: string[]) => {
-    const role = normalizeRole(effectiveUserData?.role);
-    const userOverride = effectiveUserData?.permissions?.[permissionId];
-    if (typeof userOverride === 'boolean') return userOverride;
-
-    const roleMatrix = rbacMatrix?.[role] || (role === 'agent' ? rbacMatrix?.sales : undefined);
-    const matrixValue = roleMatrix?.[permissionId];
-    if (typeof matrixValue === 'boolean') return matrixValue;
-
-    return fallbackRoles.includes(role);
-  };
+  const canAccessPermission = (permissionId: string, fallbackRoles: string[]) =>
+    hasEffectivePermission({
+      role: effectiveUserData?.role,
+      permissionId,
+      userPermissions: effectiveUserData?.permissions,
+      matrix: rbacMatrix,
+      fallbackRoles
+    });
 
   const requirePermission = (permissionId: string, fallbackRoles: string[], element: ReactNode) =>
     canAccessPermission(permissionId, fallbackRoles)
