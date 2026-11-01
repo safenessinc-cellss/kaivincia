@@ -822,6 +822,7 @@ export default function ClientManagement() {
                                   });
                                   // Update Global Pulse
                                   await addDoc(collection(db, 'system_events'), {
+                                    actorUid: auth.currentUser?.uid,
                                      type: 'PULSE_UPDATE',
                                      message: `Proyecto "${project.name}" actualizado a ${e.target.value} por el Gestor.`,
                                      timestamp: serverTimestamp()
