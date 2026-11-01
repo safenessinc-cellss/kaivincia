@@ -65,8 +65,8 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
   // Campo de respuesta rápida
   const [replyText, setReplyText] = useState('');
 
-  const currentRole = userData?.role || userRole;
   const isAdminOrManager = canManage;
+  const canAssignTickets = canManage && ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase().trim());
 
   // 1. Obtener rol del usuario si es admin
   useEffect(() => {
@@ -75,7 +75,7 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
       setUserRole(userData.role);
     }
 
-    if (!isAdminOrManager) return;
+    if (!canAssignTickets) return;
 
     const unsubUser = onSnapshot(collection(db, 'users'), (snapshot) => {
       const currentDoc = snapshot.docs.find(d => d.id === user.uid);
@@ -98,7 +98,7 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
     });
 
     return () => unsubUser();
-  }, [user, authLoading, userData?.role, isAdminOrManager]);
+  }, [user, authLoading, userData?.role, canAssignTickets]);
 
   // 2. Suscripción reactiva a support_tickets según RBAC
   useEffect(() => {
@@ -475,7 +475,7 @@ export default function Helpdesk({ canManage = false }: { canManage?: boolean })
               </div>
 
               {/* Asignación (Visible para Admins / Gestores) */}
-              {isAdminOrManager && (
+              {canAssignTickets && (
                 <div className="flex items-center justify-between bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs">
                   <span className="text-slate-400 flex items-center gap-1.5 font-medium">
                     <UserCheck className="w-4 h-4 text-cyan-400" />
