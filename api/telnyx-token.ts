@@ -91,13 +91,13 @@ export default async function handler(req: any, res: any) {
     const numberIds: string[] = Array.isArray(operator.numerosAsignados)
       ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
       : [];
-    const numberDocs = PRIVILEGED_ROLES.has(role)
-      ? await adminDb.collection('telnyx_phone_numbers').get()
+    const numberSnapshots: any[] = PRIVILEGED_ROLES.has(role)
+      ? (await adminDb.collection('telnyx_phone_numbers').get()).docs
       : numberIds.length
         ? await Promise.all(numberIds.map((id) => adminDb.collection('telnyx_phone_numbers').doc(id).get()))
         : [];
 
-    const numbers = numberDocs.docs
+    const numbers = numberSnapshots
       .filter((snap: any) => snap.exists)
       .map((snap: any) => {
         const data = snap.data() || {};
