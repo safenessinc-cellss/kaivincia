@@ -14,8 +14,8 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
   const [parsedData, setParsedData] = useState<Partial<LeadOpportunity>[]>([]);
   const [fileName, setFileName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [defaultCampaign] = useState('Campaña sin especificar');
-  const [assignedTLMK] = useState(tlmkList[0] || '');
+  const defaultCampaign = 'Campaña sin especificar';
+  const assignedTLMK = tlmkList[0] || '';
   const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -25,6 +25,7 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
     if (!file) return;
 
     setError(null);
+    setFileName('');
     setParsedData([]);
     if (file.size > 5 * 1024 * 1024) {
       setError('El archivo supera el límite de 5 MB.');
@@ -42,16 +43,16 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        if (results.errors.length > 0) {
-          setError(`El CSV contiene ${results.errors.length} errores de lectura. Revisa el formato antes de importar.`);
-        }
-        mapRowsToLeads(results.data as any[]);
+        const parseWarning = results.errors.length > 0
+          ? `El CSV contiene ${results.errors.length} advertencias de lectura. Revisa los datos antes de importar.`
+          : undefined;
+        mapRowsToLeads(results.data as any[], parseWarning);
       },
       error: (parseError) => setError(parseError.message || 'No se pudo leer el archivo CSV.')
     });
   };
 
-  const mapRowsToLeads = (rows: any[]) => {
+  const mapRowsToLeads = (rows: any[], parseWarning?: string) => {
     const now = new Date().toISOString();
     const mapped = rows.reduce<Partial<LeadOpportunity>[]>((acc, row, idx) => {
       const name = String(row.name || row.Nombre || row.full_name || row.Cliente || row.contacto || '').trim();
@@ -95,7 +96,7 @@ export default function MetaImportModal({ isOpen, onClose, onImport, tlmkList }:
       return;
     }
     setParsedData(mapped);
-    setError(null);
+    setError(parseWarning || null);
   };
 
   const handleConfirmImport = async () => {
