@@ -1,4 +1,4 @@
-import { adminDb } , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
+import { adminDb  , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const ALLOWED_VOIP_ROLES = new Set([
