@@ -1106,43 +1106,19 @@ export default function Recruitment() {
                      </a>
                   </div>
 
-                  {/* Communication History (VoIP/Messaging Mock) */}
-                  <div className="space-y-6">
-                     <div className="flex justify-between items-center">
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-900 flex items-center gap-2 italic">
-                           <History className="w-4 h-4 text-[#00F0FF]" /> Historial de Nodos
-                        </h3>
-                        <span className="text-[9px] font-black text-gray-400">Sincronizado Módulo VoIP</span>
-                     </div>
-                     <div className="space-y-4">
-                        {[
-                           { type: 'Call', text: 'Entrevista inicial exitosa', time: 'Hoy, 10:30', icon: Phone },
-                           { type: 'WhatsApp', text: 'Envió portafolio actualizado', time: 'Ayer, 19:42', icon: MessageCircle },
-                           { type: 'Stage', text: 'Movido a En Revisión por IA', time: 'hace 2 días', icon: Zap },
-                        ].map((log, i) => (
-                           <div key={i} className="flex gap-4 items-start p-5 bg-white border border-gray-100 rounded-[1.5rem] hover:shadow-lg transition-all">
-                              <div className="h-10 w-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
-                                 <log.icon className="w-5 h-5" />
-                              </div>
-                              <div>
-                                 <div className="flex items-center gap-2">
-                                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{log.type}</span>
-                                    <div className="w-1 h-1 bg-gray-200 rounded-full" />
-                                    <span className="text-[10px] font-black text-gray-400 italic">{log.time}</span>
-                                 </div>
-                                 <p className="text-[11px] font-bold text-gray-900 mt-1">{log.text}</p>
-                              </div>
-                           </div>
-                        ))}
-                     </div>
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6">
+                     <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-700 flex items-center gap-2">
+                       <History className="w-4 h-4 text-gray-400" /> Historial de comunicaciones
+                     </h3>
+                     <p className="text-xs text-gray-500 mt-2">No hay historial real de llamadas o WhatsApp sincronizado con este candidato.</p>
                   </div>
                </div>
 
                <div className="p-8 border-t border-gray-50 bg-gray-50/50 flex gap-4">
-                  <button className="flex-1 h-16 bg-gray-900 text-white rounded-3xl font-black text-xs uppercase tracking-[0.2em] hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95 italic">
-                     Agendar Entrevista
+                  <button disabled title="La agenda de entrevistas aún no está conectada" className="flex-1 h-16 bg-gray-200 text-gray-500 rounded-3xl font-black text-xs uppercase tracking-[0.2em] cursor-not-allowed italic">
+                     Agenda no disponible
                   </button>
-                  <button className="h-16 w-16 bg-white border border-gray-200 text-gray-400 rounded-3xl flex items-center justify-center hover:text-red-500 hover:border-red-100 transition-all hover:bg-red-50">
+                  <button disabled title="La eliminación de candidatos no está conectada" className="h-16 w-16 bg-gray-100 border border-gray-200 text-gray-300 rounded-3xl flex items-center justify-center cursor-not-allowed">
                      <Trash2 className="w-6 h-6" />
                   </button>
                </div>
@@ -1157,8 +1133,8 @@ export default function Recruitment() {
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                  { label: 'Candidatos Totales', val: candidates.length, color: 'blue' },
-                 { label: 'Días Activa (Avg)', val: '12.4', color: 'amber' },
-                 { label: 'Costo Adquisición (Avg)', val: '$45.2', color: 'green' }
+                 { label: 'Días activa (sin cálculo)', val: '—', color: 'amber' },
+                 { label: 'Costo de adquisición (no conectado)', val: '—', color: 'green' }
               ].map(metric => (
                  <div key={metric.label} className="bg-white p-8 rounded-[3rem] border border-gray-100 shadow-xl relative overflow-hidden group">
                     <div className={`absolute top-0 right-0 w-32 h-32 bg-${metric.color}-500/5 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700`} />
