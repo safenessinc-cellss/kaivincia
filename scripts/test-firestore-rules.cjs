@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, collection, query, where } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc } = require('firebase/firestore');
 
 const projectId = 'demo-kaivincia-security';
 const rules = fs.readFileSync('firestore.rules', 'utf8');
@@ -36,6 +36,8 @@ async function main() {
     await assertFails(setDoc(doc(bob, 'clients', 'forged-client'), { name: 'Forged', createdBy: 'alice' }));
     await assertFails(setDoc(doc(pending, 'tasks', 'pending-task'), { title: 'Pending', createdBy: 'pending', assignedTo: 'pending' }));
     await assertFails(getDoc(doc(alice, 'clients', 'bob-client')));
+    await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedTo: 'bob' }));
+    await assertSucceeds(updateDoc(doc(admin, 'clients', 'alice-client'), { assignedTo: 'bob' }));
     await assertSucceeds(getDocs(query(collection(alice, 'clients'), where('createdBy', '==', 'alice'))));
     await assertFails(getDocs(collection(alice, 'clients')));
     await assertSucceeds(getDoc(doc(alice, 'tasks', 'alice-task')));
@@ -46,6 +48,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(bob, 'chat_messages', 'private-message')));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'general-message')));
     await assertFails(getDoc(doc(alice, 'chat_messages', 'devops-message')));
+    await assertFails(setDoc(doc(alice, 'chat_messages', 'devops-forged'), { type: 'groups', targetId: 'dev-ops', senderId: 'alice' }));
+    await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
 
     await assertSucceeds(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
