@@ -256,7 +256,7 @@ export default function SoftphoneDialer({
     }
     setIsSavingTelnyxToken(true);
     try {
-      await telnyxWebRTCService.setLoginToken(token, true);
+      await telnyxWebRTCService.setLoginToken(token, false);
       const testRes = await telnyxWebRTCService.initClient(token);
       showToast(testRes.message || 'login_token de Telnyx actualizado');
       setSipLogs(prev => [
@@ -1132,7 +1132,7 @@ export default function SoftphoneDialer({
                   )}
                 </div>
                 <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 resize-none" />
-                <p className="text-[10px] text-slate-400">Este token se guardará en la configuración protegida de telefonía y se aplicará únicamente a esta sesión administrativa. Cada agente debe usar su JWT individual emitido por el backend.</p>
+                <p className="text-[10px] text-slate-400">El token manual solo se aplicará a esta sesión y no se guardará en Firestore. El flujo normal utiliza un JWT individual emitido por el backend para cada operador.</p>
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
                 <button type="button" onClick={handleGenerateBackendTelnyxToken} disabled={isGeneratingBackendToken} className="w-full sm:w-auto px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50" title="Generar automáticamente desde /api/telnyx-token">
