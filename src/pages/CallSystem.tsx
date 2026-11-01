@@ -101,9 +101,9 @@ export default function CallSystem() {
     setActiveCallSession({
       id: 'call_test_' + Date.now().toString().slice(-4),
       customer: '+1 (323) 555-0199 (Cliente California)',
-      agent: userData?.displayName || userData?.name || 'Marta García',
+      agent: userData?.displayName || userData?.name || 'Agente de prueba',
       duration: '00:45',
-      provider: 'Zadarma SIP Direct',
+      provider: 'Simulador local (DEMO)',
       sentiment: 'positive',
       latency: '22ms',
       jitter: '0.8ms',
