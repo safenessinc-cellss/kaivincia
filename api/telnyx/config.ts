@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } , isFirebaseAdminConfigured } from '../../server/_lib/firebaseAdmin.js';
+import { adminAuth, adminDb  , isFirebaseAdminConfigured } from '../../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../../server/telnyxBackend.js';
 
 async function authorizeTelephonyAdmin(req: any) {
