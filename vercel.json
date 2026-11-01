@@ -3,6 +3,25 @@
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
-    { "source": "/((?!api/.*).*)", "destination": "/index.html" }
+    {
+      "source": "/api/meta-config",
+      "destination": "/api/meta?endpoint=meta-config"
+    },
+    {
+      "source": "/api/meta-send",
+      "destination": "/api/meta?endpoint=meta-send"
+    },
+    {
+      "source": "/api/meta-test",
+      "destination": "/api/meta?endpoint=meta-test"
+    },
+    {
+      "source": "/api/meta-webhook",
+      "destination": "/api/meta?endpoint=meta-webhook"
+    },
+    {
+      "source": "/((?!api/.*).*)",
+      "destination": "/index.html"
+    }
   ]
 }
