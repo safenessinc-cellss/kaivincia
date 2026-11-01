@@ -39,57 +39,18 @@ import { TelnyxGlobalConfig, TelnyxPhoneNumber, TelnyxAgentAssignment } from '..
 import { telnyxWebRTCService } from '../../services/telnyxWebRTCService';
 
 const DEFAULT_CONFIG: TelnyxGlobalConfig = {
-  connectionId: '3046958032463333200',
-  connectionName: 'Kaivincia-Voice-Test',
+  connectionId: '',
+  connectionName: '',
   connectionType: 'sip_credential',
-  apiKeyMasked: 'KEY01A0••••••••••••••••••••••••',
-  webhookUrl: 'https://ais-dev-je7y4j4rkf2urn7d5cqnsz-316420818896.us-east1.run.app/api/telnyx/webhook',
-  maxConcurrentCalls: 10,
-  recordCallsByDefault: true,
+  apiKeyMasked: '',
+  webhookUrl: '',
+  maxConcurrentCalls: 1,
+  recordCallsByDefault: false,
   alertOnLimitReached: true,
-  lastVerificationStatus: 'active',
-  lastVerificationMessage: 'Conexión verificada en Telnyx Backbone',
-  updatedAt: new Date().toISOString()
+  lastVerificationStatus: 'unverified',
+  lastVerificationMessage: 'Proveedor no conectado. Verificación pendiente.',
+  updatedAt: ''
 };
-
-const INITIAL_DEMO_NUMBERS: TelnyxPhoneNumber[] = [
-  {
-    id: 'num_1',
-    phoneNumber: '+13055550199',
-    friendlyName: 'Línea Central Miami (Principal)',
-    status: 'assigned',
-    assignedAgentIds: [],
-    assignedAgentNames: ['Marta García', 'Carlos Ruiz'],
-    isSharedPool: true,
-    connectionId: '3046958032463333200',
-    monthlyCost: '$1.00',
-    tags: ['Ventas', 'Miami']
-  },
-  {
-    id: 'num_2',
-    phoneNumber: '+14155550142',
-    friendlyName: 'Línea Soporte San Francisco',
-    status: 'assigned',
-    assignedAgentIds: [],
-    assignedAgentNames: ['Ana Silva'],
-    isSharedPool: false,
-    connectionId: '3046958032463333200',
-    monthlyCost: '$1.00',
-    tags: ['Soporte', 'California']
-  },
-  {
-    id: 'num_3',
-    phoneNumber: '+13235550188',
-    friendlyName: 'Línea Los Ángeles Operaciones',
-    status: 'available',
-    assignedAgentIds: [],
-    assignedAgentNames: [],
-    isSharedPool: true,
-    connectionId: '3046958032463333200',
-    monthlyCost: '$1.00',
-    tags: ['Operaciones']
-  }
-];
 
 export default function TelnyxAdminHub() {
   const { t } = useLanguage();
@@ -131,7 +92,7 @@ export default function TelnyxAdminHub() {
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
 
   // Inventario de Números
-  const [phoneNumbers, setPhoneNumbers] = useState<TelnyxPhoneNumber[]>(INITIAL_DEMO_NUMBERS);
+  const [phoneNumbers, setPhoneNumbers] = useState<TelnyxPhoneNumber[]>([]);
   const [isSyncingNumbers, setIsSyncingNumbers] = useState(false);
   const [isImportingCredentials, setIsImportingCredentials] = useState(false);
   const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
