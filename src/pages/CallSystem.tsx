@@ -117,7 +117,7 @@ export default function CallSystem() {
     { id: 'telnyx', label: '⭐ Panel Telnyx', icon: Radio, adminOnly: true },
     { id: 'meta', label: '⭐ Panel Meta', icon: Share2, adminOnly: true },
     { id: 'logs', label: t('calls.tabs.logs', 'Historial & Grabaciones'), icon: Clock },
-    { id: 'esim', label: t('calls.tabs.esim', 'Líneas eSIM'), icon: Smartphone },
+    { id: 'esim', label: t('calls.tabs.esim', 'Líneas eSIM'), icon: Smartphone, adminOnly: true },
     { id: 'directory', label: t('calls.tabs.directory', 'Troncales SIP'), icon: Server },
     { id: 'inbox', label: t('calls.tabs.inbox', 'Bandeja Omnicanal'), icon: MessageSquare },
     { id: 'cobertura', label: t('calls.tabs.coverage', 'Zonas & Horarios'), icon: MapPin },
