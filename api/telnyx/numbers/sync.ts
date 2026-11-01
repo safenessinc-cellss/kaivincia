@@ -1,4 +1,4 @@
-import { adminAuth, adminDb } from '../../../server/_lib/firebaseAdmin.js';
+import { adminAuth, adminDb } , isFirebaseAdminConfigured } from '../../../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, private');
@@ -6,6 +6,13 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   if (req.method !== 'POST') { res.statusCode = 405; res.setHeader('Allow', 'POST, OPTIONS'); res.end(JSON.stringify({ error: 'Method Not Allowed' })); return; }
+
+  if (!isFirebaseAdminConfigured) {
+    res.statusCode = 503;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, error: 'Firebase Admin no está configurado para este entorno.' }));
+    return;
+  }
 
   try {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
