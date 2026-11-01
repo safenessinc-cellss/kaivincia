@@ -75,14 +75,27 @@ export default async function handler(req: any, res: any) {
       const appSecret = MetaBackendService.getAppSecret();
       const signatureHeader = req.headers['x-hub-signature-256'] as string;
 
-      if (appSecret && signatureHeader && rawBody) {
+      if (appSecret) {
+        if (!signatureHeader || !rawBody) {
+          console.warn('[Meta Webhook] Firma o cuerpo original ausente; solicitud rechazada.');
+          res.statusCode = 401;
+          res.end(JSON.stringify({ received: false, error: 'Firma del webhook requerida.' }));
+          return;
+        }
         try {
-          const expectedSig = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-          if (signatureHeader !== expectedSig) {
-            console.warn('[Meta Webhook] Firma X-Hub-Signature-256 no coincide. Procesando con advertencia.');
+          const expected = crypto.createHmac('sha256', appSecret).update(rawBody).digest();
+          const suppliedHex = signatureHeader.startsWith('sha256=') ? signatureHeader.slice(7) : '';
+          const supplied = Buffer.from(suppliedHex, 'hex');
+          if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+            res.statusCode = 401;
+            res.end(JSON.stringify({ received: false, error: 'Firma del webhook inválida.' }));
+            return;
           }
         } catch (sigErr) {
-          console.warn('[Meta Webhook] Error al validar firma:', sigErr);
+          console.error('[Meta Webhook] Error al validar firma:', sigErr);
+          res.statusCode = 401;
+          res.end(JSON.stringify({ received: false, error: 'No se pudo validar la firma.' }));
+          return;
         }
       }
 
