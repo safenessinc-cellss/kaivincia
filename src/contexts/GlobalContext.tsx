@@ -16,7 +16,7 @@ const GlobalContext = createContext<GlobalContextType>({
 });
 export const useGlobalContext = () => useContext(GlobalContext);
 
-const ADMIN_ROLES = new Set(['superadmin', 'admin', 'ceo', 'gestor']);
+const ADMIN_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
 
 export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [clients, setClients] = useState<any[]>([]);
