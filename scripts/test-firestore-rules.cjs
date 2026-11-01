@@ -24,6 +24,7 @@ async function main() {
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
         ['support-agent', { role: 'agent', status: 'approved', email: 'support-agent@example.test', permissions: { helpdesk_manage: true } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
+        ['pending-superadmin', { role: 'superadmin', status: 'pending' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
         ['manager', { role: 'ceo', status: 'approved' }]
@@ -79,6 +80,7 @@ async function main() {
     const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
     const supportAgent = env.authenticatedContext('support-agent', { email: 'support-agent@example.test' }).firestore();
     const superadmin = env.authenticatedContext('superadmin').firestore();
+    const pendingSuperadmin = env.authenticatedContext('pending-superadmin').firestore();
     const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
     const agentNoVoip = env.authenticatedContext('agent-no-voip').firestore();
@@ -204,6 +206,7 @@ async function main() {
     await assertFails(updateDoc(doc(admin, 'users', 'bob'), { role: 'admin' }));
     await assertFails(setDoc(doc(admin, 'users', 'new-user'), { role: 'agent', status: 'pending' }));
     await assertSucceeds(updateDoc(doc(superadmin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(pendingSuperadmin, 'users', 'bob'), { role: 'admin' }));
     await assertFails(updateDoc(doc(admin, 'settings', 'rbac_matrix'), { matrix: {} }));
     await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
