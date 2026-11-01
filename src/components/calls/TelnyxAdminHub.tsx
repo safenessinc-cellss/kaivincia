@@ -728,7 +728,7 @@ export default function TelnyxAdminHub() {
               type="button"
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-700 text-cyan-700 border border-cyan-200 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              className="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-cyan-700 border border-cyan-200 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
             >
               <Activity className={`w-4 h-4 ${isTesting ? 'animate-spin' : 'text-cyan-700'}`} />
               <span>{isTesting ? 'Verificando...' : 'Probar Conexión'}</span>
@@ -860,7 +860,7 @@ export default function TelnyxAdminHub() {
               <Icon className="w-4 h-4" />
               <span>{tab.label}</span>
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                isActive ? 'bg-black/20 text-black' : 'bg-slate-100 dark:bg-slate-100 text-slate-600'
+                isActive ? 'bg-cyan-100 text-cyan-900' : 'bg-slate-100 bg-slate-100 text-slate-600'
               }`}>
                 {tab.badge}
               </span>
@@ -1083,7 +1083,7 @@ export default function TelnyxAdminHub() {
                     type="button"
                     onClick={handleTestWebRtcClient}
                     disabled={isTestingWebRtc || !loginTokenInput.trim()}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                     title="Verificar inicialización del cliente TelnyxRTC con este token"
                   >
                     <Activity className={`w-3.5 h-3.5 ${isTestingWebRtc ? 'animate-pulse text-cyan-700' : 'text-cyan-700'}`} />
@@ -1248,7 +1248,7 @@ export default function TelnyxAdminHub() {
                 type="button"
                 onClick={handleSyncNumbersFromTelnyx}
                 disabled={isSyncingNumbers}
-                className="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-700 text-cyan-700 border border-cyan-200 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3.5 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-cyan-700 border border-cyan-200 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isSyncingNumbers ? 'animate-spin' : ''}`} />
                 <span>Importar de Telnyx</span>
@@ -1332,7 +1332,7 @@ export default function TelnyxAdminHub() {
                           {num.assignedAgentNames && num.assignedAgentNames.length > 0 ? (
                             <div className="flex flex-wrap gap-1">
                               {num.assignedAgentNames.map(name => (
-                                <span key={name} className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-100 text-[11px] font-bold text-slate-700 dark:text-slate-600">
+                                <span key={name} className="px-2 py-0.5 rounded-lg bg-slate-100 bg-slate-100 text-[11px] font-bold text-slate-700 dark:text-slate-600">
                                   {name}
                                 </span>
                               ))}
@@ -1546,7 +1546,7 @@ export default function TelnyxAdminHub() {
                     <button
                       type="button"
                       onClick={() => setSelectedAgentForModal({ ...agent, assignment })}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-100 hover:bg-cyan-500 hover:text-black text-slate-700 dark:text-slate-600 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 bg-slate-100 hover:bg-cyan-500 hover:text-black text-slate-700 dark:text-slate-600 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
                     >
                       Configurar
                     </button>
@@ -1567,7 +1567,7 @@ export default function TelnyxAdminHub() {
                               className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 ${
                                 isDefault
                                   ? 'bg-cyan-500/20 text-cyan-700 border border-cyan-200'
-                                  : 'bg-slate-100 dark:bg-slate-100 text-slate-700 dark:text-slate-600'
+                                  : 'bg-slate-100 bg-slate-100 text-slate-700 dark:text-slate-600'
                               }`}
                             >
                               <span>{phone}</span>
