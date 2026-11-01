@@ -233,11 +233,12 @@ export default function App() {
     return <PendingApproval />;
   }
 
+  // Never synthesize an operational role for an identity without a CRM profile.
   const effectiveUserData = userData || {
-    name: user?.displayName || 'Agente TLMK',
-    email: user?.email || 'operador@kaivincia.com',
-    role: 'tlmk',
-    status: 'active'
+    name: user?.displayName || 'Usuario',
+    email: user?.email || '',
+    role: 'none',
+    status: 'pending'
   };
 
   const hasAccess = Boolean(user || isGuest);
