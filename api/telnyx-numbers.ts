@@ -60,9 +60,24 @@ export default async function handler(req: any, res: any) {
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
     const operator = operatorSnap.data() || {};
     if (!operatorSnap.exists || operator.activo !== true) {
-      res.statusCode = 200;
+      res.statusCode = 403;
       res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ success: true, numbers: [], message: 'No hay números asignados a este operador.' }));
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'El operador no está activo.' }));
+      return;
+    }
+    if (operator.permiteSalientes !== true || !operator.telnyxCredentialId) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'El operador no tiene permiso de salida o credencial SIP asignada.' }));
+      return;
+    }
+    const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(String(operator.telnyxCredentialId)).get();
+    const credential = credentialSnap.data() || {};
+    const assignedUid = credential.assignedTo || credential.operadorUid || null;
+    if (!credentialSnap.exists || assignedUid !== authUser.uid || credential.status !== 'active' || credential.activo !== true) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: false, numbers: [], error: 'La credencial SIP no está activa y asignada a este operador.' }));
       return;
     }
 
