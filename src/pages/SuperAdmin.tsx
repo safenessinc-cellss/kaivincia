@@ -225,10 +225,8 @@ export default function SuperAdmin() {
 
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: newPerms } : u));
 
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
-      });
+      // Editing a permission must never approve or reactivate an account.
+      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
         userId: 'system_superadmin',
@@ -295,7 +293,7 @@ export default function SuperAdmin() {
 
       setUserToDelete(null);
       setDeleteConfirmInput('');
-      triggerFeedback('Usuario eliminado definitivamente del sistema.');
+      triggerFeedback('Perfil CRM eliminado. La cuenta de autenticación de Firebase no se elimina desde este panel.');
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `users/${userToDelete.id}`);
     } finally {
@@ -317,7 +315,9 @@ export default function SuperAdmin() {
       }, { merge: true });
       triggerFeedback('Matriz de permisos actualizada.');
     } catch (err) {
+      setMatrixState(matrixState);
       console.error('Error saving matrix:', err);
+      triggerFeedback('No se pudo guardar la matriz. Se restauró el último estado local confirmado.');
     } finally {
       setIsSavingMatrix(false);
     }
@@ -339,7 +339,7 @@ export default function SuperAdmin() {
 
       setIsInviteModalOpen(false);
       setInviteEmail('');
-      triggerFeedback(`Invitación enviada exitosamente a ${inviteEmail}.`);
+      triggerFeedback(`Solicitud de invitación registrada para ${inviteEmail}. El envío de correo aún no está conectado.`);
     } catch (error) {
       console.error(error);
     }
