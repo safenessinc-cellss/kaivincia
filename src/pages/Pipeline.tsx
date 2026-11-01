@@ -399,7 +399,7 @@ export default function Pipeline() {
         const profile = await getDoc(doc(db, 'users', currentUser.uid));
         if (!active) return;
         const role = String(profile.data()?.role || '').toLowerCase();
-        const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(role);
+        const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(role);
         const records = new Map<string, any>();
         const publish = () => {
           const data: LeadOpportunity[] = Array.from(records.values()).map(d => ({
