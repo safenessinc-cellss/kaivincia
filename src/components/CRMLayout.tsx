@@ -22,7 +22,7 @@ import { useAppearance } from '../contexts/AppearanceContext';
 import { normalizeRole } from '../constants/roles';
 
 const MENU_PERMISSION_POLICIES: Record<string, { permission: string; roles: string[] }> = {
-  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'] },
+  '/crm/calls': { permission: 'voip_calls', roles: ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'] },
   '/crm/call-center': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
   '/crm/integrations': { permission: 'telephony_config', roles: ['superadmin', 'admin'] },
   '/crm/automations': { permission: 'automations_engine', roles: ['superadmin', 'admin', 'ceo', 'gestor'] },
