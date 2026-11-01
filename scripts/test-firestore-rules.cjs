@@ -18,6 +18,7 @@ async function main() {
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved' }],
+        ['superadmin', { role: 'superadmin', status: 'approved' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
         ['manager', { role: 'ceo', status: 'approved' }]
@@ -65,6 +66,7 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin').firestore();
+    const superadmin = env.authenticatedContext('superadmin').firestore();
     const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
     const agentNoVoip = env.authenticatedContext('agent-no-voip').firestore();
@@ -152,6 +154,11 @@ async function main() {
     await assertSucceeds(getDoc(doc(hr, 'users', 'alice')));
     await assertFails(updateDoc(doc(hr, 'users', 'alice'), { role: 'admin' }));
     await assertFails(updateDoc(doc(hr, 'users', 'alice'), { status: 'active' }));
+    await assertFails(updateDoc(doc(admin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(setDoc(doc(admin, 'users', 'new-user'), { role: 'agent', status: 'pending' }));
+    await assertSucceeds(updateDoc(doc(superadmin, 'users', 'bob'), { role: 'admin' }));
+    await assertFails(updateDoc(doc(admin, 'settings', 'rbac_matrix'), { matrix: {} }));
+    await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
     await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
     await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
