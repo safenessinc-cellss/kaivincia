@@ -42,6 +42,10 @@ async function main() {
       await setDoc(doc(db, 'chat_messages', 'private-message'), { type: 'private', senderId: 'alice', targetId: 'bob', text: 'private' });
       await setDoc(doc(db, 'chat_messages', 'general-message'), { type: 'groups', targetId: 'general', senderId: 'alice', text: 'general' });
       await setDoc(doc(db, 'chat_messages', 'devops-message'), { type: 'groups', targetId: 'dev-ops', senderId: 'admin', text: 'internal' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-general-message'), { channelId: 'general', senderId: 'alice', text: 'legacy general' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-devops-message'), { channelId: 'dev-ops', senderId: 'admin', text: 'legacy internal' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-client-message'), { channelId: 'alice-client', senderId: 'alice', text: 'legacy client' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-private-message'), { senderId: 'alice', targetId: 'bob', text: 'legacy private' });
       await setDoc(doc(db, 'telnyx_sip_credentials', 'alice-sip'), { assignedTo: 'alice', secret: 'test-only' });
       await setDoc(doc(db, 'voip_call_history', 'alice-call'), { agentId: 'alice', contactPhone: '+15555550100' });
       await setDoc(doc(db, 'esim_profiles', 'admin-esim'), { isDemo: false, phone: '+15555550101' });
@@ -129,6 +133,14 @@ async function main() {
     await assertFails(setDoc(doc(alice, 'chat_messages', 'devops-forged'), { type: 'groups', targetId: 'dev-ops', senderId: 'alice' }));
     await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-general-message')));
+    await assertFails(getDoc(doc(alice, 'chat_messages', 'legacy-devops-message')));
+    await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'legacy-devops-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-client-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-private-message')));
+    await assertSucceeds(getDoc(doc(bob, 'chat_messages', 'legacy-private-message')));
+    await assertFails(getDoc(doc(pending, 'chat_messages', 'legacy-general-message')));
+    await assertFails(setDoc(doc(alice, 'chat_messages', 'legacy-devops-forged'), { channelId: 'dev-ops', senderId: 'alice' }));
 
     await assertFails(getDoc(doc(alice, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(getDoc(doc(manager, 'telnyx_sip_credentials', 'alice-sip')));
