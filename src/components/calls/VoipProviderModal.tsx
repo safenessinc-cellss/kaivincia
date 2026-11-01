@@ -1507,7 +1507,7 @@ export default function VoipProviderModal({
                       {testReport.message}
                     </p>
                     {testReport.latencyMs !== undefined && (
-                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-black/40">
+                      <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100">
                         {testReport.latencyMs} ms
                       </span>
                     )}
