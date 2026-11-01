@@ -43,7 +43,7 @@ export default async function handler(req: any, res: any) {
     }
     const operatorRef = adminDb.collection('operadores').doc(operadorUid);
     const operatorSnap = await operatorRef.get();
-    if (!operatorSnap.exists || operatorSnap.data()?.activo === false) {
+    if (!operatorSnap.exists || operatorSnap.data()?.activo !== true) {
       res.statusCode = 404; res.end(JSON.stringify({ error: 'El operador no existe o está desactivado.' })); return;
     }
     const apiKey = process.env.TELNYX_API_KEY;
