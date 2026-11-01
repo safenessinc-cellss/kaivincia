@@ -24,9 +24,11 @@ interface RBACPermission {
 
 const RBAC_ROLES = [
   { id: 'superadmin', label: 'SuperAdmin', color: 'bg-red-500/10 text-red-600 border-red-200' },
+  { id: 'owner', label: 'Propietario', color: 'bg-rose-500/10 text-rose-600 border-rose-200' },
   { id: 'ceo', label: 'CEO / Director', color: 'bg-purple-500/10 text-purple-600 border-purple-200' },
   { id: 'admin', label: 'Administrador', color: 'bg-blue-500/10 text-blue-600 border-blue-200' },
   { id: 'gestor', label: 'Gestión Operaciones', color: 'bg-cyan-500/10 text-cyan-600 border-cyan-200' },
+  { id: 'supervisor', label: 'Supervisor', color: 'bg-orange-500/10 text-orange-600 border-orange-200' },
   { id: 'sales', label: 'Ventas (TLMK / Closer)', color: 'bg-emerald-500/10 text-emerald-600 border-emerald-200' },
   { id: 'rrhh', label: 'Recursos Humanos', color: 'bg-pink-500/10 text-pink-600 border-pink-200' },
   { id: 'collaborator', label: 'Colaborador', color: 'bg-indigo-500/10 text-indigo-600 border-indigo-200' },
@@ -52,9 +54,11 @@ const RBAC_PERMISSIONS: RBACPermission[] = [
 
 const DEFAULT_MATRIX_STATE: Record<string, Record<string, boolean>> = {
   superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true },
+  owner: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true },
   ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true },
   admin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true },
   gestor: { view_financial_dashboard: true, accounting_gps: false, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: true, security_center: false, export_databases: true },
+  supervisor: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false },
   sales: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false },
   rrhh: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: false, academy_management: true, voip_calls: false, recruitment_payroll: true, telephony_config: false, automations_engine: false, security_center: false, export_databases: false },
   collaborator: { view_financial_dashboard: false, accounting_gps: false, client_base_global: false, client_base_assigned: true, academy_management: false, voip_calls: true, recruitment_payroll: false, telephony_config: false, automations_engine: false, security_center: false, export_databases: false },
