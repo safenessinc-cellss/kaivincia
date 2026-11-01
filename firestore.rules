@@ -31,9 +31,12 @@ service cloud.firestore {
     }
 
     function isApproved() {
+      // Fail closed: a missing status is not an implicit approval.
+      // Trusted provisioning explicitly writes "active" for allowlisted
+      // administrators and "pending" for every other new account.
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "approved") in ["approved", "active"];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "pending") in ["approved", "active"];
     }
 
     function isUser(userId) {
