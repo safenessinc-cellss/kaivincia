@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, doc, getDoc, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, doc, documentId, getDoc, onSnapshot, query, where } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -49,7 +49,7 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
         const canReadDirectory = ADMIN_ROLES.has(String(ownUser?.role || '').toLowerCase());
         const userQuery = canReadDirectory
           ? collection(db, 'users')
-          : query(collection(db, 'users'), where('__name__', '==', user.uid));
+          : query(collection(db, 'users'), where(documentId(), '==', user.uid));
         unsubUsers.push(onSnapshot(userQuery, snapshot => {
           setUsers(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
         }, error => {
