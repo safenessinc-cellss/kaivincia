@@ -47,7 +47,7 @@ const DEFAULT_CONFIG: TelnyxGlobalConfig = {
   maxConcurrentCalls: 1,
   recordCallsByDefault: false,
   alertOnLimitReached: true,
-  lastVerificationStatus: 'unverified',
+  lastVerificationStatus: 'pending',
   lastVerificationMessage: 'Proveedor no conectado. Verificación pendiente.',
   updatedAt: ''
 };
