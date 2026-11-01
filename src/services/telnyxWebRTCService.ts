@@ -174,25 +174,10 @@ class TelnyxWebRTCService {
         if (warning?.code === 34001) {
           console.log('[TelnyxWebRTC] 🔄 Token por expirar, renovando automáticamente...');
           try {
-            const { getAuth } = await import('firebase/auth');
-            const user = getAuth().currentUser;
-            if (!user) throw new Error('No hay usuario autenticado');
-            const firebaseToken = await user.getIdToken();
-
-            const res = await fetch('/api/telnyx-token', {
-              headers: { 'Authorization': `Bearer ${firebaseToken}` },
-            });
-            if (!res.ok) throw new Error(`Backend respondió ${res.status}`);
-            const data = await res.json();
-            const newToken = data.token;
-            if (!newToken) throw new Error('Respuesta sin token');
-            if (this.client !== clientForSession || auth.currentUser?.uid !== user.uid) return;
-
-            this.state.canMakeOutbound = data.permissions?.outbound === true;
-            this.state.canReceiveInbound = data.permissions?.inbound === true;
-            await this.setLoginToken(newToken, false);
-            clientForSession.updateToken(newToken);
-            console.log('[TelnyxWebRTC] ✅ Token renovado correctamente');
+            if (this.client !== clientForSession) return;
+            const result = await this.fetchFreshTokenFromBackend();
+            if (!result.success) throw new Error(result.message);
+            console.log('[TelnyxWebRTC] ✅ Token individual renovado correctamente');
           } catch (err: any) {
             console.error('[TelnyxWebRTC] ❌ Fallo al renovar token:', err.message);
             try { this.client?.disconnect(); } catch {}
