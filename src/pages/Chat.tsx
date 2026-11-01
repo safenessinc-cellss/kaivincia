@@ -1225,6 +1225,7 @@ export default function Chat() {
                             )}
                           </button>
                         </div>
+                        <p className="px-1 text-[9px] text-gray-500">Al solicitar sugerencias, los últimos mensajes de esta conversación privada se envían a Google Gemini para su análisis.</p>
 
                         <div className="flex gap-2 overflow-x-auto pb-1 max-w-full">
                           {aiSuggestions.map((suggestion, idx) => (
