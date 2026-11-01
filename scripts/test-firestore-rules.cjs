@@ -13,7 +13,7 @@ async function main() {
       const db = context.firestore();
       const profiles = [
         ['alice', { role: 'agent', status: 'approved' }],
-        ['bob', { role: 'agent', status: 'approved' }],
+        ['bob', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['pending', { role: 'agent', status: 'pending' }],
         ['hr', { role: 'rrhh', status: 'approved' }],
         ['owner', { role: 'owner', status: 'approved' }],
@@ -32,7 +32,7 @@ async function main() {
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
       await setDoc(doc(db, 'settings', 'rbac_matrix'), {
-        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false } }
+        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false } }
       });
       await setDoc(doc(db, 'company_profiles', 'alice'), { ownerUid: 'alice', email: 'alice@example.test', status: 'pending' });
       await setDoc(doc(db, 'clients', 'alice-client'), { name: 'Alice Client', createdBy: 'alice', assignedTo: 'alice' });
@@ -266,6 +266,7 @@ async function main() {
     await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-attendance')));
     await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-legacy-attendance')));
     await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-legacy-attendance')));
+    await assertFails(getDocs(query(collection(bob, 'attendance_logs'), where('userUid', '==', 'alice'))));
     await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-attendance')));
     await assertFails(getDoc(doc(hrDenied, 'attendance_logs', 'alice-attendance')));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
@@ -289,6 +290,7 @@ async function main() {
     await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-absence')));
     await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-legacy-absence')));
     await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-legacy-absence')));
+    await assertFails(getDocs(query(collection(bob, 'absence_requests'), where('userUid', '==', 'alice'))));
     await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-absence')));
     await assertFails(getDoc(doc(hrDenied, 'absence_requests', 'alice-absence')));
     await assertFails(updateDoc(doc(alice, 'absence_requests', 'alice-absence'), {
