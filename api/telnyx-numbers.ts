@@ -8,7 +8,7 @@ const VOIP_ROLES = new Set([
 ]);
 const normalizeRole = (value: unknown) => {
   const raw = String(value || '').toLowerCase().trim();
-  return ({ sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent' } as Record<string, string>)[raw] || raw;
+  return ({ sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
 
 export default async function handler(req: any, res: any) {
