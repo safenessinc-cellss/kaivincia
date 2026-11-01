@@ -357,12 +357,12 @@ export default function Apply() {
                   {loading ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Procesando...
+                      Enviando...
                     </>
                   ) : (
                     <>
-                      <Bot className="w-5 h-5" />
-                      Enviar y Analizar con IA
+                      <FileText className="w-5 h-5" />
+                      Enviar postulación
                     </>
                   )}
                 </button>
