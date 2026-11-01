@@ -42,6 +42,9 @@ async function main() {
     await assertFails(setDoc(doc(alice, 'clients', 'shared-client'), { name: 'Shared', createdBy: 'alice', assignedTo: 'bob' }));
     await assertSucceeds(setDoc(doc(admin, 'clients', 'admin-assigned-client'), { name: 'Admin assigned', createdBy: 'admin', assignedTo: 'bob' }));
     await assertFails(setDoc(doc(pending, 'tasks', 'pending-task'), { title: 'Pending', createdBy: 'pending', assignedTo: 'pending' }));
+    await assertFails(setDoc(doc(alice, 'tasks', 'shared-task'), { title: 'Shared', createdBy: 'alice', assignedTo: 'bob' }));
+    await assertSucceeds(setDoc(doc(admin, 'tasks', 'admin-assigned-task'), { title: 'Admin assigned', createdBy: 'admin', assignedTo: 'bob' }));
+    await assertFails(updateDoc(doc(alice, 'tasks', 'alice-task'), { assignedTo: 'bob' }));
     await assertFails(getDoc(doc(alice, 'clients', 'bob-client')));
     await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedTo: 'bob' }));
     await assertFails(updateDoc(doc(alice, 'clients', 'alice-client'), { assignedManagerId: 'bob' }));
