@@ -151,8 +151,8 @@ service cloud.firestore {
         (isApproved() && resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
       allow create: if isApproved() && (request.resource.data.get('createdBy', '') == request.auth.uid ||
         request.resource.data.get('assignedTo', '') == request.auth.uid);
-      allow update: if isAdmin() || (ownsRecord(resource.data) && ownsRecord(request.resource.data));
-      allow delete: if isAdmin() || resource.data.get('createdBy', '') == request.auth.uid;
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data) && ownsRecord(request.resource.data));
+      allow delete: if isAdmin() || (isApproved() && resource.data.get('createdBy', '') == request.auth.uid);
     }
 
     function canAccessClient(clientId) {
