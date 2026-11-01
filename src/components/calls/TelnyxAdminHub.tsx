@@ -95,7 +95,8 @@ export default function TelnyxAdminHub() {
   const [phoneNumbers, setPhoneNumbers] = useState<TelnyxPhoneNumber[]>([]);
   const [isSyncingNumbers, setIsSyncingNumbers] = useState(false);
   const [isImportingCredentials, setIsImportingCredentials] = useState(false);
-  const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string}>>([]);
+  const [importedCredentials, setImportedCredentials] = useState<Array<{id:string;name:string;sipUsername:string;connectionId:string;assignedTo?:string|null}>>([]);
+  const [credentialConnectionFilter, setCredentialConnectionFilter] = useState('all');
   const [agentOptions, setAgentOptions] = useState<Array<{uid:string;email:string;name:string}>>([]);
   const [numberSearch, setNumberSearch] = useState('');
   const [numberStatusFilter, setNumberStatusFilter] = useState<'all' | 'available' | 'assigned' | 'disabled'>('all');
@@ -457,7 +458,7 @@ export default function TelnyxAdminHub() {
             connectionId: cred.connectionId || '',
             activo: true,
             status: 'active',
-            assignedTo: null,
+            // Preserve the existing operator assignment when refreshing the Telnyx inventory.
             areaCode: null,
             updatedAt: new Date().toISOString(),
           }, { merge: true });
@@ -759,11 +760,28 @@ export default function TelnyxAdminHub() {
             <details className="mt-4 bg-slate-50 border border-cyan-200 rounded-2xl p-4" open>
               <summary className="cursor-pointer text-xs font-bold text-cyan-700 uppercase tracking-wider flex items-center gap-2">
                 <Users className="w-4 h-4" />
-                Usuarios de Telnyx importados ({importedCredentials.length})
+                Credenciales SIP de Telnyx ({importedCredentials.length}) · todas las conexiones
               </summary>
 
+              <div className="mt-4 mb-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                <label className="text-xs font-semibold text-slate-700" htmlFor="telnyx-credential-connection-filter">Filtrar por Connection ID</label>
+                <select
+                  id="telnyx-credential-connection-filter"
+                  value={credentialConnectionFilter}
+                  onChange={(e) => setCredentialConnectionFilter(e.target.value)}
+                  className="w-full sm:max-w-md bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
+                >
+                  <option value="all">Todas las conexiones ({importedCredentials.length})</option>
+                  {[...new Set(importedCredentials.map((item) => item.connectionId).filter(Boolean))].sort().map((connectionId) => (
+                    <option key={connectionId} value={connectionId}>
+                      {connectionId} ({importedCredentials.filter((item) => item.connectionId === connectionId).length})
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[11px] text-slate-500">Selecciona una credencial SIP y asígnala al operador. Cada credencial conserva su propia conexión Telnyx.</span>
+              </div>
               <div className="mt-4 space-y-2">
-                {importedCredentials.map((cred) => (
+                {importedCredentials.filter((cred) => credentialConnectionFilter === 'all' || cred.connectionId === credentialConnectionFilter).map((cred) => (
                   <div
                     key={cred.id}
                     className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2"
@@ -771,7 +789,7 @@ export default function TelnyxAdminHub() {
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-bold text-slate-900 truncate">{cred.name}</div>
                       <div className="text-[10px] text-slate-600 font-mono truncate">
-                        SIP: {cred.sipUsername} · ID: {cred.id}
+                        SIP: {cred.sipUsername} · Connection: {cred.connectionId || 'Sin conexión'} · ID: {cred.id}
                       </div>
                     </div>
 
@@ -779,6 +797,7 @@ export default function TelnyxAdminHub() {
                       defaultValue=""
                       onChange={(e) => handleAssignCredential(cred, e.target.value)}
                       className="bg-white border border-cyan-200 rounded-lg px-2 py-1 text-[10px] text-cyan-700 font-mono cursor-pointer"
+                      aria-label={`Asignar credencial ${cred.name} a un operador`}
                     >
                       <option value="">Asignar a...</option>
                       {agentOptions.map((agent) => (
