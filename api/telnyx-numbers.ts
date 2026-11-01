@@ -2,7 +2,6 @@ import { adminDb  , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdm
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
-const CONFIG_ROLES = new Set(['superadmin', 'admin']);
 const VOIP_ROLES = new Set([
   ...PRIVILEGED_ROLES, 'supervisor', 'agent', 'collaborator'
 ]);
@@ -41,9 +40,9 @@ export default async function handler(req: any, res: any) {
     const profileSnap = await adminDb.collection('users').doc(authUser.uid).get();
     const profile = profileSnap.data() || {};
     const role = normalizeRole(profile.role);
-    const permissionGranted = CONFIG_ROLES.has(role)
-      ? await hasTelephonyConfigPermission(profile, role)
-      : await hasVoipPermission(authUser.uid, profile, role);
+    // Number inventory access follows the same voip_calls permission as the
+    // softphone route. telephony_config remains reserved for provider settings.
+    const permissionGranted = await hasVoipPermission(authUser.uid, profile, role);
     if (!profileSnap.exists || !['approved', 'active'].includes(String(profile.status || '').toLowerCase()) || !VOIP_ROLES.has(role) || !permissionGranted) {
       res.statusCode = 403;
       res.end(JSON.stringify({ success: false, numbers: [], error: 'Cuenta sin autorización para telefonía.' }));
@@ -119,12 +118,3 @@ async function hasVoipPermission(uid: string, profile: any, role: string): Promi
   return ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'].includes(role);
 }
 
-
-async function hasTelephonyConfigPermission(profile: any, role: string): Promise<boolean> {
-  const override = profile.permissions?.telephony_config;
-  if (typeof override === 'boolean') return override;
-  const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
-  const matrixValue = matrixSnap.data()?.matrix?.[role]?.telephony_config;
-  if (typeof matrixValue === 'boolean') return matrixValue;
-  return CONFIG_ROLES.has(role);
-}
