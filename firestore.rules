@@ -414,7 +414,8 @@ service cloud.firestore {
     match /invoices/{invoiceId} {
       allow read: if isAdmin() || ownsRecord(resource.data) ||
         (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
-      allow create, update, delete: if isAdmin() && isValidInvoice(request.resource.data);
+      allow create, update: if isAdmin() && isValidInvoice(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /time_logs/{logId} {
