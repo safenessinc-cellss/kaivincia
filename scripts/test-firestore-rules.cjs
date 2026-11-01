@@ -162,12 +162,12 @@ async function main() {
       updatedAt: serverTimestamp()
     }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { description: 'Changed original report' }));
-    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress' }));
+    await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress', updatedAt: serverTimestamp() }));
     await assertFails(getDoc(doc(adminNoHelpdesk, 'support_tickets', 'bob-ticket')));
     await assertFails(updateDoc(doc(adminNoHelpdesk, 'support_tickets', 'alice-ticket'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(supportAgent, 'support_tickets', 'alice-ticket')));
     await assertFails(getDoc(doc(supportAgent, 'users', 'alice')));
-    await assertSucceeds(updateDoc(doc(supportAgent, 'support_tickets', 'alice-ticket'), { status: 'resolved' }));
+    await assertSucceeds(updateDoc(doc(supportAgent, 'support_tickets', 'alice-ticket'), { status: 'resolved', updatedAt: serverTimestamp() }));
     await assertFails(deleteDoc(doc(admin, 'support_tickets', 'alice-ticket')));
 
     // HR can read and manage recruitment/attendance data, but cannot grant
