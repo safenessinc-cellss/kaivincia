@@ -49,13 +49,11 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     return <PendingApproval />;
   }
 
-  // Preserve the existing legacy exception for SuperAdmin profiles pending
-  // migration; all other pending/unknown identities remain blocked.
-  if (status === 'pending' && role !== 'superadmin') {
-    return <PendingApproval />;
-  }
-
-  if (status !== 'approved' && status !== 'active' && !isPrivileged) {
+  // Only an explicitly approved/active profile may enter. Preserve the
+  // narrowly scoped legacy SuperAdmin-pending migration exception; missing,
+  // unknown, or any other non-approved status must fail closed.
+  const legacySuperAdminPending = status === 'pending' && role === 'superadmin';
+  if (status !== 'approved' && status !== 'active' && !legacySuperAdminPending) {
     return <PendingApproval />;
   }
 
