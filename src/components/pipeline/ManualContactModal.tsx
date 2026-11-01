@@ -14,11 +14,12 @@ export default function ManualContactModal({ isOpen, onClose, onSave, tlmkList }
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [campaignName, setCampaignName] = useState('Campaña Meta Ads Q1');
-  const [assignedTLMK, setAssignedTLMK] = useState(tlmkList[0] || 'Zaydeli De La Rosa');
+  const [campaignName, setCampaignName] = useState('');
+  const [assignedTLMK, setAssignedTLMK] = useState(tlmkList[0] || '');
   const [stage, setStage] = useState<PipelineStage>('LEAD_IN');
   const [initialNote, setInitialNote] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -26,6 +27,7 @@ export default function ManualContactModal({ isOpen, onClose, onSave, tlmkList }
     e.preventDefault();
     if (!name.trim() || !phone.trim()) return;
 
+    setError(null);
     setLoading(true);
     try {
       await onSave({
@@ -38,10 +40,10 @@ export default function ManualContactModal({ isOpen, onClose, onSave, tlmkList }
         pipelineStage: stage,
         assignedTLMK: assignedTLMK,
         contractValue: 0,
-        healthScore: 100,
+        healthScore: 0,
         notes: initialNote.trim() ? [{
           id: `note_${Date.now()}`,
-          author: assignedTLMK,
+          author: assignedTLMK || 'Agente',
           text: initialNote.trim(),
           createdAt: new Date().toISOString()
         }] : [],
@@ -55,8 +57,10 @@ export default function ManualContactModal({ isOpen, onClose, onSave, tlmkList }
       setEmail('');
       setCompanyName('');
       setInitialNote('');
+      setCampaignName('');
+      setAssignedTLMK(tlmkList[0] || '');
     } catch (err) {
-      console.error("Error creating contact:", err);
+      setError(err instanceof Error ? err.message : 'No se pudo crear el contacto.');
     } finally {
       setLoading(false);
     }
@@ -84,6 +88,7 @@ export default function ManualContactModal({ isOpen, onClose, onSave, tlmkList }
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <div role="alert" className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-200">{error}</div>}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
