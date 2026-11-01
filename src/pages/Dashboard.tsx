@@ -40,7 +40,9 @@ export default function Dashboard() {
   const [users, setUsers] = useState<any[]>([]);
   
   // System Events Feed
-  const [events, setEvents] = useState<SystemEvent[]>([
+  const [events] = useState<SystemEvent[]>([]); /* Feed will populate only from persisted system events. */
+  /* Removed hard-coded sample events. */
+  const unusedEventsPlaceholder = [
     { 
       id: '1', 
       module: 'Proyectos', 
@@ -96,9 +98,9 @@ export default function Dashboard() {
 
   // Intelligence Pulse Metrics
   const mrr = useMemo(() => clients.reduce((acc, c) => acc + (Number(c.amount) || 0), 0), [clients]);
-  const avgHealth = 88; 
-  const teamROI = 185; 
-  const academyGrowth = 24;
+  const avgHealth = null;
+  const teamROI = null;
+  const academyGrowth = null;
 
   const handleAiOptimization = () => {
     setIsOptimizing(true);
@@ -116,15 +118,8 @@ export default function Dashboard() {
     }, 2000);
   };
 
-  const chartData = [
-    { name: 'Lun', revenue: 4000, expenses: 2400 },
-    { name: 'Mar', revenue: 3000, expenses: 1398 },
-    { name: 'Mie', revenue: 2000, expenses: 9800 },
-    { name: 'Jue', revenue: 2780, expenses: 3908 },
-    { name: 'Vie', revenue: 1890, expenses: 4800 },
-    { name: 'Sab', revenue: 2390, expenses: 3800 },
-    { name: 'Dom', revenue: 3490, expenses: 4300 },
-  ];
+  // No revenue/expense series is shown until transactions are sourced from accounting records.
+  const chartData: Array<{ name: string; revenue: number; expenses: number }> = [];
 
   return (
     <div className="kaivincia-dashboard min-h-screen bg-transparent text-slate-600 font-sans p-6 lg:p-10 pb-20">
@@ -139,7 +134,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-black text-white uppercase tracking-tighter italic">Dashboard Ejecutivo</h1>
             <div className="flex items-center gap-3 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> Synapse: Active
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full" /> Estado de servicios no verificado
               </span>
               <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest border-l border-white/10 pl-3">
                 Kaivincia Architecture v5.0
@@ -167,8 +162,8 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={handleAiOptimization}
-            disabled={isOptimizing}
+            onClick={undefined}
+            disabled={true}
             className="px-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-[#F59E0B] hover:bg-[#F59E0B]/10 hover:border-[#F59E0B]/30 transition-all flex items-center gap-3 group relative overflow-hidden"
           >
             <AnimatePresence mode="wait">
@@ -185,12 +180,12 @@ export default function Dashboard() {
                 <Sparkles key="idle" className="w-4 h-4 group-hover:scale-125 transition-transform" />
               )}
             </AnimatePresence>
-            {isOptimizing ? 'Optimizando...' : 'IA Optimization'}
+            IA Optimization no configurada
           </button>
           <div className="flex items-center gap-4 px-6 py-3 bg-white/5 border border-white/10 rounded-xl">
              <div className="text-right">
                 <p className="text-[8px] font-black uppercase text-gray-500">Security Pulse</p>
-                <p className="text-xs font-black text-white">99.8% Encrypted</p>
+                <p className="text-xs font-black text-white">Verificación no disponible</p>
              </div>
              <ShieldAlert className="w-5 h-5 text-emerald-500" />
           </div>
@@ -396,7 +391,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">I. Cash Flow Analytics</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">${(mrr > 0 ? mrr/1000 : 57.2).toFixed(1)}K <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+12.4%</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{mrr > 0 ? `${(mrr / 1000).toFixed(1)}K` : 'Sin datos'}</p>
               </div>
               <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-2xl border border-emerald-500/20">
                 <Wallet className="w-5 h-5" />
@@ -420,8 +415,8 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
             <div className="mt-6 flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-gray-500">
-               <span>Operativo: $45,200</span>
-               <span className="text-emerald-500">Neto: +$12,400</span>
+               <span>Operativo: sin datos</span>
+               <span className="text-gray-500">Neto: sin datos</span>
             </div>
           </motion.div>
 
@@ -434,7 +429,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">II. Customer Nervous Health</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">{avgHealth}% <span className="text-xs text-amber-500 font-bold tracking-widest uppercase ml-2">-2% Risk</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{avgHealth === null ? 'Sin datos' : `${avgHealth}%`}</p>
               </div>
               <div className="p-3 bg-amber-500/10 text-amber-500 rounded-2xl border border-amber-500/20">
                 <Activity className="w-5 h-5" />
@@ -478,7 +473,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">III. Performance Node Score</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">{teamROI}% <span className="text-xs text-emerald-500 font-bold tracking-widest uppercase ml-2">+15% Efficient</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{teamROI === null ? 'Sin datos' : `${teamROI}%`}</p>
               </div>
               <div className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl border border-blue-500/20">
                 <Users className="w-5 h-5" />
@@ -519,7 +514,7 @@ export default function Dashboard() {
             <div className="flex justify-between items-start mb-8 relative z-10">
               <div>
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-[0.3em] mb-1 italic">IV. Growth Systemic Expansion</h3>
-                <p className="text-4xl font-black text-white italic tracking-tighter">+{academyGrowth}% <span className="text-xs text-blue-500 font-bold tracking-widest uppercase ml-2">Scale Active</span></p>
+                <p className="text-4xl font-black text-white italic tracking-tighter">{academyGrowth === null ? 'Sin datos' : `+${academyGrowth}%`}</p>
               </div>
               <div className="p-3 bg-purple-500/10 text-purple-500 rounded-2xl border border-purple-500/20">
                 <BarChart3 className="w-5 h-5" />
@@ -563,7 +558,7 @@ export default function Dashboard() {
             
             <div className="flex-1 space-y-6 overflow-y-auto pr-2 scrollbar-hide">
               <AnimatePresence initial={false}>
-                {events.map((event) => (
+                {events.length === 0 ? <p className="text-xs text-gray-500">No hay eventos operativos registrados todavía.</p> : events.map((event) => (
                   <motion.div 
                     key={event.id}
                     initial={{ opacity: 0, x: 20 }}
