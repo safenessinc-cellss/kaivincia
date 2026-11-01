@@ -179,6 +179,9 @@ export class SipCredentialsService {
    */
   public static async decryptSipPassword(encryptedStr: string): Promise<string> {
     if (!encryptedStr) return '';
+    // ENC_V1 belongs to the retired client-side vault. Never attempt to
+    // decrypt it in the browser; Telnyx WebRTC uses backend-issued JWTs.
+    if (encryptedStr.startsWith('ENC_V1:')) return '';
     try {
       return await decryptData(encryptedStr);
     } catch (e) {
