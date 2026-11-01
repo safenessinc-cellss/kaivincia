@@ -72,3 +72,18 @@ Revisión estática contrastando rutas de `src/App.tsx`, navegación de `src/com
 
 ## Limitaciones
 No se han ejecutado sesiones E2E con usuarios de prueba, Firebase Emulator Suite, Telnyx real, Meta real ni correo real. Los hallazgos de esta pasada son inspecciones estáticas respaldadas por el código citado; no se declara que los flujos estén reparados ni que producción haya cambiado.
+
+
+## Correcciones aplicadas después de la inspección
+- Pipeline: las transiciones de etapa, reasignaciones y edición de cabecera sólo actualizan la interfaz después de confirmar Firestore. Si falla el guardado, se propaga el error y no se conserva un cambio local falso.
+- Pipeline: la creación manual ya no inventa un ID temporal ni presenta el contacto como guardado cuando falla Firestore.
+- Pipeline: importación CSV ahora usa un batch atómico (máximo 450 filas por lote); la lista local sólo se actualiza tras el commit confirmado.
+- Pipeline: la cita comercial y su registro en Agenda se escriben en un mismo batch; notas de cita y feedback GPS se persisten junto con el cambio de etapa. El feedback GPS exige coordenadas.
+- Pipeline: las notas ya no atribuyen por defecto la autoría a una persona fija; usan la identidad de la sesión.
+- Asignación: se retiró la lista de nombres ficticios del Pipeline; las opciones disponibles se derivan de asignaciones existentes en registros CRM. No se inventan identidades.
+- Importación Meta CSV: se eliminó la distribución circular por índice. Sólo se conserva una asignación explícita que coincida con una opción existente; el resto queda “Sin asignar”.
+- Reclutamiento: el cambio de etapa a “Academia Kaivincia” ya no afirma que se envió un correo ni que se crearon accesos. El mensaje aclara que sólo cambió la etapa.
+- Dashboard: se corrigieron dos acciones que apuntaban a la ruta inexistente `/crm/academia`; ahora apuntan a `/crm/academy-internal`. Se cambió el encabezado engañoso “Nervous System” por “Dashboard Ejecutivo”.
+
+## Validación pendiente de estas correcciones
+Los commits de corrección ya están en la rama de auditoría, pero aún no se dispone de una ejecución CI ni de un preview Vercel correspondiente al HEAD actual. Por tanto, estos cambios todavía no se declaran compilados ni validados en navegador. La producción permanece en la base aprobada.
