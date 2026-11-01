@@ -105,5 +105,5 @@ async function hasVoipPermission(uid: string, profile: any, role: string): Promi
   const roleMatrix = matrix[role] || (role === 'agent' ? matrix.sales : undefined);
   const matrixValue = roleMatrix?.voip_calls;
   if (typeof matrixValue === 'boolean') return matrixValue;
-  return ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'].includes(role);
+  return ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'].includes(role);
 }
