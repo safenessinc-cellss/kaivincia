@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, orderBy, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
 import { 
   Send, Users, User, MessageSquare, Hash, Search, Sparkles, 
@@ -132,25 +132,53 @@ export default function Chat() {
     }
   }, [location]);
 
-  // Load chat messages in real-time
+  // Subscribe only to the selected conversation. Private messages are fetched
+  // through participant-constrained queries, never by downloading the whole collection.
   useEffect(() => {
-    const q = query(collection(db, 'chat_messages'), orderBy('createdAt', 'asc'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return { id: doc.id, ...data };
-      });
-      setMessages(msgs);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 150);
-    }, (error) => {
-      console.error("Error fetching chat messages:", error);
-      handleFirestoreError(error, OperationType.GET, 'chat_messages');
-    });
+    const uid = auth.currentUser?.uid;
+    if (!uid) {
+      setMessages([]);
+      return;
+    }
 
-    return () => unsubscribe();
-  }, []);
+    const base = collection(db, 'chat_messages');
+    const subscriptions: Array<() => void> = [];
+    const byId = new Map<string, any>();
+    const publish = () => {
+      setMessages(Array.from(byId.values()).sort((a, b) => {
+        const left = a.createdAt?.toMillis?.() ?? new Date(a.createdAt || 0).getTime();
+        const right = b.createdAt?.toMillis?.() ?? new Date(b.createdAt || 0).getTime();
+        return left - right;
+      }));
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 150);
+    };
+    const subscribe = (constraints: any[]) => {
+      const unsubscribe = onSnapshot(query(base, ...constraints), snapshot => {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'removed') byId.delete(change.doc.id);
+          else byId.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+        });
+        publish();
+      }, error => {
+        console.error('Error fetching scoped chat messages:', error);
+        handleFirestoreError(error, OperationType.GET, 'chat_messages');
+      });
+      subscriptions.push(unsubscribe);
+    };
+
+    if (activeFilter === 'groups' && activeChannelId) {
+      subscribe([where('type', '==', 'groups'), where('targetId', '==', activeChannelId), orderBy('createdAt', 'asc')]);
+    } else if (activeFilter === 'clients' && activeClientId) {
+      subscribe([where('type', '==', 'clients'), where('targetId', '==', activeClientId), orderBy('createdAt', 'asc')]);
+    } else if (activeFilter === 'private' && activePrivateUserId) {
+      subscribe([where('type', '==', 'private'), where('senderId', '==', uid), where('targetId', '==', activePrivateUserId), orderBy('createdAt', 'asc')]);
+      subscribe([where('type', '==', 'private'), where('senderId', '==', activePrivateUserId), where('targetId', '==', uid), orderBy('createdAt', 'asc')]);
+    } else {
+      setMessages([]);
+    }
+
+    return () => subscriptions.forEach(unsubscribe => unsubscribe());
+  }, [activeFilter, activeChannelId, activeClientId, activePrivateUserId]);
 
   // Update selected colleague's administration states
   useEffect(() => {
