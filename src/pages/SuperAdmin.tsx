@@ -197,13 +197,13 @@ export default function SuperAdmin() {
     try {
       await updateDoc(doc(db, 'users', userId), { role });
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        userEmail: user?.email || null,
         action: 'UPDATE_USER_ROLE',
         resourceType: 'User',
         resourceId: userId,
         details: `Rol actualizado a ${role}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
       triggerFeedback(`Rol de usuario actualizado a "${role}".`);
     } catch (error) {
@@ -229,13 +229,13 @@ export default function SuperAdmin() {
       await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        userEmail: user?.email || null,
         action: 'UPDATE_USER_PERMISSIONS',
         resourceType: 'User',
         resourceId: userId,
         details: `Módulo ${module} establecido en ${hasAccess ? 'Permitido' : 'Revocado'}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       triggerFeedback(`Permiso "${module}" ${hasAccess ? 'concedido' : 'revocado'}.`);
@@ -261,13 +261,13 @@ export default function SuperAdmin() {
       });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        userEmail: user?.email || null,
         action: 'ASSIGN_CLIENTS_PROJECTS',
         resourceType: 'User',
         resourceId: assignModalUser.id,
         details: `Asignados ${assignedClientsDraft.length} clientes y ${assignedProjectsDraft.length} proyectos`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setAssignModalUser(null);
@@ -284,13 +284,13 @@ export default function SuperAdmin() {
       await deleteDoc(doc(db, 'users', userToDelete.id));
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        userEmail: user?.email || null,
         action: 'DELETE_USER_PERMANENT',
         resourceType: 'User',
         resourceId: userToDelete.id,
         details: `Perfil CRM eliminado para ${userToDelete.email || userToDelete.id}; la cuenta de autenticación permanece.`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setUserToDelete(null);
@@ -330,13 +330,13 @@ export default function SuperAdmin() {
     try {
       const inviteId = `invite_${Date.now()}`;
       await addDoc(collection(db, 'audit_logs'), {
-        userId: 'system_superadmin',
+        userId: user?.uid || 'unknown',
+        userEmail: user?.email || null,
         action: 'INVITE_USER',
         resourceType: 'User',
         resourceId: inviteId,
         details: `Invitación generada para ${inviteEmail} con rol ${inviteRole}`,
         timestamp: serverTimestamp(),
-        ipAddress: '127.0.0.1'
       });
 
       setIsInviteModalOpen(false);
@@ -1284,6 +1284,7 @@ export default function SuperAdmin() {
             </div>
             
             <form onSubmit={handleInviteUser} className="p-6 space-y-4 text-xs">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900">Este formulario registra una solicitud en la auditoría; no envía correos ni crea cuentas automáticamente.</p>
               <div>
                 <label className="block font-bold text-gray-700 mb-1">Correo Electrónico</label>
                 <div className="relative">
@@ -1325,7 +1326,7 @@ export default function SuperAdmin() {
                   type="submit"
                   className="px-6 py-2 bg-slate-900 text-white hover:bg-[#00F0FF] hover:text-black rounded-xl font-black uppercase tracking-wider transition-all"
                 >
-                  Enviar Invitación
+                  Registrar solicitud
                 </button>
               </div>
             </form>
