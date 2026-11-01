@@ -525,7 +525,6 @@ export default function Clients() {
         });
         const parsedData = result;
 
-        const parsedData = JSON.parse(cleanText);
         if (!parsedData.clients || !Array.isArray(parsedData.clients)) {
           throw new Error("La IA no pudo estructurar los datos del documento de manera correcta.");
         }
