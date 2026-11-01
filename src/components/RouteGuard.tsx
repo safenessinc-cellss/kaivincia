@@ -2,6 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import PendingApproval from '../pages/PendingApproval';
+import { normalizeRole } from '../constants/roles';
 
 interface RouteGuardProps {
   children: React.ReactNode;
@@ -13,7 +14,6 @@ export default function RouteGuard({ children }: RouteGuardProps) {
   const { user, userData, loading: authLoading } = useAuth();
   const location = useLocation();
 
-  // 1. Auth resolviendo
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -25,12 +25,10 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     );
   }
 
-  // 2. Sin autenticar
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 3. Auth OK pero aún sin doc de perfil (bootstrap en curso)
   if (userData === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
@@ -42,20 +40,17 @@ export default function RouteGuard({ children }: RouteGuardProps) {
     );
   }
 
-  // 4. Verificar aprobación.
-  //    Regla: si status está explícitamente en pending/rejected/suspended → bloquear.
-  //    Si status es undefined pero el rol es privilegiado → tratar como aprobado
-  //    (compatibilidad con admins existentes que no tienen el campo).
-  const status = String((userData as any)?.status || '').toLowerCase();
-  const role = String((userData as any)?.role || '').toLowerCase();
-  const isPrivileged = PRIVILEGED_ROLES.includes(role);
+  const status = String(userData.status || '').toLowerCase();
+  const role = normalizeRole(userData.role);
+  const isPrivileged = PRIVILEGED_ROLES.some((candidate) => normalizeRole(candidate) === role);
 
-  // A trusted SuperAdmin account must not be locked out just because its legacy
-  // profile says "pending" or "active". Explicit suspension/rejection still blocks it.
-  if (status === 'rejected' || status === 'suspended') {
+  // Explicit negative states always win, including for administrators.
+  if (['rejected', 'suspended', 'disabled', 'blocked'].includes(status)) {
     return <PendingApproval />;
   }
 
+  // Preserve the existing legacy exception for SuperAdmin profiles pending
+  // migration; all other pending/unknown identities remain blocked.
   if (status === 'pending' && role !== 'superadmin') {
     return <PendingApproval />;
   }
