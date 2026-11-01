@@ -15,9 +15,11 @@ service cloud.firestore {
     }
 
     function isSuperAdminAccount() {
+      // The designated owner account is the sole bootstrap exception.
+      // Every other SuperAdmin must already have an approved/active profile.
       return isAuthenticated() && (
         request.auth.token.email == "safeness.c.a@gmail.com" ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && userRole() == "superadmin")
+        (isApproved() && userRole() == "superadmin")
       );
     }
 
