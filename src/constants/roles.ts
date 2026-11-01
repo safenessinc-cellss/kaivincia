@@ -62,3 +62,24 @@ export const canManageUsers = (r?: string | null) => hasMinLevel(r, 90);
 export const canManageBilling = (r?: string | null) => hasMinLevel(r, 85);
 export const canSeeAllCallerIds = (r?: string | null) => hasMinLevel(r, 80);
 export const canSuperviseAgents = (r?: string | null) => hasMinLevel(r, 60);
+
+export type PermissionMatrix = Record<string, Record<string, boolean>>;
+
+export function hasEffectivePermission(args: {
+  role?: string | null;
+  permissionId: string;
+  userPermissions?: Record<string, boolean> | null;
+  matrix?: PermissionMatrix | null;
+  fallbackRoles: string[];
+}): boolean {
+  const role = normalizeRole(args.role);
+  const userOverride = args.userPermissions?.[args.permissionId];
+  if (typeof userOverride === 'boolean') return userOverride;
+
+  // Historical RBAC matrix stored the sales profile under the key "sales".
+  const roleMatrix = args.matrix?.[role] || (role === 'agent' ? args.matrix?.sales : undefined);
+  const matrixValue = roleMatrix?.[args.permissionId];
+  if (typeof matrixValue === 'boolean') return matrixValue;
+
+  return args.fallbackRoles.some((fallbackRole) => normalizeRole(fallbackRole) === role);
+}
