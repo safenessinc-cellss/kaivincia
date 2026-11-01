@@ -65,7 +65,7 @@ export async function createTicket(data: {
   const initialMessage: TicketMessage = {
     senderId: user.uid,
     senderEmail: user.email || 'desconocido',
-    text: data.description,
+    text: data.description.trim(),
     createdAt: Timestamp.now()
   };
 
