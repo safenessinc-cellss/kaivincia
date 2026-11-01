@@ -171,16 +171,16 @@ export default function Chat() {
     if (activeFilter === 'groups' && activeChannelId) {
       subscribe([where('type', '==', 'groups'), where('targetId', '==', activeChannelId), orderBy('createdAt', 'asc')]);
       // Backward-compatible read for records written before type/targetId existed.
-      subscribe([where('channelId', '==', activeChannelId), orderBy('createdAt', 'asc')]);
+      subscribe([where('channelId', '==', activeChannelId)]);
     } else if (activeFilter === 'clients' && activeClientId) {
       subscribe([where('type', '==', 'clients'), where('targetId', '==', activeClientId), orderBy('createdAt', 'asc')]);
-      subscribe([where('channelId', '==', activeClientId), orderBy('createdAt', 'asc')]);
+      subscribe([where('channelId', '==', activeClientId)]);
     } else if (activeFilter === 'private' && activePrivateUserId) {
       subscribe([where('type', '==', 'private'), where('senderId', '==', uid), where('targetId', '==', activePrivateUserId), orderBy('createdAt', 'asc')]);
       subscribe([where('type', '==', 'private'), where('senderId', '==', activePrivateUserId), where('targetId', '==', uid), orderBy('createdAt', 'asc')]);
       // Legacy direct messages had senderId/targetId but no explicit type.
-      subscribe([where('senderId', '==', uid), where('targetId', '==', activePrivateUserId), orderBy('createdAt', 'asc')]);
-      subscribe([where('senderId', '==', activePrivateUserId), where('targetId', '==', uid), orderBy('createdAt', 'asc')]);
+      subscribe([where('senderId', '==', uid), where('targetId', '==', activePrivateUserId)]);
+      subscribe([where('senderId', '==', activePrivateUserId), where('targetId', '==', uid)]);
     } else {
       setMessages([]);
     }
