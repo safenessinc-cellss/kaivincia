@@ -82,7 +82,7 @@ export default function CalendarView() {
       }, error => handleFirestoreError(error, OperationType.GET, collectionName)));
 
     const unsubTasks = subscribeScoped('tasks', ['createdBy', 'assignedTo'], taskDocs, renderTaskDocs);
-    const unsubClients = subscribeScoped('clients', ['createdBy', 'assignedTo'], clientDocs, renderClientDocs);
+    const unsubClients = subscribeScoped('clients', ['createdBy', 'assignedTo', 'assignedManagerId'], clientDocs, renderClientDocs);
     const unsubAppointments = subscribeScoped('appointments', ['createdBy', 'assignedTo'], appointmentDocs, renderAppointmentDocs);
 
     return () => {
