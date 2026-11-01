@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, where, documentId, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+import { useGlobalContext } from '../contexts/GlobalContext';
 import { CheckCircle2, Circle, Plus, Calendar as CalendarIcon, List, Users, X, Clock, AlertTriangle, PlayCircle, ShieldAlert } from 'lucide-react';
 import { format, parseISO, isSameDay, isBefore, isAfter, addDays, startOfDay, differenceInDays } from 'date-fns';
 
 export default function Tasks() {
   const { user, loading: authLoading } = useAuth();
+  const { users: globalUsers, clients: globalClients, tasks: globalTasks } = useGlobalContext();
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
@@ -46,68 +48,28 @@ export default function Tasks() {
       return;
     }
 
-    const taskRecords = new Map<string, any>();
-    const publishTasks = () => {
-      const priorityWeights = { Alta: 3, Media: 2, Baja: 1 };
-      const sorted = Array.from(taskRecords.values()).sort((a, b) => {
-        const pA = priorityWeights[a.priority as keyof typeof priorityWeights] || 0;
-        const pB = priorityWeights[b.priority as keyof typeof priorityWeights] || 0;
-        if (pB !== pA) return pB - pA;
-        const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
-        const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
-        return dateA - dateB;
-      });
-      setTasks(sorted);
-      setLoading(false);
-    };
-    const taskQueries = [
-      query(collection(db, 'tasks'), where('createdBy', '==', user.uid)),
-      query(collection(db, 'tasks'), where('assignedTo', '==', user.uid))
-    ];
-    const unsubTasks = taskQueries.map(taskQuery => onSnapshot(taskQuery, snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'removed') taskRecords.delete(change.doc.id);
-        else taskRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
-      });
-      publishTasks();
-    }, error => {
-      handleFirestoreError(error, OperationType.GET, 'tasks');
-      setLoading(false);
-    }));
-
-    const unsubUsers = onSnapshot(query(collection(db, 'users'), where(documentId(), '==', user.uid)), snapshot => {
-      setUsers(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
-    }, error => handleFirestoreError(error, OperationType.GET, 'users'));
-
+    const profile = globalUsers.find(item => item.id === user.uid);
+    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(profile?.role || '').toLowerCase());
+    const projectQuery = isAdmin ? collection(db, 'projects') : query(collection(db, 'projects'), where('createdBy', '==', user.uid));
     const projectRecords = new Map<string, any>();
-    const unsubProjects = onSnapshot(query(collection(db, 'projects'), where('createdBy', '==', user.uid)), snapshot => {
+    const unsubProjects = onSnapshot(projectQuery, snapshot => {
       snapshot.docChanges().forEach(change => {
         if (change.type === 'removed') projectRecords.delete(change.doc.id);
         else projectRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
       });
       setProjects(Array.from(projectRecords.values()));
-    }, error => handleFirestoreError(error, OperationType.GET, 'projects'));
-
-    const clientRecords = new Map<string, any>();
-    const publishClients = () => setClients(Array.from(clientRecords.values()));
-    const unsubClients = [
-      query(collection(db, 'clients'), where('createdBy', '==', user.uid)),
-      query(collection(db, 'clients'), where('assignedTo', '==', user.uid))
-    ].map(clientQuery => onSnapshot(clientQuery, snapshot => {
-      snapshot.docChanges().forEach(change => {
-        if (change.type === 'removed') clientRecords.delete(change.doc.id);
-        else clientRecords.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
-      });
-      publishClients();
-    }, error => handleFirestoreError(error, OperationType.GET, 'clients')));
-
+      setLoading(false);
+    }, error => { handleFirestoreError(error, OperationType.GET, 'projects'); setLoading(false); });
     return () => {
-      unsubTasks.forEach(unsub => unsub());
-      unsubUsers();
       unsubProjects();
-      unsubClients.forEach(unsub => unsub());
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, globalUsers]);
+
+  useEffect(() => {
+    setTasks(globalTasks);
+    setUsers(globalUsers);
+    setClients(globalClients);
+  }, [globalTasks, globalUsers, globalClients]);
 
   const hasMora = (projectId: string) => {
     const project = projects.find(p => p.id === projectId);
