@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -278,7 +278,7 @@ export default function App() {
     return fallbackRoles.includes(role);
   };
 
-  const requirePermission = (permissionId: string, fallbackRoles: string[], element: React.ReactNode) =>
+  const requirePermission = (permissionId: string, fallbackRoles: string[], element: ReactNode) =>
     canAccessPermission(permissionId, fallbackRoles)
       ? element
       : <Navigate to="/crm/dashboard" replace />;
