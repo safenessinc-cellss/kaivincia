@@ -41,34 +41,7 @@ export default function Dashboard() {
   
   // System Events Feed
   const [events] = useState<SystemEvent[]>([]); /* Feed will populate only from persisted system events. */
-  /* Removed hard-coded sample events. */
-  const unusedEventsPlaceholder = [
-    { 
-      id: '1', 
-      module: 'Proyectos', 
-      type: 'warning', 
-      message: 'Retraso detectado en Proyecto TechCorp v2', 
-      timestamp: new Date(), 
-      impact: '-12% Liquidez Proyectada' 
-    },
-    { 
-      id: '2', 
-      module: 'Talento', 
-      type: 'success', 
-      message: 'Carlos Ruiz alcanzó ROI de 210%', 
-      timestamp: new Date(Date.now() - 1000 * 60 * 15), 
-      impact: 'Bono Nómina Aplicado' 
-    },
-    { 
-      id: '3', 
-      module: 'Seguridad', 
-      type: 'error', 
-      message: 'Palabra clave de riesgo "Reembolso" en Chat #402', 
-      timestamp: new Date(Date.now() - 1000 * 60 * 45), 
-      impact: 'Log CISO Generado' 
-    }
-  ]);
-
+  // Activity feed is intentionally empty until persisted audit events are connected.
   const { user, loading: authLoading } = useAuth();
 
   const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending' || u.role === 'none'), [users]);
