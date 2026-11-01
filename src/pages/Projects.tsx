@@ -69,7 +69,7 @@ export default function Projects() {
       unsubClients.forEach(fn => fn()); unsubClients = [];
 
       if (!currentUser) return;
-      const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
+      const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
 
       const projectQuery = isAdmin ? collection(db, 'projects') : query(collection(db, 'projects'), where('createdBy', '==', currentUser.uid));
       unsubProjects = [onSnapshot(projectQuery, (snapshot) => {
