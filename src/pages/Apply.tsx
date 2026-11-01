@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { CheckCircle2, FileText, X, Loader2, Circle, ArrowLeft } from 'lucide-react';
 import { LOGO_FULL } from '../constants/images';
@@ -123,7 +123,7 @@ export default function Apply() {
         hasResume: !!resumeFile,
         resumeFileName: resumeFile.name.slice(0, 180),
         resumeText: resumeText.slice(0, 15000),
-        createdAt: new Date().toISOString()
+        createdAt: serverTimestamp()
       });
       
       setSubmitted(true);
