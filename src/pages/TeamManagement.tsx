@@ -20,8 +20,13 @@ export default function TeamManagement() {
 
   // Auth Guard & Timing State
   const { user, loading: authLoading, userData } = useAuth();
-  const canManageAccess = ['superadmin', 'admin'].includes(String(userData?.role || '').toLowerCase());
-  const isHrRole = String(userData?.role || '').toLowerCase() === 'rrhh';
+  // The Firestore users/{uid} rules reserve role/permission administration
+  // for SuperAdmin (and the designated account owner). Admins may view audit
+  // history but cannot open controls that Firestore will reject.
+  const currentRole = String(userData?.role || '').toLowerCase().trim();
+  const canManageAccess = currentRole === 'superadmin' || user?.email === 'safeness.c.a@gmail.com';
+  const canViewAudit = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(currentRole);
+  const isHrRole = currentRole === 'rrhh';
   const [firestoreUsers, setFirestoreUsers] = useState<any[]>([]);
   const [firestoreAuditLogs, setFirestoreAuditLogs] = useState<any[]>([]);
 
@@ -36,7 +41,7 @@ export default function TeamManagement() {
       handleFirestoreError(error, OperationType.GET, 'users');
     });
 
-    const unsubAudit = canManageAccess ? onSnapshot(
+    const unsubAudit = canViewAudit ? onSnapshot(
       query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50)),
       (snapshot) => {
         setFirestoreAuditLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -50,7 +55,7 @@ export default function TeamManagement() {
       unsubUsers();
       unsubAudit();
     };
-  }, [user, authLoading, canManageAccess]);
+  }, [user, authLoading, canViewAudit]);
 
   const effectiveUsers = firestoreUsers.length > 0 ? firestoreUsers : contextUsers;
 
@@ -116,10 +121,9 @@ export default function TeamManagement() {
       const currentPerms = targetUser?.permissions || {};
       const newPerms = { ...currentPerms, [module]: hasAccess };
       
-      await updateDoc(doc(db, 'users', userId), { 
-        permissions: newPerms,
-        status: 'active'
-      });
+      // Changing permissions must not implicitly approve or activate an
+      // account. Account lifecycle is an explicit, separate owner action.
+      await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
