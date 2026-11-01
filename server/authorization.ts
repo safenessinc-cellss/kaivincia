@@ -1,7 +1,8 @@
 import { adminAuth, adminDb } from './_lib/firebaseAdmin.js';
 
-const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor']);
+const ADMIN_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
 const ACTIVE_STATUSES = new Set(['active', 'approved']);
+const ROLE_ALIASES: Record<string, string> = { agente: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', operador: 'agent' };
 
 export function bearerToken(req: any): string | null {
   const value = req.headers?.authorization || req.headers?.Authorization;
@@ -36,13 +37,16 @@ export async function authorizeCrmRequest(req: any, res: any, options: {
 
   const user = userSnap.data() || {};
   const status = String(user.status || '').toLowerCase();
-  const role = String(user.role || '').toLowerCase().trim();
+  const storedRole = String(user.role || '').toLowerCase().trim();
+  const role = ROLE_ALIASES[storedRole] || storedRole;
   if (!ACTIVE_STATUSES.has(status) || !role || role === 'none' || role === 'user') {
     res.status(403).json({ success: false, error: 'Cuenta pendiente, suspendida o sin rol autorizado.' });
     return null;
   }
 
-  const isAdmin = PRIVILEGED_ROLES.has(role);
+  // Supervisores pueden coordinar agentes, pero nunca administrar credenciales,
+  // configuración de proveedores ni secretos de integraciones.
+  const isAdmin = ADMIN_ROLES.has(role);
   if (options.adminOnly && !isAdmin) {
     res.status(403).json({ success: false, error: 'Se requiere un rol administrativo autorizado.' });
     return null;
