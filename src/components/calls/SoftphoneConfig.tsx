@@ -55,12 +55,12 @@ export default function SoftphoneConfig({
   const activeCarrierObj = providers.find(p => p.id === selectedCarrier) || providers[0];
 
   return (
-    <div className="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-3 sm:p-4 space-y-3 shadow-inner">
+    <div className="bg-white/90 border border-slate-200/90 rounded-2xl p-3 sm:p-4 space-y-3 shadow-inner">
       {/* Cabecera con Latencia y Acciones Rápidas */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
         <div className="flex items-center gap-2">
           <SlidersHorizontal className="w-4 h-4 text-cyan-400" />
-          <span className="text-xs font-black uppercase text-white tracking-wider">
+          <span className="text-xs font-black uppercase text-slate-900 tracking-wider">
             {t('voip.routing_title', 'Parámetros de Enrutamiento')}
           </span>
         </div>
@@ -96,7 +96,7 @@ export default function SoftphoneConfig({
             value={selectedCarrier}
             onChange={(e) => onSelectCarrier(e.target.value)}
             disabled={callStatus !== 'idle'}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-semibold focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50 cursor-pointer"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-semibold focus:outline-none focus:border-cyan-400 transition-colors disabled:opacity-50 cursor-pointer"
           >
             {providers.map(p => (
               <option key={p.id} value={p.id}>
@@ -123,7 +123,7 @@ export default function SoftphoneConfig({
               value={selectedCallerId}
               onChange={(e) => onSelectCallerId(e.target.value)}
               disabled={callStatus !== 'idle'}
-              className="w-full bg-slate-950 border border-cyan-500/40 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-mono font-bold focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
+              className="w-full bg-slate-50 border border-cyan-500/40 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-mono font-bold focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
             >
               {authorizedCallerIds.map(num => (
                 <option key={num} value={num}>
@@ -132,7 +132,7 @@ export default function SoftphoneConfig({
               ))}
             </select>
           ) : (
-            <div className="bg-slate-950 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-[10px] text-amber-300 font-medium">
+            <div className="bg-slate-50 border border-amber-500/30 rounded-xl px-2.5 py-1.5 text-[10px] text-amber-300 font-medium">
               Sin números asignados. Contacta a tu supervisor.
             </div>
           )}
@@ -140,7 +140,7 @@ export default function SoftphoneConfig({
       </div>
 
       {/* Grid de Proyecto y Cliente */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-800/60">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-slate-200/60">
         {/* Selector de Proyecto / Campaña */}
         <div>
           <label className="text-[9px] uppercase font-bold text-slate-400 mb-1 flex items-center gap-1">
@@ -151,7 +151,7 @@ export default function SoftphoneConfig({
             value={selectedProject}
             onChange={(e) => onSelectProject(e.target.value)}
             disabled={callStatus !== 'idle'}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-medium focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-600 font-medium focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
           >
             <option value="Ventas B2B">Ventas B2B (Closer)</option>
             <option value="Onboarding Clientes">Onboarding & Bienvenida</option>
@@ -175,7 +175,7 @@ export default function SoftphoneConfig({
               onSelectClient(clientVal, foundClient?.phone);
             }}
             disabled={callStatus !== 'idle'}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-300 font-medium focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-600 font-medium focus:outline-none focus:border-cyan-400 disabled:opacity-50 cursor-pointer"
           >
             <option value="">-- Sin vincular / Marcado manual --</option>
             {clients.slice(0, 15).map((c: any) => (
@@ -197,7 +197,7 @@ export default function SoftphoneConfig({
           <button
             type="button"
             onClick={() => onOpenProviderModal(activeCarrierObj)}
-            className="px-2.5 py-1 rounded-xl bg-slate-950 hover:bg-slate-800 text-cyan-400 border border-cyan-500/30 hover:border-cyan-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
+            className="px-2.5 py-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-cyan-400 border border-cyan-500/30 hover:border-cyan-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer"
             title="Configurar APIs, sockets y parámetros del carrier"
           >
             <Settings className="w-3 h-3" />
