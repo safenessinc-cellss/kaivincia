@@ -30,8 +30,21 @@ service cloud.firestore {
       );
     }
 
+    function hasEffectivePermission(permission, defaultAllowed) {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let overrides = profile.get("permissions", {});
+      let matrix = exists(/databases/$(database)/documents/settings/rbac_matrix)
+        ? get(/databases/$(database)/documents/settings/rbac_matrix).data.get("matrix", {})
+        : {};
+      let rolePermissions = matrix.get(userRole(), {});
+      return overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
+    }
+
     function isHR() {
-      return isApproved() && userRole() in ["superadmin", "admin", "owner", "ceo", "rrhh"];
+      return isApproved() && hasEffectivePermission(
+        "recruitment_payroll",
+        userRole() in ["superadmin", "admin", "owner", "ceo", "rrhh"]
+      );
     }
 
     function isApproved() {
