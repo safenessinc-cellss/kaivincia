@@ -273,7 +273,8 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
             const policy = MENU_PERMISSION_POLICIES[item.href.split('?')[0]];
             return !policy || !canAccessPermission || canAccessPermission(policy.permission, policy.roles);
           })
-      }));
+      }))
+      .filter((group: any) => group.items.length > 0);
   }, [menuGroups, canAccessPermission]);
 
   const filteredMenuGroups = useMemo(() => {
