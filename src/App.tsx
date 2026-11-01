@@ -324,31 +324,31 @@ export default function App() {
           <Route path="tasks" element={<Tasks />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="chat" element={<Chat />} />
-          <Route path="cobranza" element={requirePermission('view_financial_dashboard', ['superadmin', 'admin', 'ceo', 'gestor'], <Cobranza />)} />
+          <Route path="cobranza" element={requirePermission('view_financial_dashboard', ['superadmin', 'admin', 'owner', 'ceo', 'gestor'], <Cobranza />)} />
           <Route path="call-center" element={requirePermission('telephony_config', ['superadmin', 'admin'], <CallCenterAdmin />)} />
           
           {/* New Modules */}
           <Route path="superadmin" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SuperAdmin />} />
           <Route path="appearance" element={userData?.role !== 'superadmin' && userData?.role !== 'admin' ? <Navigate to="/crm/dashboard" /> : <AppearancePanel />} />
-          <Route path="automations" element={requirePermission('automations_engine', ['superadmin', 'admin', 'ceo', 'gestor'], <Automations />)} />
+          <Route path="automations" element={requirePermission('automations_engine', ['superadmin', 'admin', 'owner', 'ceo', 'gestor'], <Automations />)} />
           <Route path="form-templates" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <FormTemplates />} />
           <Route path="integrations" element={requirePermission('telephony_config', ['superadmin', 'admin'], <Integrations />)} />
           <Route path="academy-internal" element={<AcademyInternal />} />
           <Route path="academy-external" element={<AcademyExternal />} />
           <Route path="digital-products" element={<DigitalProducts />} />
-          <Route path="calls" element={requirePermission('voip_calls', ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'], <CallSystem />)} />
+          <Route path="calls" element={requirePermission('voip_calls', ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'agent', 'collaborator'], <CallSystem />)} />
           
           {/* Administrativo */}
-          <Route path="recruitment" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <Recruitment />)} />
+          <Route path="recruitment" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'owner', 'ceo', 'rrhh'], <Recruitment />)} />
           <Route path="team" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <TeamManagement />)} />
           <Route path="payroll" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <Payroll />)} />
-          <Route path="accounting" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'ceo'], <Accounting />)} />
-          <Route path="client-management" element={requirePermission('client_base_global', ['superadmin', 'admin', 'ceo', 'gestor'], <ClientManagement />)} />
+          <Route path="accounting" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'owner', 'ceo'], <Accounting />)} />
+          <Route path="client-management" element={requirePermission('client_base_global', ['superadmin', 'admin', 'owner', 'ceo', 'gestor'], <ClientManagement />)} />
           <Route path="billing" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'ceo'], <Billing />)} />
           <Route path="operations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Operations />} />
           <Route path="marketing" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Marketing />} />
           <Route path="projects" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Projects />} />
-          <Route path="reports" element={requirePermission('export_databases', ['superadmin', 'admin', 'ceo', 'gestor'], <Reports />)} />
+          <Route path="reports" element={requirePermission('export_databases', ['superadmin', 'admin', 'owner', 'ceo', 'gestor'], <Reports />)} />
           <Route path="commissions" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Commissions />} />
           <Route path="tactical" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TacticalDeployment />} />
           <Route path="manuales" element={<SOPManuals />} />
@@ -356,7 +356,7 @@ export default function App() {
           <Route path="helpdesk" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Helpdesk />} />
           <Route path="drive" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <DocumentDrive />} />
           <Route path="audits" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <AuditsSGI />} />
-          <Route path="security" element={requirePermission('security_center', ['superadmin', 'admin', 'ceo'], <SecurityCenter />)} />
+          <Route path="security" element={requirePermission('security_center', ['superadmin', 'admin', 'owner', 'ceo'], <SecurityCenter />)} />
           <Route path="nervous" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <NervousSystem />} />
           <Route path="strategy-blog" element={<StrategyBlog />} />
           
