@@ -442,12 +442,12 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tasa de Cierre</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.closeRate ?? '0%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.closeRate ?? '—'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Clock className="w-6 h-6 text-purple-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Tiempo Promedio</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.avgCallTime ?? '00:00'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.avgCallTime ?? '—'}</p>
                       </div>
                     </>
                   )}
@@ -466,7 +466,7 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <Activity className="w-6 h-6 text-cyan-500/100 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Satisfacción</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.satisfaction ?? '5.0/5'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.satisfaction ?? '—'}</p>
                       </div>
                     </>
                   )}
@@ -480,7 +480,7 @@ export default function TeamManagement() {
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
                         <p className="text-xs text-gray-500 font-medium uppercase">Cumplimiento</p>
-                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.compliance ?? '100%'}</p>
+                        <p className="text-2xl font-bold text-gray-900">{activeMember?.kpis?.compliance ?? '—'}</p>
                       </div>
                       <div className="p-4 border border-gray-200 rounded-xl bg-white shadow-sm text-center">
                         <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
