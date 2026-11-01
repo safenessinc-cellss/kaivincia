@@ -61,26 +61,7 @@ export default function Recruitment() {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (data.length === 0) {
-        // Seed with required example
-        const example = {
-          id: 'example-1',
-          name: 'Carlos Ruiz',
-          role: 'Analista de Operaciones',
-          status: 'En Revisión',
-          aiScore: 92,
-          email: 'carlos.ruiz@example.com',
-          phone: '+34 600 000 000',
-          linkedin: 'https://linkedin.com/in/carlosruiz',
-          portfolio: 'https://carlosruiz.dev',
-          aiPros: ['Experiencia en automatización de procesos', 'Fuerte background en SQL y Python'],
-          aiCons: ['Poca experiencia en liderazgo de equipos directos'],
-          createdAt: new Date().toISOString()
-        };
-        setCandidates([example]);
-      } else {
-        setCandidates(data);
-      }
+      setCandidates(data);
       setLoadingCandidates(false);
     }, (error) => {
       console.warn("Candidates listener error:", error);
@@ -96,59 +77,7 @@ export default function Recruitment() {
     const q = query(collection(db, 'jobs'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      if (data.length === 0) {
-        // Seed with suggested jobs
-        const initialJobs = [
-          {
-            title: 'Appointment Setter Senior',
-            department: 'Ventas Nivel 1',
-            location: 'Remoto / Global',
-            type: 'Tiempo Completo',
-            description: 'Buscamos setters con experiencia en High Ticket Sales para calificar leads y agendar llamadas para nuestro equipo de closers.',
-            isUrgent: true,
-            status: 'active',
-            candidatesCount: 5,
-            daysActive: 3,
-            acquisitionCost: 15.5,
-            createdAt: new Date().toISOString()
-          },
-          {
-            title: 'Growth Specialist AI',
-            department: 'Growth & Ops',
-            location: 'Remoto',
-            type: 'Tiempo Completo',
-            description: 'Responsable de optimizar los flujos de automatización y el entrenamiento de modelos de IA locales.',
-            isUrgent: false,
-            status: 'active',
-            candidatesCount: 12,
-            daysActive: 8,
-            acquisitionCost: 45.2,
-            createdAt: new Date().toISOString()
-          },
-          {
-            title: 'Project Manager Operativo',
-            department: 'Gestión',
-            location: 'Híbrido / Madrid',
-            type: 'Tiempo Completo',
-            description: 'Liderar la implementación de sistemas Kaivincia en nuevos clientes corporativos.',
-            isUrgent: false,
-            status: 'active',
-            candidatesCount: 3,
-            daysActive: 1,
-            acquisitionCost: 0,
-            createdAt: new Date().toISOString()
-          }
-        ];
-        initialJobs.forEach(async job => {
-          try {
-            await addDoc(collection(db, 'jobs'), job);
-          } catch (e) {
-            console.error("Error seeding job", e);
-          }
-        });
-      } else {
-        setJobs(data);
-      }
+      setJobs(data);
       setLoadingJobs(false);
     }, (error) => {
       console.warn("Jobs listener error:", error);
