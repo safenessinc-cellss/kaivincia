@@ -63,8 +63,6 @@ export default function TelnyxAdminHub() {
   
   // Configuración global
   const [config, setConfig] = useState<TelnyxGlobalConfig>(DEFAULT_CONFIG);
-  const [isEditingKey, setIsEditingKey] = useState(false);
-  const [newApiKey, setNewApiKey] = useState('');
   const [connectionIdInput, setConnectionIdInput] = useState(DEFAULT_CONFIG.connectionId);
   const [connectionNameInput, setConnectionNameInput] = useState(DEFAULT_CONFIG.connectionName || '');
   const [connectionTypeInput, setConnectionTypeInput] = useState<'sip_credential' | 'call_control'>('sip_credential');
@@ -205,12 +203,7 @@ export default function TelnyxAdminHub() {
         avatar: u.photoURL || u.name?.[0] || 'C'
       }));
     }
-    return [
-      { id: 'usr_1', name: 'Marta García', email: 'marta.garcia@kaivincia.com', role: 'Closer B2B', avatar: 'M' },
-      { id: 'usr_2', name: 'Carlos Ruiz', email: 'carlos.ruiz@kaivincia.com', role: 'Ventas Senior', avatar: 'C' },
-      { id: 'usr_3', name: 'Ana Silva', email: 'ana.silva@kaivincia.com', role: 'Soporte & Éxito', avatar: 'A' },
-      { id: 'usr_4', name: 'Miguel Rojas', email: 'miguel.rojas@kaivincia.com', role: 'Operaciones', avatar: 'M' }
-    ];
+    return [];
   }, [contextUsers]);
 
   // Probar Conexión con Telnyx
@@ -220,7 +213,7 @@ export default function TelnyxAdminHub() {
     try {
       const { getAuth } = await import('firebase/auth');
       const authToken = await getAuth().currentUser?.getIdToken();
-      const res = await fetch('/api/telnyx/config', {
+      const res = await fetch('/api/telnyx-test', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,20 +254,23 @@ export default function TelnyxAdminHub() {
       // 1. Notificar al backend sobre cambios en key o connectionId
       const { getAuth } = await import('firebase/auth');
       const authToken = await getAuth().currentUser?.getIdToken();
-      await fetch('/api/telnyx/config', {
+      const configResponse = await fetch('/api/telnyx/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
         },
         body: JSON.stringify({
-          apiKey: newApiKey.trim() || undefined,
           connectionId: connectionIdInput.trim(),
           maxConcurrentCalls: maxCallsInput
         })
       });
+      const configResult = await configResponse.json().catch(() => ({}));
+      if (!configResponse.ok || !configResult.success) {
+        throw new Error(configResult.error || 'No se pudo guardar la configuración del backend.');
+      }
 
-      // 2. Guardar en Firestore (sin la key en texto plano)
+      // 2. Guardar en Firestore (sin secretos del proveedor)
       const updatedConfigData: Partial<TelnyxGlobalConfig> = {
         connectionId: connectionIdInput.trim(),
         connectionName: connectionNameInput.trim() || 'Kaivincia-Platform-Production',
@@ -284,11 +280,6 @@ export default function TelnyxAdminHub() {
         updatedAt: new Date().toISOString()
       };
 
-      if (newApiKey.trim()) {
-        const masked = `${newApiKey.trim().slice(0, 7)}••••••••••••••••${newApiKey.trim().slice(-6)}`;
-        updatedConfigData.apiKeyMasked = masked;
-      }
-
       if (loginTokenInput.trim()) {
         updatedConfigData.login_token = loginTokenInput.trim();
         updatedConfigData.webrtcJwt = loginTokenInput.trim();
@@ -297,9 +288,7 @@ export default function TelnyxAdminHub() {
 
       await setDoc(doc(db, 'settings', 'telnyx_config'), updatedConfigData, { merge: true });
 
-      setIsEditingKey(false);
-      setNewApiKey('');
-      setSaveSuccessMsg('¡Configuración de Telnyx guardada y aplicada con éxito!');
+      setSaveSuccessMsg('Configuración Telnyx guardada. La API Key se administra en las variables de entorno de Vercel.');
       setTimeout(() => setSaveSuccessMsg(''), 4000);
     } catch (err: any) {
       alert(`Error al guardar configuración: ${err.message}`);
@@ -917,54 +906,17 @@ export default function TelnyxAdminHub() {
                 </div>
               </div>
 
-              {/* TELNYX_API_KEY (Segura / Ofuscada) */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/70 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-amber-400" />
-                    <label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                      TELNYX_API_KEY (Secreto del Servidor)
-                    </label>
-                  </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                    Cifrada en Backend
-                  </span>
+              {/* API Key gestionada exclusivamente como variable de entorno */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-950/70 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-400" />
+                  <label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    TELNYX_API_KEY · Secreto del servidor
+                  </label>
                 </div>
-
-                {!isEditingKey ? (
-                  <div className="flex items-center justify-between gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3.5 py-2 rounded-xl">
-                    <span className="font-mono text-xs text-slate-400 font-bold tracking-wider select-none">
-                      {config.apiKeyMasked || 'KEY01A0••••••••••••••••••••••••'}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingKey(true)}
-                      className="text-xs font-black uppercase text-cyan-500 hover:text-cyan-400 underline cursor-pointer"
-                    >
-                      Reemplazar Clave
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="password"
-                      value={newApiKey}
-                      onChange={(e) => setNewApiKey(e.target.value)}
-                      placeholder="Pega aquí la nueva TELNYX_API_KEY (KEY01...)"
-                      className="w-full bg-white dark:bg-slate-900 border border-cyan-500/60 rounded-xl px-3.5 py-2 text-xs font-mono text-white focus:outline-none"
-                    />
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span>Nunca se mostrará nuevamente tras guardarla por seguridad.</span>
-                      <button
-                        type="button"
-                        onClick={() => { setIsEditingKey(false); setNewApiKey(''); }}
-                        className="text-slate-400 hover:text-white cursor-pointer"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  </div>
-                )}
+                <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                  Por seguridad, esta clave no se introduce ni se almacena desde el navegador. Configúrala en Vercel → Project Settings → Environment Variables con el nombre <code>TELNYX_API_KEY</code> y vuelve a desplegar.
+                </p>
               </div>
 
               {/* TELNYX WebRTC SDK — login_token (JWT) */}
