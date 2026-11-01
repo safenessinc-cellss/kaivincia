@@ -212,8 +212,8 @@ export default function SuperAdmin() {
   };
 
   const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
-    const user = users.find(u => u.id === userId);
-    const currentPerms = user?.permissions || {};
+    const targetUser = users.find(u => u.id === userId);
+    const currentPerms = targetUser?.permissions || {};
     try {
       const newPerms = { ...currentPerms, [module]: hasAccess };
 
@@ -229,8 +229,8 @@ export default function SuperAdmin() {
       await updateDoc(doc(db, 'users', userId), { permissions: newPerms });
 
       await addDoc(collection(db, 'audit_logs'), {
-        userId: user?.uid || 'unknown',
-        userEmail: user?.email || null,
+        userId: auth.currentUser?.uid || 'unknown',
+        userEmail: auth.currentUser?.email || null,
         action: 'UPDATE_USER_PERMISSIONS',
         resourceType: 'User',
         resourceId: userId,
