@@ -4,7 +4,7 @@
  * Documentación oficial: https://developers.telnyx.com/docs/webrtc
  */
 
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { TelnyxRTC } from '@telnyx/webrtc';
 
@@ -33,28 +33,8 @@ class TelnyxWebRTCService {
   private listeners: Array<(state: TelnyxWebRTCState) => void> = [];
 
   constructor() {
-    this.initTokenSync();
-  }
-
-  /**
-   * Sincroniza el login_token (JWT) desde Firestore (settings/telnyx_config)
-   */
-  private initTokenSync() {
-    try {
-      onSnapshot(doc(db, 'settings', 'telnyx_config'), (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const token = (data.login_token || data.webrtcJwt || '').trim();
-          if (token && token !== this.state.loginToken) {
-            this.setLoginToken(token, false);
-          }
-        }
-      }, (err) => {
-        console.warn('[TelnyxWebRTC] No se pudo sincronizar login_token desde Firestore:', err);
-      });
-    } catch (err) {
-      console.warn('[TelnyxWebRTC] Error al inicializar listener de Firestore:', err);
-    }
+    // WebRTC JWTs are issued per authenticated operator by /api/telnyx-token.
+    // Never hydrate a shared login token into another user's browser session.
   }
 
   /**
@@ -104,8 +84,14 @@ class TelnyxWebRTCService {
       }
 
       if (data.token) {
-        await this.setLoginToken(data.token, true);
-        await this.initClient(data.token);
+        // Per-operator JWTs stay in memory and are never written to the shared
+        // settings/telnyx_config document.
+        await this.setLoginToken(data.token, false);
+        if (this.client?.updateToken && this.state.isInitialized) {
+          this.client.updateToken(data.token);
+        } else {
+          await this.initClient(data.token);
+        }
         return {
           success: true,
           token: data.token,
@@ -195,6 +181,7 @@ class TelnyxWebRTCService {
             const newToken = data.token;
             if (!newToken) throw new Error('Respuesta sin token');
 
+            await this.setLoginToken(newToken, false);
             this.client!.updateToken(newToken);
             console.log('[TelnyxWebRTC] ✅ Token renovado correctamente');
           } catch (err: any) {
@@ -280,6 +267,23 @@ class TelnyxWebRTCService {
     this.notify();
   }
 
+  /** Disconnects and clears all in-memory credentials when the operator changes. */
+  public clearSession(): void {
+    try { this.currentCall?.hangup?.(); } catch {}
+    try { this.client?.disconnect?.(); } catch {}
+    this.currentCall = null;
+    this.client = null;
+    TELNYX_WEBRTC_LOGIN_TOKEN = '';
+    this.state = {
+      isInitialized: false,
+      isConnected: false,
+      loginToken: '',
+      activeCallId: null,
+      lastError: null
+    };
+    this.notify();
+  }
+
   public subscribe(listener: (state: TelnyxWebRTCState) => void): () => void {
     this.listeners.push(listener);
     listener(this.state);
@@ -295,6 +299,6 @@ class TelnyxWebRTCService {
 
 export const telnyxWebRTCService = new TelnyxWebRTCService();
 
-export const updateTelnyxLoginToken = (jwt: string, persistToFirestore = true) => {
+export const updateTelnyxLoginToken = (jwt: string, persistToFirestore = false) => {
   return telnyxWebRTCService.setLoginToken(jwt, persistToFirestore);
 };
