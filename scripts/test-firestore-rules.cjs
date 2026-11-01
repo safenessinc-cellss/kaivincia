@@ -246,6 +246,9 @@ async function main() {
     await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { userId: 'hr' }));
     await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Contratado automáticamente' }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
+    await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-attendance')));
+    await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-attendance')));
+    await assertFails(getDoc(doc(hrDenied, 'attendance_logs', 'alice-attendance')));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
     await assertFails(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
     await assertFails(setDoc(doc(alice, 'attendance_logs', 'backdated-attendance'), {
@@ -256,6 +259,20 @@ async function main() {
       userId: 'alice', userName: 'alice@example.test', type: 'in',
       timestamp: serverTimestamp(), source: 'web'
     }));
+    await assertSucceeds(setDoc(doc(alice, 'attendance_logs', 'server-timestamp-checkout'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'out',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
+    await assertFails(setDoc(doc(alice, 'attendance_logs', 'spoofed-attendance'), {
+      userId: 'bob', userName: 'alice@example.test', type: 'in',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
+    await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-absence')));
+    await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-absence')));
+    await assertFails(getDoc(doc(hrDenied, 'absence_requests', 'alice-absence')));
+    await assertFails(updateDoc(doc(alice, 'absence_requests', 'alice-absence'), {
+      status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: 'alice', reviewerEmail: 'alice@example.test'
+    }));
     await assertSucceeds(getDoc(doc(hr, 'absence_requests', 'alice-absence')));
     await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), {
       status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: 'hr', reviewerEmail: 'hr@example.test'
@@ -264,6 +281,16 @@ async function main() {
     await assertSucceeds(setDoc(doc(alice, 'absence_requests', 'alice-new-absence'), {
       type: 'Día Libre', startDate: '2026-11-03', endDate: '2026-11-04',
       reason: 'Personal', userId: 'alice', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(alice, 'absence_requests', 'invalid-date-absence'), {
+      type: 'Día Libre', startDate: '2026-11-05', endDate: '2026-11-04',
+      reason: 'Invalid range', userId: 'alice', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(alice, 'absence_requests', 'forged-absence'), {
+      type: 'Día Libre', startDate: '2026-11-03', endDate: '2026-11-04',
+      reason: 'Forged owner', userId: 'bob', userName: 'alice@example.test',
       status: 'pending', createdAt: serverTimestamp()
     }));
     await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
