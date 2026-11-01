@@ -49,7 +49,7 @@ export default async function handler(req: any, res: any) {
 
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
     const operator = operatorSnap.data() || {};
-    if (!operatorSnap.exists || operator.activo === false || !Array.isArray(operator.numerosAsignados)) {
+    if (!operatorSnap.exists || operator.activo === false) {
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ success: true, numbers: [], message: 'No hay números asignados a este operador.' }));
@@ -62,12 +62,16 @@ export default async function handler(req: any, res: any) {
     const assignedPhones: string[] = Array.isArray(assignment.authorizedNumbers)
       ? assignment.authorizedNumbers.filter((value: unknown): value is string => typeof value === 'string')
       : [];
-    const assignedIds: string[] = operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string');
+    const assignedIds: string[] = Array.isArray(operator.numerosAsignados)
+      ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
+      : [];
     const inventory = await adminDb.collection('telnyx_phone_numbers').get();
     const numbers = inventory.docs.filter((snap: any) => {
       const data = snap.data() || {};
       const phone = data.phoneNumber || data.phone_number || '';
-      return assignedIds.includes(snap.id) || assignedPhones.includes(phone);
+      const status = String(data.status || '').toLowerCase();
+      const isUsable = !['disabled', 'deleted', 'inactive', 'released'].includes(status);
+      return isUsable && (assignedIds.includes(snap.id) || assignedPhones.includes(phone));
     })
       .filter((snap: any) => snap.exists)
       .map((snap: any) => {
