@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { collection, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { CheckCircle2, UploadCloud, FileText, Image as ImageIcon, X, Bot, Loader2, Circle, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, FileText, X, Loader2, Circle, ArrowLeft } from 'lucide-react';
 import { LOGO_FULL } from '../constants/images';
 import * as pdfjsLib from 'pdfjs-dist';
 import { useSearchParams, useNavigate } from 'react-router-dom';
@@ -18,7 +18,7 @@ export default function Apply() {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [aiStatus, setAiStatus] = useState('');
+  const [submissionStatus, setSubmissionStatus] = useState('');
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -36,11 +36,8 @@ export default function Apply() {
   const [currentSkill, setCurrentSkill] = useState('');
 
   // Files
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialRole) {
@@ -113,10 +110,10 @@ export default function Apply() {
 
     setLoading(true);
     try {
-      setAiStatus('Leyendo currículum...');
+      setSubmissionStatus('Leyendo currículum...');
       const resumeText = await extractTextFromFile(resumeFile);
       
-      setAiStatus('Guardando postulación para revisión de RR. HH....');
+      setSubmissionStatus('Guardando postulación...');
       await addDoc(collection(db, 'candidates'), {
         ...formData,
         jobId: jobId || 'general-pool',
@@ -133,7 +130,7 @@ export default function Apply() {
     } catch (error) {
       console.error("Submission error:", error);
       handleFirestoreError(error, OperationType.CREATE, 'candidates');
-      setAiStatus('No se pudo guardar la postulación. Verifica tu conexión e inténtalo nuevamente.');
+      setSubmissionStatus('No se pudo guardar la postulación. Verifica tu conexión e inténtalo nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -286,42 +283,10 @@ export default function Apply() {
 
             {/* Tab 2: File Upload */}
             <div className={activeTab === 1 ? 'block' : 'hidden'}>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Documentación y Análisis IA</h3>
-              <p className="text-gray-500 text-sm mb-6">Sube tus documentos. Nuestra IA analizará tu perfil para agilizar el proceso.</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Currículum y revisión de RR. HH.</h3>
+              <p className="text-gray-500 text-sm mb-6">Adjunta tu CV. Extraeremos su texto para que el equipo de Recursos Humanos pueda revisar tu postulación.</p>
               
               <div className="space-y-6">
-                {/* Photo Upload */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Foto de Perfil (.jpg, .png)</label>
-                  <div 
-                    onClick={() => photoInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${photoFile ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:bg-gray-50 hover:border-[#00F0FF]'}`}
-                  >
-                    <input 
-                      type="file" 
-                      ref={photoInputRef} 
-                      onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} 
-                      accept=".jpg,.jpeg,.png" 
-                      className="hidden" 
-                    />
-                    {photoFile ? (
-                      <div className="flex flex-col items-center gap-2 text-green-700">
-                        <div className="bg-green-100 p-2 rounded-full">
-                          <CheckCircle2 className="w-6 h-6 text-green-600" />
-                        </div>
-                        <span className="font-bold">{photoFile.name}</span>
-                        <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-medium">Foto cargada correctamente</span>
-                      </div>
-                    ) : (
-                      <>
-                        <UploadCloud className="w-10 h-10 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-600 font-medium">Haz clic para subir tu foto</p>
-                        <p className="text-xs text-gray-400 mt-1">Máx 5MB</p>
-                      </>
-                    )}
-                  </div>
-                </div>
-
                 {/* Resume Upload */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Currículum Vitae (.pdf / .docx)</label>
@@ -342,14 +307,14 @@ export default function Apply() {
                           <CheckCircle2 className="w-8 h-8 text-green-600" />
                         </div>
                         <span className="font-bold text-gray-900">{resumeFile.name}</span>
-                        <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-medium">CV listo para análisis de IA</span>
+                        <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-medium">CV seleccionado para extraer texto</span>
                       </div>
                     ) : (
                       <>
                         <FileText className="w-12 h-12 text-[#00F0FF] opacity-50 mb-3" />
                         <p className="text-base text-gray-700 font-medium">Sube tu CV en formato PDF o DOCX</p>
                         <p className="text-sm text-gray-500 mt-1 text-center max-w-xs">
-                          Nuestra Inteligencia Artificial evaluará tu compatibilidad y generará tu Match Score de inmediato.
+                          Se conservará el texto extraído del CV para la revisión interna. El archivo original no se archiva.
                         </p>
                       </>
                     )}
@@ -357,24 +322,24 @@ export default function Apply() {
                 </div>
               </div>
 
-              {/* AI Progress Indicator */}
+              {/* Application processing indicator */}
               {loading && (
                 <div className="mt-6 p-5 bg-blue-50 rounded-xl border border-blue-100 shadow-inner">
                   <h4 className="text-sm font-bold text-blue-900 mb-4 flex items-center gap-2">
-                    <Bot className="w-5 h-5 animate-pulse text-blue-600" /> Procesando tu postulación con IA
+                    <FileText className="w-5 h-5 text-blue-600" /> Preparando tu postulación
                   </h4>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      {aiStatus === 'Leyendo currículum...' ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                      <span className={`text-sm ${aiStatus === 'Leyendo currículum...' ? 'text-blue-800 font-bold' : 'text-gray-500'}`}>1. Extrayendo texto del documento PDF</span>
+                      {submissionStatus === 'Leyendo currículum...' ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                      <span className={`text-sm ${submissionStatus === 'Leyendo currículum...' ? 'text-blue-800 font-bold' : 'text-gray-500'}`}>1. Extrayendo texto del CV</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      {aiStatus === 'Leyendo currículum...' ? <Circle className="w-5 h-5 text-gray-300" /> : aiStatus === 'Analizando perfil con Inteligencia Artificial...' ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : <CheckCircle2 className="w-5 h-5 text-green-500" />}
-                      <span className={`text-sm ${aiStatus === 'Analizando perfil con Inteligencia Artificial...' ? 'text-blue-800 font-bold' : aiStatus === 'Guardando postulación...' ? 'text-gray-500' : 'text-gray-400'}`}>2. Análisis de IA (Extracción de Skills y Score)</span>
+                      {submissionStatus === 'Guardando postulación...' ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : submissionStatus === 'Leyendo currículum...' ? <Circle className="w-5 h-5 text-gray-300" /> : <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                      <span className={`text-sm ${submissionStatus === 'Guardando postulación...' ? 'text-blue-800 font-bold' : 'text-gray-500'}`}>2. Guardando la solicitud</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      {aiStatus === 'Guardando postulación...' ? <Loader2 className="w-5 h-5 text-blue-500 animate-spin" /> : aiStatus === '' ? <Circle className="w-5 h-5 text-gray-300" /> : <Circle className="w-5 h-5 text-gray-300" />}
-                      <span className={`text-sm ${aiStatus === 'Guardando postulación...' ? 'text-blue-800 font-bold' : 'text-gray-400'}`}>3. Guardando perfil en la base de datos</span>
+                      <Circle className="w-5 h-5 text-gray-300" />
+                      <span className="text-sm text-gray-400">3. Revisión manual por Recursos Humanos</span>
                     </div>
                   </div>
                 </div>
