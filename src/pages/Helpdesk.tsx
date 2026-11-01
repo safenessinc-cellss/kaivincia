@@ -36,7 +36,7 @@ import {
   closeTicket 
 } from '../services/helpdeskService';
 
-export default function Helpdesk() {
+export default function Helpdesk({ canManage = false }: { canManage?: boolean }) {
   const { t } = useLanguage();
   const { user, loading: authLoading, userData } = useAuth();
 
@@ -66,7 +66,7 @@ export default function Helpdesk() {
   const [replyText, setReplyText] = useState('');
 
   const currentRole = userData?.role || userRole;
-  const isAdminOrManager = ['superadmin', 'admin', 'ceo', 'gestor'].includes(currentRole);
+  const isAdminOrManager = canManage;
 
   // 1. Obtener rol del usuario si es admin
   useEffect(() => {
@@ -85,7 +85,8 @@ export default function Helpdesk() {
       }
       // Lista de operadores para asignación
       const staff = snapshot.docs
-        .filter(d => ['superadmin', 'admin', 'ceo', 'gestor', 'tlmk'].includes(d.data().role))
+        .filter(d => ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(d.data().role || '').toLowerCase().trim()))
+        .filter(d => ['approved', 'active'].includes(String(d.data().status || '').toLowerCase()))
         .map(d => ({
           uid: d.id,
           email: d.data().email || 'Sin correo',
