@@ -22,6 +22,7 @@ export interface TelnyxWebRTCState {
 class TelnyxWebRTCService {
   private client: any = null;
   private currentCall: any = null;
+  private tokenRequestVersion = 0;
   private state: TelnyxWebRTCState = {
     isInitialized: false,
     isConnected: false,
@@ -65,22 +66,24 @@ class TelnyxWebRTCService {
    */
   public async fetchFreshTokenFromBackend(): Promise<{ success: boolean; token?: string; message: string }> {
     try {
+      const requestVersion = ++this.tokenRequestVersion;
       const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Debes iniciar sesión para generar un token VoIP individual.');
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await currentUser.getIdToken()}`
       };
-      if (currentUser) {
-        const idToken = await currentUser.getIdToken();
-        if (idToken) {
-          headers['Authorization'] = `Bearer ${idToken}`;
-        }
-      }
 
       const res = await fetch('/api/telnyx-token', { headers });
       const data = await res.json();
 
       if (!res.ok || data.error) {
         throw new Error(data.error || `HTTP ${res.status}`);
+      }
+
+      // Ignore responses from an earlier account/session or a superseded request.
+      if (requestVersion !== this.tokenRequestVersion || auth.currentUser?.uid !== currentUser.uid) {
+        return { success: false, message: 'La sesión cambió; solicita un nuevo token para el operador actual.' };
       }
 
       if (data.token) {
@@ -269,6 +272,7 @@ class TelnyxWebRTCService {
 
   /** Disconnects and clears all in-memory credentials when the operator changes. */
   public clearSession(): void {
+    this.tokenRequestVersion += 1;
     try { this.currentCall?.hangup?.(); } catch {}
     try { this.client?.disconnect?.(); } catch {}
     this.currentCall = null;
