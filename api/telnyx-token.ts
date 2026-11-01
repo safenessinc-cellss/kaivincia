@@ -64,12 +64,12 @@ export default async function handler(req: any, res: any) {
       return;
     }
     const operator = operatorSnap.data() || {};
-    if (operator.activo === false || !operator.telnyxCredentialId) {
+    if (operator.activo !== true || !operator.telnyxCredentialId) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'Operador desactivado o sin credencial SIP asignada.' }));
       return;
     }
-    if (operator.permiteSalientes === false && operator.permiteEntrantes === false) {
+    if (operator.permiteSalientes !== true && operator.permiteEntrantes !== true) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'El operador no tiene permisos de llamadas.' }));
       return;
@@ -82,19 +82,22 @@ export default async function handler(req: any, res: any) {
 
     const credentialId = String(operator.telnyxCredentialId);
     const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(credentialId).get();
-    if (credentialSnap.exists) {
-      const credential = credentialSnap.data() || {};
-      const assignedUid = credential.assignedTo || credential.operadorUid || null;
-      if (assignedUid && assignedUid !== authUser.uid) {
-        res.statusCode = 403;
-        res.end(JSON.stringify({ error: 'La credencial SIP pertenece a otro operador.' }));
-        return;
-      }
-      if (credential.status === 'inactive' || credential.activo === false) {
-        res.statusCode = 403;
-        res.end(JSON.stringify({ error: 'La credencial SIP está desactivada.' }));
-        return;
-      }
+    if (!credentialSnap.exists) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'La credencial SIP no está registrada en el CRM. Reasígnala desde la administración VoIP.' }));
+      return;
+    }
+    const credential = credentialSnap.data() || {};
+    const assignedUid = credential.assignedTo || credential.operadorUid || null;
+    if (assignedUid !== authUser.uid) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'La credencial SIP no está asignada exclusivamente a este operador.' }));
+      return;
+    }
+    if (credential.status !== 'active' && credential.activo !== true) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'La credencial SIP está desactivada o no tiene un estado válido.' }));
+      return;
     }
 
     const token = await TelnyxBackendService.generateAgentJwt(credentialId);
@@ -110,12 +113,13 @@ export default async function handler(req: any, res: any) {
     const inventory = await adminDb.collection('telnyx_phone_numbers').get();
     const numbers = inventory.docs
       .filter((snap: any) => {
-        if (PRIVILEGED_ROLES.has(role)) return true;
         const data = snap.data() || {};
         const phone = data.phoneNumber || data.phone_number || '';
         const status = String(data.status || '').toLowerCase();
         const isUsable = !['disabled', 'deleted', 'inactive', 'released'].includes(status);
-        return isUsable && (numberIds.includes(snap.id) || assignedPhones.includes(phone));
+        if (!isUsable) return false;
+        if (PRIVILEGED_ROLES.has(role)) return true;
+        return numberIds.includes(snap.id) || assignedPhones.includes(phone);
       })
       .map((snap: any) => {
         const data = snap.data() || {};
