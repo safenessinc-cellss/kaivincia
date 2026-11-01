@@ -168,3 +168,16 @@ Base protegida: `eab664c88b67fd191496eb4bbfffe966438e3c29`
 5. Normalizar contrato de Task y flujo de creación desde calendario.
 
 **No se han cambiado reglas Firestore en esta fase.** Las consultas y estructuras de datos deben migrarse antes para no bloquear operaciones existentes.
+
+
+### Correcciones adicionales de fase 2 — panel de administración y pipeline
+- `src/pages/Pipeline.tsx`: eliminados leads de muestra que aparecían como clientes reales al estar vacía la colección; teléfono, responsable, campaña, importe y health score ya no se inventan; llamada y WhatsApp se deshabilitan si no existe teléfono.
+- `src/components/CRMLayout.tsx`: quitados grupos de navegación duplicados para gestor/CEO/SuperAdmin.
+- `src/pages/SuperAdmin.tsx`: las políticas de sesión/2FA sin persistencia están deshabilitadas y explicadas; la sincronización global no simula éxito y muestra estado no verificado; la asignación de clientes aclara que todavía no aplica aislamiento en Firestore; invitaciones indican que sólo se registra una solicitud, sin envío de correo; eliminación aclara que borra el perfil CRM, no la cuenta Firebase; logs usan UID/email del actor autenticado y ya no simulan IP localhost; errores al guardar permisos restauran el estado anterior.
+- Etiquetas “Guardado en Firestore” y “Marco de referencia ISO 27001 / SOC 2 (sin certificación)” sustituyen afirmaciones de sincronización/certificación no demostradas.
+
+### Validación automatizada
+- Añadido `.github/workflows/quality-gates.yml`: TypeScript, unit tests y build son gates; lint se informa sin bloquear por deuda heredada.
+- El run de GitHub Actions para el HEAD `be505870756b3cdec536640e4475b4a2ab2399ab` quedó en cola/pending al momento de esta revisión; todavía no hay resultado de jobs que permita afirmar tests aprobados.
+- Preview Vercel anterior del commit `a0098de8a2b0f311c2f6a62099646384b18d965c` terminó READY. El preview posterior del commit `d5ba5142c1a88ebce587aaeb2bc970ad5833596c` seguía BUILDING; no equivale al HEAD actual y debe repetirse tras estabilizar el código.
+- Producción sigue fuera de alcance y no ha recibido alias ni promoción desde esta rama.
