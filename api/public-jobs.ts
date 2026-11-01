@@ -1,4 +1,4 @@
-import { adminDb } from '../server/_lib/firebaseAdmin.js';
+import { adminDb, isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
 
 function toIsoDate(value: any): string {
   if (value && typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -16,6 +16,10 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
+  if (!isFirebaseAdminConfigured) {
+    return res.status(503).json({ error: 'Las vacantes no están configuradas en este entorno.', jobs: [] });
   }
 
   try {
