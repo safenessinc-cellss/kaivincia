@@ -227,7 +227,6 @@ export default function Apply() {
       setAiStatus('No se pudo guardar la postulación. Verifica tu conexión e inténtalo nuevamente.');
     } finally {
       setLoading(false);
-      setAiStatus('');
     }
   };
 
