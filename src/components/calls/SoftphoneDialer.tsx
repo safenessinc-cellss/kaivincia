@@ -870,10 +870,10 @@ export default function SoftphoneDialer({
           } catch {}
         }
       }}
-      className={`ios27-softphone bg-slate-950/95 backdrop-blur-xl text-white border border-slate-800 shadow-2xl transition-all ${
+      className={`ios27-softphone bg-white/95 backdrop-blur-2xl text-slate-900 border border-white/80 ring-1 ring-slate-200/70 shadow-xl transition-all ${
         isFloating
           ? isMobile
-            ? 'fixed bottom-0 left-0 right-0 w-full rounded-t-3xl rounded-b-none border-b-0 border-x-0 border-t border-slate-800 p-4 z-50 shadow-[0_-10px_35px_rgba(0,0,0,0.85)]'
+            ? 'fixed bottom-0 left-0 right-0 w-full rounded-t-3xl rounded-b-none border-b-0 border-x-0 border-t border-slate-200 p-4 z-50 shadow-[0_-10px_35px_rgba(0,0,0,0.85)]'
             : 'fixed bottom-6 right-6 z-50 w-84 sm:w-92 rounded-3xl p-3.5 sm:p-4 select-none shadow-[0_20px_40px_rgba(0,0,0,0.7)]'
           : 'relative rounded-3xl p-4 sm:p-6'
       } ${className}`}
@@ -900,14 +900,14 @@ export default function SoftphoneDialer({
               <GripHorizontal className="w-4 h-4" />
             </div>
           )}
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-slate-900 border border-slate-800 text-[10px] font-mono shrink-0">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200 text-[10px] font-mono shrink-0">
             <span className={`w-2 h-2 rounded-full ${
               callStatus === 'idle' ? 'bg-emerald-400' :
               callStatus === 'calling' ? 'bg-cyan-400 animate-ping' :
               callStatus === 'connected' ? 'bg-emerald-400 animate-pulse' :
               callStatus === 'on_hold' ? 'bg-amber-400 animate-bounce' : 'bg-rose-400'
             }`} />
-            <span className="font-bold text-white uppercase text-[9px]">
+            <span className="font-bold text-slate-900 uppercase text-[9px]">
               {callStatus === 'idle' ? 'DISP' :
                callStatus === 'calling' ? 'LLAMANDO' :
                callStatus === 'connected' ? formatTimer(duration) :
@@ -915,16 +915,16 @@ export default function SoftphoneDialer({
             </span>
           </div>
           <div className="flex-1 flex items-center justify-center gap-1.5 px-1 min-w-0">
-            <span onClick={copyPhoneNumber} className="truncate font-mono text-xs font-bold text-white text-center cursor-pointer hover:text-cyan-300 transition-colors" title="Clic para copiar número">
+            <span onClick={copyPhoneNumber} className="truncate font-mono text-xs font-bold text-slate-900 text-center cursor-pointer hover:text-cyan-300 transition-colors" title="Clic para copiar número">
               {phoneNumber || <span className="text-slate-500 text-[11px]">Sin número</span>}
             </span>
             {phoneNumber && (
-              <button type="button" onClick={copyPhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0" title="Copiar número">
+              <button type="button" onClick={copyPhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-100/80 transition-colors cursor-pointer shrink-0" title="Copiar número">
                 <Copy className="w-3 h-3" />
               </button>
             )}
             {callStatus === 'idle' && (
-              <button type="button" onClick={pastePhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-800/80 transition-colors cursor-pointer shrink-0" title="Pegar número">
+              <button type="button" onClick={pastePhoneNumber} className="p-1 text-slate-400 hover:text-cyan-300 rounded hover:bg-slate-100/80 transition-colors cursor-pointer shrink-0" title="Pegar número">
                 <ClipboardPaste className="w-3 h-3" />
               </button>
             )}
@@ -934,15 +934,15 @@ export default function SoftphoneDialer({
               <Phone className="w-3.5 h-3.5 fill-current" />
             </button>
           ) : (
-            <button type="button" onClick={handleHangup} className="p-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white transition-all cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.3)] active:scale-95 shrink-0" title="Colgar">
+            <button type="button" onClick={handleHangup} className="p-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-slate-900 transition-all cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.3)] active:scale-95 shrink-0" title="Colgar">
               <PhoneOff className="w-3.5 h-3.5 fill-current" />
             </button>
           )}
-          <button type="button" onClick={() => toggleMinimized(false)} className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors cursor-pointer shrink-0" title="Expandir discador completo">
+          <button type="button" onClick={() => toggleMinimized(false)} className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-colors cursor-pointer shrink-0" title="Expandir discador completo">
             <Maximize2 className="w-3.5 h-3.5" />
           </button>
           {isFloating && (
-            <button type="button" onClick={handleClose} className="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-rose-400 border border-slate-800 transition-colors cursor-pointer shrink-0" title="Cerrar discador flotante">
+            <button type="button" onClick={handleClose} className="p-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-400 hover:text-rose-400 border border-slate-200 transition-colors cursor-pointer shrink-0" title="Cerrar discador flotante">
               <X className="w-3.5 h-3.5" />
             </button>
           )}
@@ -951,13 +951,13 @@ export default function SoftphoneDialer({
         <>
           {isFloating && (
             <div className="absolute top-3 right-3 flex items-center gap-1 z-20">
-              <button type="button" onClick={() => toggleMinimized(true)} className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title="Minimizar discador">
+              <button type="button" onClick={() => toggleMinimized(true)} className="p-1.5 text-slate-400 hover:text-slate-900 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title="Minimizar discador">
                 <Minimize2 className="w-3.5 h-3.5" />
               </button>
-              <button type="button" onClick={() => setIsFloatingExpanded(!isFloatingExpanded)} className="p-1.5 text-slate-400 hover:text-cyan-400 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title={isFloatingExpanded ? 'Contraer configuración' : 'Expandir configuración'}>
+              <button type="button" onClick={() => setIsFloatingExpanded(!isFloatingExpanded)} className="p-1.5 text-slate-400 hover:text-cyan-400 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title={isFloatingExpanded ? 'Contraer configuración' : 'Expandir configuración'}>
                 <Sparkles className="w-3.5 h-3.5" />
               </button>
-              <button type="button" onClick={handleClose} className="p-1.5 text-slate-400 hover:text-rose-400 rounded-full bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-colors cursor-pointer" title="Cerrar marcador">
+              <button type="button" onClick={handleClose} className="p-1.5 text-slate-400 hover:text-rose-400 rounded-full bg-white border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer" title="Cerrar marcador">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -974,7 +974,7 @@ export default function SoftphoneDialer({
                 <Phone className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-tight italic flex items-center gap-1.5">
+                <h3 className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-tight italic flex items-center gap-1.5">
                   <span>{t('voip.softphone_title', 'Softphone WebRTC')}</span>
                   {isFloating && (
                     <span className="text-[8px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-mono">
@@ -998,7 +998,7 @@ export default function SoftphoneDialer({
 
             {!isFloating && (
               <div className="flex items-center gap-2">
-                <button type="button" onClick={() => toggleDialerMode(dialerMode === 'compact' ? 'full' : 'compact')} className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors cursor-pointer" title={dialerMode === 'compact' ? 'Mostrar configuración completa' : 'Modo compacto'}>
+                <button type="button" onClick={() => toggleDialerMode(dialerMode === 'compact' ? 'full' : 'compact')} className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 transition-colors cursor-pointer" title={dialerMode === 'compact' ? 'Mostrar configuración completa' : 'Modo compacto'}>
                   {dialerMode === 'compact' ? <Settings className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
                 </button>
                 {hasValidSipCredentials ? (
@@ -1012,7 +1012,7 @@ export default function SoftphoneDialer({
                     Pendiente
                   </span>
                 )}
-                <button type="button" onClick={handleDemoTestCall} disabled={callStatus !== 'idle'} className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[9px] font-bold flex items-center gap-1 transition-all disabled:opacity-40 cursor-pointer active:scale-95">
+                <button type="button" onClick={handleDemoTestCall} disabled={callStatus !== 'idle'} className="px-2 py-0.5 rounded-lg bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[9px] font-bold flex items-center gap-1 transition-all disabled:opacity-40 cursor-pointer active:scale-95">
                   <Sparkles className="w-2.5 h-2.5 text-amber-400" />
                   <span>Demo</span>
                 </button>
@@ -1065,7 +1065,7 @@ export default function SoftphoneDialer({
                   <span>{t('voip.call', 'Llamar')}</span>
                 </button>
                 {isFloating && (
-                  <button type="button" onClick={handleDemoTestCall} className="p-2.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-xl transition-all cursor-pointer" title="Llamada de prueba">
+                  <button type="button" onClick={handleDemoTestCall} className="p-2.5 bg-white hover:bg-slate-100 text-amber-400 border border-slate-200 rounded-xl transition-all cursor-pointer" title="Llamada de prueba">
                     <Sparkles className="w-4 h-4" />
                   </button>
                 )}
@@ -1073,19 +1073,19 @@ export default function SoftphoneDialer({
             ) : (
               <div className="space-y-2">
                 <div className="grid grid-cols-4 gap-1.5">
-                  <button type="button" onClick={toggleMute} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isMuted ? 'bg-rose-500/20 border-rose-500/40 text-rose-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isMuted ? 'Activar micrófono (M)' : 'Silenciar (M)'}>
+                  <button type="button" onClick={toggleMute} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isMuted ? 'bg-rose-500/20 border-rose-500/40 text-rose-300' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isMuted ? 'Activar micrófono (M)' : 'Silenciar (M)'}>
                     {isMuted ? <MicOff className="w-3.5 h-3.5 text-rose-400" /> : <Mic className="w-3.5 h-3.5" />}
                     <span>{isMuted ? 'Muted' : 'Mute'}</span>
                   </button>
-                  <button type="button" onClick={toggleHold} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isOnHold ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isOnHold ? 'Reanudar llamada (H)' : 'Poner en espera (H)'}>
+                  <button type="button" onClick={toggleHold} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isOnHold ? 'bg-amber-500/20 border-amber-500/40 text-amber-300' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isOnHold ? 'Reanudar llamada (H)' : 'Poner en espera (H)'}>
                     {isOnHold ? <Play className="w-3.5 h-3.5 text-amber-400" /> : <Pause className="w-3.5 h-3.5" />}
                     <span>{isOnHold ? 'Reanudar' : 'Hold'}</span>
                   </button>
-                  <button type="button" onClick={toggleRecord} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isRecording ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse' : 'bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800'}`} title={isRecording ? 'Detener grabación' : 'Grabar llamada'}>
-                    <Disc className={`w-3.5 h-3.5 ${isRecording ? 'text-rose-400' : 'text-slate-300'}`} />
+                  <button type="button" onClick={toggleRecord} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isRecording ? 'bg-rose-500/20 border-rose-500/40 text-rose-300 animate-pulse' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'}`} title={isRecording ? 'Detener grabación' : 'Grabar llamada'}>
+                    <Disc className={`w-3.5 h-3.5 ${isRecording ? 'text-rose-400' : 'text-slate-600'}`} />
                     <span>{isRecording ? 'REC' : 'Grabar'}</span>
                   </button>
-                  <button type="button" onClick={() => setIsSpeaker(!isSpeaker)} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isSpeaker ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-slate-900 border-slate-800 text-slate-400 hover:bg-slate-800'}`} title="Altavoz">
+                  <button type="button" onClick={() => setIsSpeaker(!isSpeaker)} className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all text-[9px] font-bold cursor-pointer ${isSpeaker ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300' : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'}`} title="Altavoz">
                     {isSpeaker ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
                     <span>Audio</span>
                   </button>
@@ -1106,41 +1106,41 @@ export default function SoftphoneDialer({
 
       <AnimatePresence>
         {canManageTelephony && isTelnyxTokenModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-slate-900 border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/25 backdrop-blur-sm">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white border border-cyan-500/40 rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                     <Radio className="w-4 h-4" />
                   </div>
                   <div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-tight">Telnyx WebRTC — login_token (JWT)</h4>
+                    <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight">Telnyx WebRTC — login_token (JWT)</h4>
                     <span className="text-[10px] text-slate-400 font-mono">/crm/calls · SDK TelnyxRTC</span>
                   </div>
                 </div>
-                <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+                <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer">
                   <X className="w-4 h-4" />
                 </button>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                  <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">Token JWT Actual:</label>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Token JWT Actual:</label>
                   {currentWebRtcJwt ? (
                     <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-500/30 px-2 py-0.5 rounded">● {currentWebRtcJwt.slice(0, 8)}...{currentWebRtcJwt.slice(-6)}</span>
                   ) : (
                     <span className="text-[10px] font-mono text-amber-400 font-bold bg-amber-950/40 border border-amber-500/30 px-2 py-0.5 rounded">No configurado</span>
                   )}
                 </div>
-                <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-3 text-xs font-mono text-white focus:outline-none focus:border-cyan-400 resize-none" />
+                <textarea rows={4} value={telnyxTokenInput} onChange={(e) => setTelnyxTokenInput(e.target.value)} placeholder="Pega aquí el nuevo login_token JWT (eyJhbGciOi...)" className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs font-mono text-slate-900 focus:outline-none focus:border-cyan-400 resize-none" />
                 <p className="text-[10px] text-slate-400">El token manual solo se aplicará a esta sesión y no se guardará en Firestore. El flujo normal utiliza un JWT individual emitido por el backend para cada operador.</p>
               </div>
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-800">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-200">
                 <button type="button" onClick={handleGenerateBackendTelnyxToken} disabled={isGeneratingBackendToken} className="w-full sm:w-auto px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50" title="Generar automáticamente desde /api/telnyx-token">
                   <RefreshCw className={`w-3.5 h-3.5 ${isGeneratingBackendToken ? 'animate-spin' : ''}`} />
                   <span>{isGeneratingBackendToken ? 'Generando...' : 'Generar vía API Backend'}</span>
                 </button>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="px-3.5 py-2 text-xs text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer">Cancelar</button>
+                  <button type="button" onClick={() => setIsTelnyxTokenModalOpen(false)} className="px-3.5 py-2 text-xs text-slate-400 hover:text-slate-900 rounded-xl transition-colors cursor-pointer">Cancelar</button>
                   <button type="button" onClick={handleSaveTelnyxToken} disabled={isSavingTelnyxToken || !telnyxTokenInput.trim()} className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-black text-xs uppercase tracking-wider rounded-xl transition-all shadow-[0_0_15px_rgba(0,240,255,0.3)] cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5" />
                     <span>{isSavingTelnyxToken ? 'Guardando...' : 'Actualizar login_token'}</span>
