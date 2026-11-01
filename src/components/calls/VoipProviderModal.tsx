@@ -289,7 +289,7 @@ export default function VoipProviderModal({
       if (!snapshot.empty) {
         sips = snapshot.docs.map(d => {
           const data = d.data() as any;
-          return { id: d.id, ...data, status: data.status || (data.activo === true ? 'active' : 'inactive') } as TelnyxSipCredential;
+          return { id: d.id, ...data, username: data.username || data.telnyxUsername || '', status: data.status || (data.activo === true ? 'active' : 'inactive') } as TelnyxSipCredential;
         });
       } else {
         await SipCredentialsService.seedInitialSips();
