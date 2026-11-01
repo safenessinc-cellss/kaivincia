@@ -107,14 +107,34 @@ export default async function handler(req: any, res: any) {
       res.end(JSON.stringify({ error: 'Falta asignar una credencial SIP exclusiva al superadministrador. En Administración VoIP, configura el ID en settings/telnyx_config.adminCredentialId o deja una única credencial activa sin asignar.' }));
       return;
     }
-    const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(credentialId).get();
+    let credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(credentialId).get();
     if (!credentialSnap.exists) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'La credencial SIP no está registrada en el CRM. Reasígnala desde la administración VoIP.' }));
       return;
     }
-    const credential = credentialSnap.data() || {};
-    const assignedUid = credential.assignedTo || credential.operadorUid || null;
+    let credential = credentialSnap.data() || {};
+    let assignedUid = credential.assignedTo || credential.operadorUid || null;
+
+    // If a legacy operator profile points at an agent-owned credential, recover
+    // only when there is exactly one separate active, unassigned admin credential.
+    if (isPrivileged && assignedUid && assignedUid !== authUser.uid) {
+      const candidatesSnap = await adminDb.collection('telnyx_sip_credentials')
+        .where('activo', '==', true).get();
+      const candidates = candidatesSnap.docs.filter((snap: any) => {
+        if (snap.id === credentialId) return false;
+        const data = snap.data() || {};
+        const owner = data.assignedTo || data.operadorUid || null;
+        const state = String(data.status || 'active').toLowerCase();
+        return !owner && state === 'active' && data.activo === true;
+      });
+      if (candidates.length === 1) {
+        credentialId = candidates[0].id;
+        credentialSnap = candidates[0] as any;
+        credential = credentialSnap.data() || {};
+        assignedUid = credential.assignedTo || credential.operadorUid || null;
+      }
+    }
 
     const directAssignment = isPrivileged
       ? null
