@@ -571,7 +571,7 @@ export default function Pipeline() {
       author: appointment.assignedAgent || currentUser?.displayName || currentUser?.email || 'Agente',
       text: `Cita agendada para el ${appointment.date} a las ${appointment.time}. Modalidad: ${appointment.type}.`,
       createdAt,
-      disposition: 'CITA_AGENDADA'
+      disposition: 'CITA_AGENDADA' as const
     };
 
     try {
