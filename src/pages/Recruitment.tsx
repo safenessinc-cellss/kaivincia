@@ -136,7 +136,15 @@ export default function Recruitment() {
   const handleSaveCandidateEdit = async () => {
     if (!editingCandidate) return;
     try {
-      const { id, ...dataToUpdate } = editingCandidate;
+      const dataToUpdate = { ...editingCandidate };
+      const id = dataToUpdate.id;
+      delete dataToUpdate.id;
+      delete dataToUpdate.aiScore;
+      delete dataToUpdate.aiSummary;
+      delete dataToUpdate.aiPros;
+      delete dataToUpdate.aiCons;
+      delete dataToUpdate.aiJustification;
+      delete dataToUpdate.aiExtractedSkills;
       await updateDoc(doc(db, 'candidates', id), dataToUpdate);
       setEditingCandidate(null);
     } catch (error) {
@@ -754,37 +762,13 @@ export default function Recruitment() {
               
               {/* Sidebar: Role Config & Training */}
               <div className="lg:col-span-4 space-y-6">
-                 {/* Roles Basados en Experiencia */}
                  <div className="bg-[#0B0E14] rounded-[3rem] p-10 border border-gray-800 shadow-2xl text-white">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter mb-8 flex items-center gap-3">
-                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Config de Roles
+                    <h3 className="text-lg font-black uppercase italic tracking-tighter mb-4 flex items-center gap-3">
+                       <ShieldAlert className="w-5 h-5 text-[#00F0FF]" /> Permisos de RR. HH.
                     </h3>
-                    <div className="space-y-4">
-                       {[
-                         { id: 'sales', label: 'Setters', color: 'text-[#00F0FF]', border: 'group-hover:border-[#00F0FF]/30', desc: 'Acceso ilimitado a CRM y Pipeline.' },
-                         { id: 'alumno', label: 'Aprendices', color: 'text-amber-500', border: 'group-hover:border-amber-500/30', desc: 'Limitado a Academia y Simuladores.' },
-                         { id: 'gestor', label: 'Gestores', color: 'text-emerald-500', border: 'group-hover:border-emerald-500/30', desc: 'Monitor de disponibilidad y operativa total.' }
-                       ].map(roleDef => (
-                         <div key={roleDef.id} className={`p-4 border border-white/5 bg-white/5 rounded-2xl group transition-all ${roleDef.border}`}>
-                            <div className="flex justify-between items-start mb-2">
-                               <h4 className={`text-xs font-black ${roleDef.color} uppercase tracking-widest`}>{roleDef.label}</h4>
-                               <button 
-                                 onClick={() => navigate('/crm/superadmin')}
-                                 className="text-[8px] font-black text-gray-500 hover:text-white uppercase tracking-widest border border-white/10 px-2 py-1 rounded-lg transition-colors"
-                               >
-                                 Asignar
-                               </button>
-                            </div>
-                            <p className="text-[9px] text-gray-400 leading-relaxed italic">{roleDef.desc}</p>
-                         </div>
-                       ))}
-                    </div>
-                    <button 
-                      onClick={() => navigate('/crm/superadmin')}
-                      className="w-full mt-6 py-3 bg-white/5 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-[#00F0FF] hover:text-black transition-all"
-                    >
-                       Gestionar Permisos Maestros
-                    </button>
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      El acceso a candidatos, directorio y solicitudes de ausencia depende del rol y de los permisos individuales. La asignación de roles y permisos del sistema queda reservada a SuperAdmin.
+                    </p>
                  </div>
 
                  <div className="bg-white rounded-[3rem] p-10 border border-gray-100 shadow-2xl">
