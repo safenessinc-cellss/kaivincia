@@ -10,6 +10,7 @@ import {
   MonitorPlay
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Contratado"];
@@ -31,6 +32,7 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // Attendance State
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -87,11 +89,11 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
     });
 
     return () => unsubscribe();
-  }, [canManageRecruitment]);
+  }, [canManageRecruitment, user?.uid]);
 
   // Attendance state is read from persisted records for the signed-in user.
   useEffect(() => {
-    const uid = auth.currentUser?.uid;
+    const uid = user?.uid;
     if (!uid) {
       setAttendanceLog([]);
       setIsCheckedIn(false);
@@ -110,7 +112,7 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'attendance_logs');
     });
-  }, []);
+  }, [user?.uid]);
 
   // HR sees the review queue; employees see only their own requests.
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'absence_requests');
     });
-  }, [canManageRecruitment]);
+  }, [canManageRecruitment, user?.uid]);
 
   // Full job records include HR metrics and are never queried by employees.
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function Recruitment({ canManageRecruitment = false, initialTab =
     });
 
     return () => unsubscribe();
-  }, [canManageRecruitment]);
+  }, [canManageRecruitment, user?.uid]);
 
   // --- Candidates Logic ---
   const updateStage = async (candidateId: string, newStage: string) => {
