@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { collection, onSnapshot, query, updateDoc, doc, addDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDoc, updateDoc, doc, addDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../hooks/useAuth';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import { 
@@ -392,41 +392,41 @@ export default function Pipeline() {
       return;
     }
 
-    const q = query(collection(db, 'clients'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      let data: LeadOpportunity[] = snapshot.docs.map(doc => {
-        const d = doc.data();
-        return {
-          id: doc.id,
-          name: d.name || d.companyName || 'Lead Sin Nombre',
-          companyName: d.companyName || d.company,
-          phone: d.phone || d.telefono || '',
-          email: d.email,
-          source: d.source || 'meta_ads',
-          campaignName: d.campaignName || 'Sin campaña',
-          pipelineStage: d.pipelineStage || 'LEAD_IN',
-          assignedTLMK: d.assignedTLMK || d.setterName || 'Sin asignar',
-          contractValue: Number(d.contractValue ?? d.amount ?? 0),
-          healthScore: Number(d.healthScore ?? 0),
-          isOverdue: Boolean(d.isOverdue),
-          appointment: d.appointment,
-          notes: d.notes || [],
-          createdAt: d.createdAt || new Date().toISOString(),
-          updatedAt: d.updatedAt || new Date().toISOString()
-        } as LeadOpportunity;
-      });
-
-      // Never fabricate customer leads in a production CRM. Empty data stays empty
-      // so users do not call demo numbers or mistake examples for real prospects.
-
-      setLeads(data);
-      setLoading(false);
-    }, (error) => {
-      console.warn("Firestore listener handled gracefully:", error);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+    let subscriptions: Array<() => void> = [];
+    let active = true;
+    const startListeners = async () => {
+      try {
+        const profile = await getDoc(doc(db, 'users', currentUser.uid));
+        if (!active) return;
+        const role = String(profile.data()?.role || '').toLowerCase();
+        const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(role);
+        const records = new Map<string, any>();
+        const publish = () => {
+          const data: LeadOpportunity[] = Array.from(records.values()).map(d => ({
+            id: d.id, name: d.name || d.companyName || 'Lead Sin Nombre', companyName: d.companyName || d.company,
+            phone: d.phone || d.telefono || '', email: d.email, source: d.source || 'meta_ads',
+            campaignName: d.campaignName || 'Sin campaña', pipelineStage: d.pipelineStage || 'LEAD_IN',
+            assignedTLMK: d.assignedTLMK || d.setterName || 'Sin asignar', contractValue: Number(d.contractValue ?? d.amount ?? 0),
+            healthScore: Number(d.healthScore ?? 0), isOverdue: Boolean(d.isOverdue), appointment: d.appointment,
+            notes: d.notes || [], createdAt: d.createdAt || new Date().toISOString(), updatedAt: d.updatedAt || new Date().toISOString()
+          } as LeadOpportunity));
+          setLeads(data); setLoading(false);
+        };
+        const queries = isAdmin ? [collection(db, 'clients')] : [
+          query(collection(db, 'clients'), where('createdBy', '==', currentUser.uid)),
+          query(collection(db, 'clients'), where('assignedTo', '==', currentUser.uid)),
+          query(collection(db, 'clients'), where('assignedManagerId', '==', currentUser.uid))
+        ];
+        subscriptions = queries.map(q => onSnapshot(q, snapshot => {
+          snapshot.docChanges().forEach(change => {
+            if (change.type === 'removed') records.delete(change.doc.id);
+            else records.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+          }); publish();
+        }, error => { console.warn('Scoped pipeline listener failed:', error); setLoading(false); }));
+      } catch (error) { console.error('Pipeline profile lookup failed:', error); setLoading(false); }
+    };
+    void startListeners();
+    return () => { active = false; subscriptions.forEach(unsubscribe => unsubscribe()); };
   }, [currentUser, authLoading]);
 
   // Filtered Leads
@@ -503,6 +503,7 @@ export default function Pipeline() {
     try {
       const docRef = await addDoc(collection(db, 'clients'), {
         ...newLead,
+        createdBy: currentUser.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -527,6 +528,7 @@ export default function Pipeline() {
         const ref = doc(collection(db, 'clients'));
         batch.set(ref, {
           ...lead,
+          createdBy: currentUser.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
