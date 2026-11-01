@@ -127,9 +127,8 @@ service cloud.firestore {
     }
 
     match /form_templates/{templateId} {
-      allow read:   if isAuthenticated();
-      allow create, update: if isAuthenticated();
-      allow delete: if isAdmin();
+      allow read: if isApproved();
+      allow create, update, delete: if isAdmin();
     }
 
     match /client_interactions/{interactionId} {
@@ -340,8 +339,7 @@ service cloud.firestore {
     }
 
     match /settings/voip_providers {
-      allow read:  if true;
-      allow write: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /settings/integrations {
@@ -363,8 +361,7 @@ service cloud.firestore {
     }
 
     match /integration_test_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
+      allow read, create: if isAdmin();
       allow update, delete: if false;
     }
 
@@ -407,25 +404,23 @@ service cloud.firestore {
     // Proyectos, facturación & control horario
     // ===============================================================
     match /projects/{projectId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidProject(incoming());
-      allow update: if isAuthenticated() && isValidProject(incoming());
+      allow read: if isAdmin() || ownsRecord(resource.data) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create: if isApproved() && isValidProject(request.resource.data) && ownsRecord(request.resource.data);
+      allow update: if isAdmin() || (ownsRecord(resource.data) && isValidProject(request.resource.data));
       allow delete: if isAdmin();
     }
 
     match /invoices/{invoiceId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidInvoice(incoming());
-      allow update: if isAuthenticated() && isValidInvoice(incoming());
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || ownsRecord(resource.data) ||
+        (resource.data.get('clientId', '') is string && canAccessClient(resource.data.get('clientId', '')));
+      allow create, update, delete: if isAdmin() && isValidInvoice(request.resource.data);
     }
 
     match /time_logs/{logId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated() && isValidTimeLog(incoming());
-      allow update: if isAuthenticated() &&
-                       (isAdmin() ||
-                        (existing().get('userUid', '') == request.auth.uid && isValidTimeLog(incoming())));
+      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow create: if isApproved() && isValidTimeLog(request.resource.data);
+      allow update: if isAdmin() || (ownsRecord(resource.data) && isValidTimeLog(request.resource.data));
       allow delete: if isAdmin();
     }
 
@@ -434,14 +429,14 @@ service cloud.firestore {
     }
 
     match /system_events/{eventId} {
-      allow read:   if isAdmin();
-      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.get('actorUid', '') == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /system_logs/{logId} {
-      allow read:   if isAdmin();
-      allow create: if isAuthenticated();
+      allow read: if isAdmin();
+      allow create: if isAdmin();
       allow update, delete: if false;
     }
 
