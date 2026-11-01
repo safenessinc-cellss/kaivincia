@@ -44,6 +44,7 @@ async function main() {
       await setDoc(doc(db, 'chat_messages', 'general-message'), { type: 'groups', targetId: 'general', senderId: 'alice', text: 'general' });
       await setDoc(doc(db, 'chat_messages', 'devops-message'), { type: 'groups', targetId: 'dev-ops', senderId: 'admin', text: 'internal' });
       await setDoc(doc(db, 'chat_messages', 'legacy-general-message'), { channelId: 'general', senderId: 'alice', text: 'legacy general' });
+      await setDoc(doc(db, 'chat_messages', 'legacy-null-type-message'), { type: null, targetId: null, channelId: 'general', senderId: 'alice', text: 'legacy null fields' });
       await setDoc(doc(db, 'chat_messages', 'legacy-devops-message'), { channelId: 'dev-ops', senderId: 'admin', text: 'legacy internal' });
       await setDoc(doc(db, 'chat_messages', 'legacy-client-message'), { channelId: 'alice-client', senderId: 'alice', text: 'legacy client' });
       await setDoc(doc(db, 'chat_messages', 'legacy-private-message'), { senderId: 'alice', targetId: 'bob', text: 'legacy private' });
@@ -139,6 +140,7 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
     await assertSucceeds(getDoc(doc(owner, 'chat_messages', 'devops-message')));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-general-message')));
+    await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-null-type-message')));
     await assertFails(getDoc(doc(alice, 'chat_messages', 'legacy-devops-message')));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'legacy-devops-message')));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-client-message')));
