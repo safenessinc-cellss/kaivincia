@@ -156,7 +156,8 @@ service cloud.firestore {
         (exists(/databases/$(database)/documents/clients/$(clientId)) &&
           (
             get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
-            get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid
+            get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid ||
+            get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedManagerId', '') == request.auth.uid
           ))
       );
     }
@@ -225,6 +226,10 @@ service cloud.firestore {
     }
 
     match /voip_providers/{providerId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /operadores/{operatorId} {
       allow read, write: if isAdmin();
     }
 
