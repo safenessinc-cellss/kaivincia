@@ -1,5 +1,7 @@
 # Kaivincia Corp
 
+**Desarrollado y mantenido por SAFENESS.INC.**
+
 Plataforma interna de gestión comercial, operaciones y atención al cliente de Kaivincia Corp.
 
 ## Stack
