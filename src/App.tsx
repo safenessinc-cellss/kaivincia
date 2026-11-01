@@ -302,9 +302,9 @@ export default function App() {
         <Route path="/strategy-blog" element={<StrategyBlog />} />
         <Route path="/careers" element={<Careers />} />
         <Route path="/team" element={<Navigate to="/crm/team" />} />
-        <Route path="/empresas/login" element={<CompanyAuth initialMode="login" />} />
-        <Route path="/empresas/register" element={<CompanyAuth initialMode="register" />} />
-        <Route path="/empresas/dashboard" element={<CompanyDashboard />} />
+        <Route path="/empresas/login" element={<Navigate to="/login" replace />} />
+        <Route path="/empresas/register" element={<Navigate to="/login" replace />} />
+        <Route path="/empresas/dashboard" element={<Navigate to="/login" replace />} />
         <Route path="/empresas" element={<Navigate to="/empresas/dashboard" />} />
         <Route path="/login" element={user ? <Navigate to="/crm/dashboard" replace /> : <LoginPage />} />
         
