@@ -152,7 +152,7 @@ export default function SoftphoneDialer({
   const [showConsole, setShowConsole] = useState(false);
 
   // Estados de Telnyx: Control de Caller ID autorizado y Campaña / Cliente
-  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>(REAL_TELNYX_CALLER_IDS);
+  const [authorizedCallerIds, setAuthorizedCallerIds] = useState<string[]>([]);
   const [selectedCallerId, setSelectedCallerId] = useState<string>('');
   const [selectedProject, setSelectedProject] = useState<string>('Ventas B2B');
   const [selectedClientName, setSelectedClientName] = useState<string>('');
@@ -374,7 +374,7 @@ export default function SoftphoneDialer({
       unsubNumbers = onSnapshot(collection(db, 'telnyx_phone_numbers'), (snapshot) => {
         const dbNumbers = snapshot.docs
           .map(d => d.data())
-          .filter((n: any) => n.status !== 'disabled' && n.phoneNumber && !isReservedDemoPhone(n.phoneNumber))
+          .filter((n: any) => !['disabled', 'deleted', 'inactive', 'released'].includes(String(n.status || '').toLowerCase()) && n.phoneNumber && !isReservedDemoPhone(n.phoneNumber))
           .map((n: any) => n.phoneNumber)
           .filter(Boolean);
         allTelnyxNumbers = dbNumbers;
@@ -670,8 +670,8 @@ export default function SoftphoneDialer({
     }
 
     // Validar que haya un Caller ID seleccionado (viene de telnyx_phone_numbers)
-    if (!selectedCallerId) {
-      showToast('⚠️ No hay Caller ID seleccionado. Sincroniza números desde Telnyx en el admin.');
+    if (!selectedCallerId || !authorizedCallerIds.includes(selectedCallerId) || isReservedDemoPhone(selectedCallerId)) {
+      showToast('⛔ Caller ID no autorizado para este operador. Selecciona un número asignado por el administrador.');
       return;
     }
 
