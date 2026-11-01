@@ -33,6 +33,8 @@ import TelnyxAdminHub from '../components/calls/TelnyxAdminHub';
 import MetaAdminHub from '../components/integrations/MetaAdminHub';
 import { isPrivilegedRole } from '../constants/roles';
 
+const VALID_CALL_TABS = ['monitor', 'softphone', 'telnyx', 'meta', 'logs', 'esim', 'directory', 'inbox', 'cobertura', 'utilidades'];
+
 export default function CallSystem() {
   const { userData } = useOutletContext<{ userData: any }>() || {};
   const { t } = useLanguage();
@@ -65,6 +67,21 @@ export default function CallSystem() {
     });
   };
 
+  // Mantener la pestaña sincronizada con la URL (incluye atrás/adelante).
+  // Los paneles administrativos no se abren desde un query param no autorizado.
+  useEffect(() => {
+    const requestedTab = VALID_CALL_TABS.includes(currentTabParam) ? currentTabParam : 'monitor';
+    const permittedTab = !isAdmin && ['telnyx', 'meta'].includes(requestedTab) ? 'monitor' : requestedTab;
+    setActiveTab(permittedTab);
+    if (permittedTab !== currentTabParam) {
+      setSearchParams((previous) => {
+        const next = new URLSearchParams(previous);
+        next.set('tab', permittedTab);
+        return next;
+      }, { replace: true });
+    }
+  }, [currentTabParam, isAdmin, setSearchParams]);
+
   // Escuchar parámetro 'dial' para abrir marcador
   useEffect(() => {
     if (dialParam) {
@@ -91,7 +108,8 @@ export default function CallSystem() {
       latency: '22ms',
       jitter: '0.8ms',
       cost: '$0.0090',
-      isRecording: true
+      isRecording: true,
+      isDemo: true
     });
   };
 
@@ -122,9 +140,9 @@ export default function CallSystem() {
                 <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight italic">
                   {t('calls.title', 'Centro Telefónico & VoIP')}
                 </h2>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[10px] font-black uppercase flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Troncal Zadarma Online
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 border border-amber-500/20 text-[10px] font-black uppercase flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Estado de troncal no verificado
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -175,6 +193,11 @@ export default function CallSystem() {
 
       {/* Contenido Dinámico de la Pestaña Activa */}
       <div className="transition-opacity duration-200">
+        {activeTab === 'monitor' && activeCallSession?.isDemo && (
+          <div role="status" className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
+            DEMOSTRACIÓN: esta sesión y sus métricas son datos simulados; no representan una llamada real ni el estado del operador telefónico.
+          </div>
+        )}
         {activeTab === 'monitor' && (
           <LiveCallMonitor
             activeCall={activeCallSession}
