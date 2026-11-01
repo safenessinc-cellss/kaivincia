@@ -3,7 +3,7 @@ import {
   Phone, PhoneOff, Mic, MicOff, Pause, Play, Disc, Volume2, VolumeX, X, Zap, Sparkles, AlertCircle, Maximize2, Minimize2, GripHorizontal, Copy, ClipboardPaste, RotateCcw, Radio, Check, RefreshCw, Settings, Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -47,28 +47,7 @@ const DTMF_FREQUENCIES: Record<string, [number, number]> = {
 };
 
 const DEFAULT_PROVIDERS: VoipProvider[] = [
-  {
-    id: 'zadarma',
-    name: 'Zadarma (SIP Cloud)',
-    type: 'sip',
-    status: 'enabled',
-    costPerMinute: '$0.012',
-    credentials: { domain: 'sip.zadarma.com', username: '345678' }
-  },
-  {
-    id: 'telnyx',
-    name: 'Telnyx WebRTC',
-    type: 'api',
-    status: 'available',
-    costPerMinute: '$0.010'
-  },
-  {
-    id: 'twilio',
-    name: 'Twilio Voice',
-    type: 'sdk',
-    status: 'available',
-    costPerMinute: '$0.015'
-  }
+  { id: 'telnyx', name: 'Telnyx WebRTC', type: 'api', status: 'available', costPerMinute: '' }
 ];
 
 // Números de Caller ID: se cargan SOLO desde Telnyx (telnyx_phone_numbers en Firestore).
@@ -263,7 +242,7 @@ export default function SoftphoneDialer({
       isMounted = false;
       clearInterval(interval);
     };
-  }, [user, authLoading]);
+  }, [user, userData?.role, authLoading]);
 
   const handleSaveTelnyxToken = async () => {
     const token = telnyxTokenInput.trim();
@@ -331,14 +310,16 @@ export default function SoftphoneDialer({
 
     const updateCombined = () => setProviders([...voipList, ...esimList]);
 
-    const unsubVoip = onSnapshot(collection(db, 'voip_providers'), (snapshot) => {
+    let unsubVoip = () => {};
+    if (isPrivilegedRole(userData?.role)) unsubVoip = onSnapshot(collection(db, 'voip_providers'), (snapshot) => {
       if (!snapshot.empty) {
         voipList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VoipProvider));
       }
       updateCombined();
     }, (err) => console.warn('Could not read voip_providers:', err));
 
-    const unsubEsim = onSnapshot(collection(db, 'esim_profiles'), (snapshot) => {
+    let unsubEsim = () => {};
+    if (isPrivilegedRole(userData?.role)) unsubEsim = onSnapshot(collection(db, 'esim_profiles'), (snapshot) => {
       if (!snapshot.empty) {
         esimList = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
@@ -402,7 +383,8 @@ export default function SoftphoneDialer({
       });
     }
 
-    const unsubAssignments = onSnapshot(collection(db, 'telnyx_agent_assignments'), (snapshot) => {
+    const assignmentsQuery = isPrivilegedUser ? collection(db, 'telnyx_agent_assignments') : query(collection(db, 'telnyx_agent_assignments'), where('agentId', '==', user.uid));
+    const unsubAssignments = onSnapshot(assignmentsQuery, (snapshot) => {
       if (!snapshot.empty) {
         const found = snapshot.docs.find(d => d.id === user.uid || d.data().agentEmail === user.email);
         if (found) {
