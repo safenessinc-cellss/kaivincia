@@ -430,7 +430,7 @@ export default function SoftphoneDialer({
       cancelled = true;
       unsubVoip(); unsubEsim(); unsubAssignments();
     };
-  }, [user, authLoading, userData?.role]);
+  }, [user, authLoading, userData?.role, callerIdMode]);
 
   // ── Selección automática: preferencia asignada y coincidencia de área US ──
   useEffect(() => {
@@ -636,6 +636,8 @@ export default function SoftphoneDialer({
       contactPhone: phoneNumber,
       contactName: selectedClientName ? `${selectedClientName} (${phoneNumber})` : `Contacto ${phoneNumber}`,
       callerId: selectedCallerId || activeCarrierObj?.credentials?.callerId || '',
+      callerIdMode,
+      callerIdSelectionReason: callerIdMode === 'auto' ? callerIdAutoReason : 'Selección manual del operador',
       duration: finalDuration,
       status: finalDuration > 0 ? 'completed' : 'missed',
       direction: 'outbound',
@@ -648,7 +650,7 @@ export default function SoftphoneDialer({
       agentEmail: auth.currentUser?.email || user?.email || 'agent@kaivincia.com',
       projectName: selectedProject || 'General',
       disposition: finalDuration > 0 ? 'Conectada / Éxito' : 'Sin contestar',
-      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
+      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Modo: ${callerIdMode} | Regla: ${callerIdAutoReason} | Proyecto/Campaña: ${selectedProject || 'General'}`,
       isRecorded: isRecording || Boolean(agentAssignment?.recordCalls)
     };
 
