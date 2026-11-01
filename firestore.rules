@@ -107,7 +107,7 @@ service cloud.firestore {
     // Clients
     // ===============================================================
     match /clients/{clientId} {
-      allow read: if canAccessClient(clientId);
+      allow read: if isAdmin() || resource.data.get('createdBy', '') == request.auth.uid || resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('assignedManagerId', '') == request.auth.uid;
       allow create: if isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid;
       allow update: if canAccessClient(clientId) &&
         request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '') &&
