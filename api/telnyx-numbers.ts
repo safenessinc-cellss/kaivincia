@@ -1,4 +1,4 @@
-import { adminDb } from '../server/_lib/firebaseAdmin.js';
+import { adminDb } , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
@@ -19,6 +19,13 @@ export default async function handler(req: any, res: any) {
     res.statusCode = 405;
     res.setHeader('Allow', 'GET, OPTIONS');
     res.end(JSON.stringify({ success: false, numbers: [], error: 'Method Not Allowed' }));
+    return;
+  }
+
+  if (!isFirebaseAdminConfigured) {
+    res.statusCode = 503;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ success: false, error: 'Firebase Admin no está configurado para este entorno.' }));
     return;
   }
 
