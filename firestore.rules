@@ -341,7 +341,7 @@ service cloud.firestore {
     match /telnyx_sip_credentials/{sipId} {
       // Agents and managers receive short-lived WebRTC JWTs from the backend;
       // only admins with effective telephony_config permission can access SIP secrets.
-      allow read, create, update, delete: if isTelephonyAdmin();
+      allow read, update, delete: if isTelephonyAdmin();
       allow create: if isTelephonyAdmin() && incoming().get('assignedTo', null) == null;
     }
 
