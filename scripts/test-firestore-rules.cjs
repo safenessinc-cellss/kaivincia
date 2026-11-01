@@ -139,6 +139,10 @@ async function main() {
     await assertSucceeds(setDoc(doc(alice, 'chat_messages', 'general-new'), { type: 'groups', targetId: 'general', senderId: 'alice' }));
     await assertSucceeds(getDoc(doc(admin, 'chat_messages', 'devops-message')));
     await assertSucceeds(getDoc(doc(owner, 'chat_messages', 'devops-message')));
+    await assertSucceeds(getDocs(query(collection(alice, 'chat_messages'), where('type', '==', 'groups'), where('targetId', '==', 'general'))));
+    await assertSucceeds(getDocs(query(collection(alice, 'chat_messages'), where('channelId', '==', 'general'))));
+    await assertFails(getDocs(query(collection(alice, 'chat_messages'), where('type', '==', 'groups'), where('targetId', '==', 'dev-ops'))));
+    await assertSucceeds(getDocs(query(collection(admin, 'chat_messages'), where('channelId', '==', 'dev-ops'))));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-general-message')));
     await assertSucceeds(getDoc(doc(alice, 'chat_messages', 'legacy-null-type-message')));
     await assertFails(getDoc(doc(alice, 'chat_messages', 'legacy-devops-message')));
@@ -155,6 +159,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'telnyx_sip_credentials', 'alice-sip')));
     await assertFails(setDoc(doc(bob, 'chat_messages', 'forged-private'), { type: 'private', senderId: 'alice', targetId: 'bob' }));
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
+    await assertSucceeds(getDocs(query(collection(alice, 'voip_call_history'), where('agentId', '==', 'alice'))));
+    await assertFails(getDocs(query(collection(alice, 'voip_call_history'), where('agentId', '==', 'bob'))));
     await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(manager, 'voip_call_history', 'alice-call')));
     await assertSucceeds(setDoc(doc(alice, 'voip_call_history', 'alice-call-own'), { agentId: 'alice', contactPhone: '+15555550101', direction: 'outbound' }));
@@ -180,6 +186,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(admin, 'telnyx_phone_numbers', 'admin-number')));
     // Helpdesk lifecycle: customers can reply only on their own open ticket;
     // they cannot close, reprioritize or reassign it.
+    await assertSucceeds(getDocs(query(collection(alice, 'support_tickets'), where('userId', '==', 'alice'))));
+    await assertFails(getDocs(collection(alice, 'support_tickets')));
     await assertSucceeds(getDoc(doc(alice, 'support_tickets', 'alice-ticket')));
     await assertFails(getDoc(doc(alice, 'support_tickets', 'bob-ticket')));
     await assertSucceeds(setDoc(doc(alice, 'support_tickets', 'new-ticket'), {
