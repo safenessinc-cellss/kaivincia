@@ -667,6 +667,9 @@ export default function CRMLayout({ userData, canAccessPermission }: { userData:
             </motion.div>
           </AnimatePresence>
         </main>
+        <footer className="px-6 py-3 border-t border-gray-200/70 bg-white/70 text-center text-[10px] tracking-wide text-gray-500">
+          Kaivincia Corp · Desarrollado y mantenido por <span className="font-semibold text-gray-700">SAFENESS.INC</span>
+        </footer>
       </div>
 
       <CommandBar isOpen={isCommandBarOpen} onClose={() => setIsCommandBarOpen(false)} />
