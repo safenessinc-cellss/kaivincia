@@ -75,7 +75,7 @@ export default function TeamManagement() {
       handleFirestoreError(error, OperationType.GET, 'users');
     });
 
-    const unsubAudit = onSnapshot(
+    const unsubAudit = canManageAccess ? onSnapshot(
       query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'), limit(50)),
       (snapshot) => {
         setFirestoreAuditLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -83,13 +83,13 @@ export default function TeamManagement() {
       (error) => {
         handleFirestoreError(error, OperationType.GET, 'audit_logs');
       }
-    );
+    ) : () => {};
 
     return () => {
       unsubUsers();
       unsubAudit();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, canManageAccess]);
 
   const effectiveUsers = firestoreUsers.length > 0 ? firestoreUsers : contextUsers;
 
