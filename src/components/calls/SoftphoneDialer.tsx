@@ -650,7 +650,7 @@ export default function SoftphoneDialer({
       agentEmail: auth.currentUser?.email || user?.email || 'agent@kaivincia.com',
       projectName: selectedProject || 'General',
       disposition: finalDuration > 0 ? 'Conectada / Éxito' : 'Sin contestar',
-      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Modo: ${callerIdMode} | Regla: ${callerIdAutoReason} | Proyecto/Campaña: ${selectedProject || 'General'}`,
+      notes: `Caller ID: ${selectedCallerId || 'N/A'} | Modo: ${callerIdMode} | Regla: ${callerIdMode === 'auto' ? callerIdAutoReason : 'Selección manual del operador'} | Proyecto/Campaña: ${selectedProject || 'General'}`,
       isRecorded: isRecording || Boolean(agentAssignment?.recordCalls)
     };
 
@@ -677,10 +677,20 @@ export default function SoftphoneDialer({
   }, [duration, phoneNumber, selectedClientName, selectedCallerId, activeCarrierObj, selectedProject, isRecording, agentAssignment, onCallEnd, stopRingback, clearAllTimeouts, playHangupBeep, user]);
 
   const handleStartCall = async (targetPhone?: string) => {
-    const dialNum = targetPhone || phoneNumber;
-    if (!dialNum || dialNum.trim().length === 0) return;
+    const rawDialNum = targetPhone || phoneNumber;
+    if (!rawDialNum || rawDialNum.trim().length === 0) return;
 
-    const cleanDigits = dialNum.replace(/\D/g, '');
+    const cleanDigits = rawDialNum.replace(/\D/g, '');
+    // Telnyx outbound destinations should be normalized to E.164.
+    // This CRM's default local dialing context is the US (+1); explicit
+    // international prefixes are preserved and never guessed.
+    const dialNum = rawDialNum.includes('*') || rawDialNum.includes('#')
+      ? rawDialNum.trim()
+      : cleanDigits.length === 10
+        ? `+1${cleanDigits}`
+        : cleanDigits.length === 11 && cleanDigits.startsWith('1')
+          ? `+${cleanDigits}`
+          : rawDialNum.trim();
     if (cleanDigits.length < 8) {
       showToast(t('voip.min_digits', 'El número debe tener al menos 8 dígitos'));
       return;
@@ -692,7 +702,7 @@ export default function SoftphoneDialer({
       ? cleanDigits.slice(1, 4)
       : cleanDigits.substring(0, 3);
     if (isUsDestination && authorizedZones.length > 0) {
-      const isAuthorized = authorizedZones.some((zone: any) => zone.enabled && zone.areaCodes.includes(areaCode));
+      const isAuthorized = authorizedZones.some((zone: any) => zone.enabled && Array.isArray(zone.areaCodes) && zone.areaCodes.includes(areaCode));
       if (!isAuthorized) {
         showToast(`⛔ Zona no autorizada. Solo puedes llamar a: ${authorizedZones.map((z: any) => z.zoneName).join(', ')}`);
         return;
