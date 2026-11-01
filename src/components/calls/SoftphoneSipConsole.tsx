@@ -49,9 +49,9 @@ export default function SoftphoneSipConsole({
             <div className="p-2 bg-slate-50/80 rounded-xl border border-slate-200 flex items-center justify-between text-[10px] font-mono text-slate-400">
               <span className="flex items-center gap-1">
                 <Activity className="w-3 h-3 text-cyan-400" />
-                <span>Latencia: <strong className="text-white">{liveLatency}ms</strong></span>
+                <span>Latencia: <strong className="text-slate-800">{liveLatency}ms</strong></span>
               </span>
-              <span>Jitter: <strong className="text-white">{liveJitter}ms</strong></span>
+              <span>Jitter: <strong className="text-slate-800">{liveJitter}ms</strong></span>
               <span>Códec: <strong className="text-emerald-700">OPUS 48kHz</strong></span>
             </div>
           )}
