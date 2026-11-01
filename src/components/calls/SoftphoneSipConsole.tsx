@@ -28,13 +28,13 @@ export default function SoftphoneSipConsole({
         <button
           type="button"
           onClick={onToggle}
-          className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 hover:text-cyan-400 py-1 px-3 rounded-lg hover:bg-slate-900/60 transition-all cursor-pointer"
+          className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 hover:text-cyan-400 py-1 px-3 rounded-lg hover:bg-slate-50/60 transition-all cursor-pointer"
         >
           <Terminal className="w-3 h-3 text-cyan-400" />
           <span>{isOpen ? 'Ocultar consola SIP WebRTC' : 'Mostrar consola SIP WebRTC'}</span>
           {isOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
           {logs.length > 0 && (
-            <span className="text-[9px] bg-slate-800 text-slate-300 px-1.5 py-0.2 rounded-full font-sans">
+            <span className="text-[9px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded-full font-sans">
               {logs.length}
             </span>
           )}
@@ -46,19 +46,19 @@ export default function SoftphoneSipConsole({
         <div className="mt-2 space-y-2 animate-fadeIn">
           {/* Telemetría en Vivo si la llamada está conectada */}
           {callStatus === 'connected' && (
-            <div className="p-2 bg-slate-900/80 rounded-xl border border-slate-800 flex items-center justify-between text-[10px] font-mono text-slate-400">
+            <div className="p-2 bg-slate-50/80 rounded-xl border border-slate-200 flex items-center justify-between text-[10px] font-mono text-slate-400">
               <span className="flex items-center gap-1">
                 <Activity className="w-3 h-3 text-cyan-400" />
                 <span>Latencia: <strong className="text-white">{liveLatency}ms</strong></span>
               </span>
               <span>Jitter: <strong className="text-white">{liveJitter}ms</strong></span>
-              <span>Códec: <strong className="text-emerald-400">OPUS 48kHz</strong></span>
+              <span>Códec: <strong className="text-emerald-700">OPUS 48kHz</strong></span>
             </div>
           )}
 
           {/* Caja de terminal SIP */}
-          <div className="p-2.5 bg-black/95 rounded-xl border border-slate-800 font-mono text-[10px] text-emerald-400 max-h-36 overflow-y-auto space-y-1 shadow-inner scrollbar-thin">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-800/80 mb-1 text-[9px] text-slate-500">
+          <div className="p-2.5 bg-white/95 rounded-xl border border-slate-200 font-mono text-[10px] text-emerald-700 max-h-36 overflow-y-auto space-y-1 shadow-inner scrollbar-thin">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-200/80 mb-1 text-[9px] text-slate-500">
               <span className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                 LOGS DE SEÑALIZACIÓN SIP & WEBRTC (Últimos 30)
@@ -80,7 +80,7 @@ export default function SoftphoneSipConsole({
               <div className="text-slate-600 italic py-1">Esperando eventos de señalización SIP...</div>
             ) : (
               logs.map((log, idx) => {
-                let colorClass = 'text-emerald-400';
+                let colorClass = 'text-emerald-700';
                 if (log.includes('INVITE')) colorClass = 'text-cyan-300';
                 else if (log.includes('200 OK') || log.includes('ESTABLISHED')) colorClass = 'text-emerald-300 font-bold';
                 else if (log.includes('BYE') || log.includes('FINALIZADA')) colorClass = 'text-amber-300';
