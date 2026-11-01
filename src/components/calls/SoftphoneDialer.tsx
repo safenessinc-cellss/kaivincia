@@ -343,7 +343,10 @@ export default function SoftphoneDialer({
     // ── Caller IDs: privilegiados ven todos; agentes solo los asignados ──────
     let assignmentData: any | null = null;
     let allTelnyxNumbers: string[] = [];
+    let serverAssignedCallerIds: string[] = [];
+    let cancelled = false;
     const recomputeAuthorizedCallerIds = () => {
+      if (cancelled) return;
       const isPrivileged = isPrivilegedRole(userData?.role);
 
       if (isPrivileged) {
@@ -352,9 +355,7 @@ export default function SoftphoneDialer({
         return;
       }
 
-      const authorized: string[] = Array.isArray(assignmentData?.authorizedNumbers)
-        ? assignmentData.authorizedNumbers.filter((number: string) => Boolean(number) && !isReservedDemoPhone(number))
-        : [];
+      const authorized = serverAssignedCallerIds.filter((number) => Boolean(number) && !isReservedDemoPhone(number));
       setAuthorizedCallerIds(authorized);
 
       const defaultId = assignmentData?.defaultCallerId;
@@ -383,6 +384,32 @@ export default function SoftphoneDialer({
       });
     }
 
+    if (!isPrivilegedUser) {
+      const loadServerAssignedNumbers = async () => {
+        try {
+          const idToken = await user.getIdToken();
+          const response = await fetch('/api/telnyx-numbers', {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${idToken}` }
+          });
+          const payload = await response.json();
+          if (!response.ok || payload?.success !== true) {
+            throw new Error(payload?.error || 'No se pudieron verificar los números asignados.');
+          }
+          serverAssignedCallerIds = Array.isArray(payload.numbers)
+            ? payload.numbers
+                .map((item: any) => item.phone_number || item.phoneNumber || '')
+                .filter((number: unknown): number is string => typeof number === 'string' && Boolean(number))
+            : [];
+        } catch (error) {
+          console.warn('Could not load server-authorized caller IDs:', error);
+          serverAssignedCallerIds = [];
+        }
+        recomputeAuthorizedCallerIds();
+      };
+      void loadServerAssignedNumbers();
+    }
+
     const assignmentsQuery = isPrivilegedUser ? collection(db, 'telnyx_agent_assignments') : query(collection(db, 'telnyx_agent_assignments'), where('agentId', '==', user.uid));
     const unsubAssignments = onSnapshot(assignmentsQuery, (snapshot) => {
       if (!snapshot.empty) {
@@ -409,10 +436,11 @@ export default function SoftphoneDialer({
     });
 
     return () => {
+      cancelled = true;
       unsubVoip(); unsubEsim(); unsubAssignments();
       if (unsubNumbers) unsubNumbers();
     };
-  }, [user, authLoading]);
+  }, [user, authLoading, userData?.role]);
 
   // ── Auto-selección de Caller ID por código de área del destino ──────────
   useEffect(() => {
