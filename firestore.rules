@@ -109,13 +109,14 @@ service cloud.firestore {
     // ===============================================================
     match /clients/{clientId} {
       allow read: if isAdmin() || (isApproved() && (resource.data.get('createdBy', '') == request.auth.uid || resource.data.get('assignedTo', '') == request.auth.uid || resource.data.get('assignedManagerId', '') == request.auth.uid));
-      allow create: if isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid;
+      allow create: if isApproved() && request.resource.data.get('createdBy', '') == request.auth.uid && request.resource.data.get('assignedTo', request.auth.uid) == request.auth.uid && request.resource.data.get('assignedManagerId', request.auth.uid) == request.auth.uid;
       allow update: if (
         isAdmin() && request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '')
       ) || (
         isApproved() && canAccessClient(clientId) &&
         request.resource.data.get('createdBy', resource.data.get('createdBy', '')) == resource.data.get('createdBy', '') &&
-        request.resource.data.get('assignedTo', resource.data.get('assignedTo', '')) == resource.data.get('assignedTo', '')
+        request.resource.data.get('assignedTo', resource.data.get('assignedTo', '')) == resource.data.get('assignedTo', '') &&
+        request.resource.data.get('assignedManagerId', resource.data.get('assignedManagerId', '')) == resource.data.get('assignedManagerId', '')
       );
       allow delete: if isAdmin();
       match /{subcollection}/{document=**} {
