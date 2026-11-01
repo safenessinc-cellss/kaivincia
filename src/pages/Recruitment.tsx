@@ -803,7 +803,6 @@ export default function Recruitment() {
                  </div>
               </div>
            </div>
-        </div>
       )}
       {activeTab === 'candidates' && (
         <div className="space-y-4 flex-1 flex flex-col overflow-hidden">
