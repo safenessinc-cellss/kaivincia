@@ -179,7 +179,7 @@ export default function TelnyxAdminHub() {
   // Cargar lista de agentes para asignar credenciales (al nivel superior del componente)
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'users'), (snap) => {
-      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador']);
+      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador', 'call_agent']);
       const agents = snap.docs
         .map(d => ({ uid: d.id, ...(d.data() as any) }))
         .filter((u: any) =>
@@ -200,7 +200,7 @@ export default function TelnyxAdminHub() {
   // Lista normalizada de colaboradoras (contextUsers + fallback seguro)
   const collaborators = useMemo(() => {
     if (contextUsers && contextUsers.length > 0) {
-      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador']);
+      const voipRoles = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator', 'sales', 'ventas', 'tlmk', 'telemarketing', 'setter', 'closer', 'agente', 'operador', 'call_agent']);
       return contextUsers
         .filter((u: any) =>
           ['approved', 'active'].includes(String(u.status || '').toLowerCase()) &&
