@@ -135,13 +135,48 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    function canAccessClient(clientId) {
+      return isAuthenticated() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/clients/$(clientId)) &&
+          (
+            get(/databases/$(database)/documents/clients/$(clientId)).data.get('createdBy', '') == request.auth.uid ||
+            get(/databases/$(database)/documents/clients/$(clientId)).data.get('assignedTo', '') == request.auth.uid
+          ))
+      );
+    }
+
+    function canReadChatMessage(data) {
+      return isAuthenticated() && (
+        (data.get('type', '') == 'groups' && isApproved()) ||
+        (data.get('type', '') == 'private' &&
+          (data.get('senderId', '') == request.auth.uid || data.get('targetId', '') == request.auth.uid)) ||
+        (data.get('type', '') == 'clients' &&
+          data.get('targetId', '') is string &&
+          canAccessClient(data.get('targetId', '')))
+      );
+    }
+
     match /chat_messages/{messageId} {
-      allow read:   if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() &&
-                       (isAdmin() ||
-                        existing().get('targetId', '') == request.auth.uid ||
-                        existing().get('senderId', '') == request.auth.uid);
+      // Queries must be constrained by type, conversation target and/or participant.
+      allow get, list: if canReadChatMessage(existing());
+      allow create: if isApproved() &&
+        request.resource.data.get('senderId', '') == request.auth.uid &&
+        request.resource.data.get('type', '') in ['groups', 'private', 'clients'] &&
+        (
+          (request.resource.data.type == 'groups') ||
+          (request.resource.data.type == 'private' &&
+            request.resource.data.get('targetId', '') is string &&
+            request.resource.data.targetId != request.auth.uid) ||
+          (request.resource.data.type == 'clients' &&
+            request.resource.data.get('targetId', '') is string &&
+            canAccessClient(request.resource.data.targetId))
+        );
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (existing().get('targetId', '') == request.auth.uid &&
+          request.resource.data.diff(existing()).affectedKeys().hasOnly(['isRead', 'readAt']))
+      );
       allow delete: if isAdmin();
     }
 
