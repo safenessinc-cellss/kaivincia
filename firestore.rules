@@ -221,7 +221,7 @@ service cloud.firestore {
       allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
       match /messages/{messageId} {
-        allow read: if isAdmin() || ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data);
+        allow read: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow create: if isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data);
         allow update: if isAdmin() || (isApproved() && ownsRecord(get(/databases/$(database)/documents/omnichannel_threads/$(threadId)).data));
         allow delete: if isAdmin();
@@ -229,9 +229,9 @@ service cloud.firestore {
     }
 
     match /voip_call_history/{callId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
     }
 
@@ -265,16 +265,13 @@ service cloud.firestore {
     }
 
     match /esim_profiles/{profileId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
-      allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
-      allow delete: if isAdmin() || resource.data.get('ownerId', '') == request.auth.uid;
+      allow read, write: if isAdmin();
     }
 
     match /shared_whatsapp_chats/{chatId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
     }
 
@@ -285,16 +282,16 @@ service cloud.firestore {
     }
 
     match /appointments/{appointmentId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin() || resource.data.get('createdBy', '') == request.auth.uid;
     }
 
     match /call_dispositions/{dispositionId} {
-      allow read: if isAdmin() || ownsRecord(resource.data);
+      allow read: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow create: if isApproved() && ownsRecord(request.resource.data);
-      allow update: if isAdmin() || ownsRecord(resource.data);
+      allow update: if isAdmin() || (isApproved() && ownsRecord(resource.data));
       allow delete: if isAdmin();
     }
 
