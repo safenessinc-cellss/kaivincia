@@ -42,7 +42,7 @@ async function logTicketAudit(
     if (!user) return;
     await addDoc(collection(db, 'audit_logs'), {
       action,
-      actorId: user.uid,
+      actorUid: user.uid,
       actorEmail: user.email || 'unknown',
       ticketId,
       details,
