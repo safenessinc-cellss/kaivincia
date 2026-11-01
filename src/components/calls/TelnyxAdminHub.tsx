@@ -453,6 +453,7 @@ export default function TelnyxAdminHub() {
             id: cred.id,
             name: cred.name || '',
             telnyxUsername: cred.sipUsername || '',
+            username: cred.sipUsername || '',
             connectionId: cred.connectionId || '',
             activo: true,
             status: 'active',
