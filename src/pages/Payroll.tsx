@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   DollarSign, TrendingUp, TrendingDown, Calendar, 
   ArrowUpRight, ArrowDownRight, CreditCard, Wallet, 
