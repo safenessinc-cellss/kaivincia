@@ -212,9 +212,9 @@ export default function SuperAdmin() {
   };
 
   const updateUserPermissions = async (userId: string, module: string, hasAccess: boolean) => {
+    const user = users.find(u => u.id === userId);
+    const currentPerms = user?.permissions || {};
     try {
-      const user = users.find(u => u.id === userId);
-      const currentPerms = user?.permissions || {};
       const newPerms = { ...currentPerms, [module]: hasAccess };
 
       // Update in local state immediately so user sees toggle without closing dialog
@@ -240,6 +240,8 @@ export default function SuperAdmin() {
 
       triggerFeedback(`Permiso "${module}" ${hasAccess ? 'concedido' : 'revocado'}.`);
     } catch (error) {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, permissions: currentPerms } : u));
+      setSelectedUserForPerms((prev: any) => prev ? { ...prev, permissions: currentPerms } : null);
       handleFirestoreError(error, OperationType.UPDATE, `users/${userId}`);
     }
   };
@@ -787,7 +789,7 @@ export default function SuperAdmin() {
                 <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
                 <div className="text-xs">
                   <h4 className="font-bold text-blue-900">Protección de Datos & Reglas de Firestore</h4>
-                  <p className="text-blue-700 mt-0.5">Las reglas de seguridad validan token de administrador y deniegan mutaciones no autorizadas en toda la plataforma.</p>
+                  <p className="text-blue-700 mt-0.5">La auditoría detectó colecciones con alcance global. La revisión de reglas y consultas sigue pendiente; la protección integral aún no está validada.</p>
                 </div>
               </div>
             </div>
@@ -812,7 +814,7 @@ export default function SuperAdmin() {
                   </div>
                   <div className="shrink-0 bg-slate-800/80 px-4 py-3 rounded-xl border border-slate-700 text-center">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] block">Nivel de Seguridad</span>
-                    <span className="text-sm font-black text-white">ISO 27001 / SOC-2</span>
+                    <span className="text-sm font-black text-white">Referencia ISO 27001 / SOC 2 (sin certificación)</span>
                   </div>
                 </div>
               </div>
@@ -1035,7 +1037,7 @@ export default function SuperAdmin() {
                   <Building2 className="w-3.5 h-3.5 text-indigo-500" /> Clientes Asignados ({assignedClientsDraft.length})
                 </h4>
                 <p className="text-[11px] text-gray-400 mb-3">
-                  Este colaborador solo podrá visualizar e interactuar con los clientes marcados aquí.
+                  Estas asignaciones quedan registradas en el perfil. La restricción efectiva de lectura y escritura aún requiere aplicar reglas y consultas por asignación.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {clientsList.map(c => {
@@ -1130,14 +1132,14 @@ export default function SuperAdmin() {
                 <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-red-950 uppercase tracking-tight">Eliminar Usuario Permanentemente</h3>
+                <h3 className="text-base font-black text-red-950 uppercase tracking-tight">Eliminar Perfil CRM</h3>
                 <p className="text-[11px] text-red-700">Esta acción no se puede deshacer.</p>
               </div>
             </div>
 
             <div className="p-6 space-y-4">
               <p className="text-xs text-gray-700 leading-relaxed">
-                Estás a punto de eliminar definitivamente la cuenta de <span className="font-bold text-gray-950">{userToDelete.email || userToDelete.name}</span>. Se revocarán todos los accesos a los módulos y se registrará este evento en la auditoría inmutable.
+                Estás a punto de eliminar el perfil CRM de <span className="font-bold text-gray-950">{userToDelete.email || userToDelete.name}</span>. Esta acción no elimina la cuenta de autenticación de Firebase ni sus datos asociados; esos pasos requieren un procedimiento administrativo separado.
               </p>
 
               <div>
@@ -1197,7 +1199,7 @@ export default function SuperAdmin() {
                   <p className="font-bold text-gray-900">Tiempo de Expiración de Sesión</p>
                   <p className="text-[11px] text-gray-500">Cierra la sesión automáticamente tras inactividad.</p>
                 </div>
-                <select className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-white">
+                <select disabled className="border border-gray-300 rounded-lg p-1.5 font-bold text-xs bg-gray-100 opacity-60">
                   <option value="30m">30 Minutos</option>
                   <option value="1h">1 Hora</option>
                   <option value="8h">8 Horas</option>
@@ -1222,18 +1224,12 @@ export default function SuperAdmin() {
                   <p className="font-bold text-gray-900">Exigir 2FA Obligatorio para Admins</p>
                   <p className="text-[11px] text-gray-500">Obliga autenticación de dos pasos a roles directivos.</p>
                 </div>
-                <input type="checkbox" defaultChecked className="w-4 h-4 text-cyan-600 rounded" />
+                <input type="checkbox" disabled defaultChecked className="w-4 h-4 text-cyan-600 rounded opacity-60" />
               </div>
             </div>
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end">
-              <button 
-                onClick={() => {
-                  setIsSecurityPoliciesModalOpen(false);
-                  triggerFeedback('Políticas de seguridad guardadas.');
-                }}
-                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-800"
-              >
-                Guardar Políticas
+              <button disabled className="px-6 py-2.5 bg-gray-300 text-gray-500 rounded-xl text-xs font-black uppercase tracking-wider cursor-not-allowed">
+                No disponible: falta persistencia backend
               </button>
             </div>
           </div>
@@ -1250,12 +1246,12 @@ export default function SuperAdmin() {
             </div>
             <div className="p-6 space-y-3 text-xs text-gray-700">
               <p>
-                Esta acción fuerza la invalidación de la caché de permisos en los navegadores conectados y actualiza la regla RBAC activa para todos los usuarios.
+                La invalidación distribuida de caché y la propagación global de permisos aún no están conectadas a un servicio backend. Esta vista no ejecuta cambios.
               </p>
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 font-mono text-[11px] space-y-1">
-                <div>✓ Matriz RBAC verificada: 11 roles activos</div>
-                <div>✓ Listener Firestore: Transmisión en tiempo real</div>
-                <div>✓ Colección audit_logs: Integridad confirmada</div>
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
+                <div>Estado: NO VERIFICADO</div>
+                <div>Propagación de matriz: pendiente de backend</div>
+                <div>Invalidación de sesiones: no ejecutada</div>
               </div>
             </div>
             <div className="p-6 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
@@ -1265,14 +1261,8 @@ export default function SuperAdmin() {
               >
                 Cerrar
               </button>
-              <button 
-                onClick={() => {
-                  setIsSyncModalOpen(false);
-                  triggerFeedback('Sincronización en tiempo real completada con éxito.');
-                }}
-                className="px-5 py-2 text-xs font-black uppercase tracking-wider text-white bg-slate-900 hover:bg-[#00F0FF] hover:text-black rounded-xl transition-all"
-              >
-                Sincronizar Ahora
+              <button disabled className="px-5 py-2 text-xs font-black uppercase tracking-wider text-gray-500 bg-gray-200 rounded-xl cursor-not-allowed">
+                Sincronización no disponible
               </button>
             </div>
           </div>
@@ -1284,7 +1274,7 @@ export default function SuperAdmin() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden border border-gray-100">
             <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50/60">
-              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Invitar Nuevo Miembro</h3>
+              <h3 className="text-base font-black text-gray-900 uppercase tracking-tight">Registrar Solicitud de Invitación</h3>
               <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="w-5 h-5" />
               </button>
