@@ -253,9 +253,11 @@ export default function App() {
   if (user && userData) {
     const accountStatus = String(userData.status || '').toLowerCase();
     const accountRole = normalizeRole(userData.role);
+    const legacySuperAdminPending = accountStatus === 'pending' && accountRole === 'superadmin';
+    const approvedAccount = accountStatus === 'approved' || accountStatus === 'active';
     if (
       ['rejected', 'suspended', 'disabled', 'blocked'].includes(accountStatus) ||
-      (accountStatus === 'pending' && accountRole !== 'superadmin') ||
+      (!approvedAccount && !legacySuperAdminPending) ||
       accountRole === 'none'
     ) {
       return <PendingApproval />;
