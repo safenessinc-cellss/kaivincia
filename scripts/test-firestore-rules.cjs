@@ -71,6 +71,8 @@ async function main() {
       await setDoc(doc(db, 'jobs', 'closed-job'), { title: 'Closed role', department: 'People', status: 'closed' });
       await setDoc(doc(db, 'attendance_logs', 'alice-attendance'), { userId: 'alice', type: 'in', timestamp: '2026-11-01T09:00:00Z' });
       await setDoc(doc(db, 'absence_requests', 'alice-absence'), { userId: 'alice', status: 'pending', reason: 'Personal', startDate: '2026-11-02', endDate: '2026-11-02' });
+      await setDoc(doc(db, 'attendance_logs', 'alice-legacy-attendance'), { userUid: 'alice', type: 'out', timestamp: '2026-10-31T18:00:00Z' });
+      await setDoc(doc(db, 'absence_requests', 'alice-legacy-absence'), { userUid: 'alice', status: 'pending', reason: 'Legacy request', startDate: '2026-11-02', endDate: '2026-11-02' });
     });
 
     const alice = env.authenticatedContext('alice', { email: 'alice@example.test' }).firestore();
@@ -251,6 +253,8 @@ async function main() {
     await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Contratado automáticamente' }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-attendance')));
+    await assertSucceeds(getDoc(doc(alice, 'attendance_logs', 'alice-legacy-attendance')));
+    await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-legacy-attendance')));
     await assertFails(getDoc(doc(bob, 'attendance_logs', 'alice-attendance')));
     await assertFails(getDoc(doc(hrDenied, 'attendance_logs', 'alice-attendance')));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
@@ -272,6 +276,8 @@ async function main() {
       timestamp: serverTimestamp(), source: 'web'
     }));
     await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-absence')));
+    await assertSucceeds(getDoc(doc(alice, 'absence_requests', 'alice-legacy-absence')));
+    await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-legacy-absence')));
     await assertFails(getDoc(doc(bob, 'absence_requests', 'alice-absence')));
     await assertFails(getDoc(doc(hrDenied, 'absence_requests', 'alice-absence')));
     await assertFails(updateDoc(doc(alice, 'absence_requests', 'alice-absence'), {
