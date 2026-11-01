@@ -646,7 +646,7 @@ export default function SuperAdmin() {
                     </span>
                   )}
                   <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full border border-emerald-200">
-                    Sincronización en Vivo
+                    Guardado en Firestore
                   </span>
                 </div>
               </div>
@@ -764,7 +764,7 @@ export default function SuperAdmin() {
                         <div className="flex items-center gap-3 text-[10px] text-gray-400 mt-1.5">
                           <span>Usuario: {log.userEmail || log.userId}</span>
                           <span>•</span>
-                          <span>IP: {log.ipAddress || '127.0.0.1'}</span>
+                          <span>IP: {log.ipAddress || 'No capturada'}</span>
                         </div>
                       </div>
                     </div>
@@ -813,7 +813,7 @@ export default function SuperAdmin() {
                     </p>
                   </div>
                   <div className="shrink-0 bg-slate-800/80 px-4 py-3 rounded-xl border border-slate-700 text-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] block">Nivel de Seguridad</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-[#00F0FF] block">Marco de referencia</span>
                     <span className="text-sm font-black text-white">Referencia ISO 27001 / SOC 2 (sin certificación)</span>
                   </div>
                 </div>
