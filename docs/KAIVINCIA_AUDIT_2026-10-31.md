@@ -202,3 +202,25 @@ Se identificaron **53 declaraciones Route** en `src/App.tsx` (incluye rutas púb
 - Aplicar matriz con override por usuario y fallback por rol; denegar por defecto sólo después de comprobar las rutas legítimas de cada perfil.
 - Corregir primero las consultas globales de Firestore; un guard de ruta no evita que un módulo abierto lea datos fuera de asignación.
 - Añadir tests de deep link para los 11 roles y pruebas de acceso a endpoints/Firestore; no basarse sólo en que el menú oculte enlaces.
+
+
+## Remediación de RBAC y administración financiera — fase 3
+
+### Matriz RBAC aplicada a rutas sensibles
+- `src/App.tsx` escucha `settings/rbac_matrix` y espera su primera respuesta antes de renderizar CRM; si la lectura falla, usa defaults documentados para perfiles legacy.
+- Nuevo resolver `hasEffectivePermission()` con precedencia: override explícito por usuario → matriz persistida por rol → lista de roles legacy como fallback. El rol histórico `sales` sigue resolviendo la matriz almacenada bajo `sales` aunque la navegación lo normalice a `agent`.
+- Rutas ahora protegidas por permission ID: `cobranza/view_financial_dashboard`, `call-center/telephony_config`, `automations/automations_engine`, `integrations/telephony_config`, `calls/voip_calls`, `recruitment/team/payroll/recruitment_payroll`, `accounting/billing/accounting_gps`, `client-management/client_base_global`, `reports/export_databases`, `security/security_center`.
+- `CRMLayout` recibe el mismo resolver y filtra los enlaces con las mismas políticas; se eliminan grupos vacíos, se corrige el menú de admin y se evitan enlaces duplicados. Facturación global ya no aparece para alumnos/usuarios sin permiso.
+- `RouteGuard` y el gate superior de `App.tsx` comparten el criterio para estados rechazados/suspendidos/deshabilitados/bloqueados y la excepción legacy de SuperAdmin pendiente.
+- Pruebas unitarias ampliadas para precedencia de permisos, deny/allow por usuario, matriz guardada y alias `sales → agent`.
+
+### Datos financieros y seguridad operativa
+- `Accounting.tsx`: métricas estáticas identificadas como DEMO; selector de moneda deshabilitado porque no cambia los valores ni está conectado a un ledger.
+- `Payroll.tsx`: importes/ROI/bonos y agentes de ejemplo identificados como DEMO; exportación CSV deshabilitada hasta conectar nómina real.
+- `SecurityCenter.tsx`: cambia la afirmación “EN LÍNEA” por “Telemetría PARCIAL”; distingue sesiones marcadas `isActive` de conexiones verificadas y el campo `mfaEnrolled` de una validación real de MFA en Firebase Auth. El query de auditoría queda limitado a timestamps de las últimas 24 horas.
+
+### Límites que siguen abiertos
+- Las rutas `clients`, `pipeline`, `tasks`, `calendar` y `chat` siguen pendientes de scope de datos. No se declara protegida la información por ocultar enlaces; GlobalContext y varios listeners consultan colecciones globales.
+- La colección `chat_messages` sigue siendo el riesgo de privacidad más alto: mensajes privados filtrados en frontend y regla Firestore demasiado amplia. Requiere separar mensajes de grupo, privados y clientes y probar acceso cruzado.
+- `Billing` y otras pantallas financieras necesitan prueba funcional end-to-end con documentos reales, reglas y notificaciones; el permiso de ruta no garantiza por sí solo el aislamiento de sus consultas.
+- La matriz global puede modificarse en caliente; todavía falta testear cada rol real con URL directa y llamadas a Firestore/API. No declarar la auditoría de permisos terminada.
