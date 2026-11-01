@@ -60,7 +60,7 @@ export default function CallHistoryTable({ onSelectCall, onTriggerCall, classNam
     if (authLoading || !user) return;
 
     setLoading(true);
-    const isAdmin = ['superadmin', 'admin', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
+    const isAdmin = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'].includes(String(userData?.role || '').toLowerCase());
     const q = isAdmin
       ? query(collection(db, 'voip_call_history'), orderBy('startedAt', 'desc'), limit(200))
       : query(collection(db, 'voip_call_history'), where('agentId', '==', user.uid), orderBy('startedAt', 'desc'), limit(200));
