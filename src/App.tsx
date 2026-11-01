@@ -67,6 +67,8 @@ export default function App() {
     }
   });
   const [userData, setUserData] = useState<any>(null);
+  const [rbacMatrix, setRbacMatrix] = useState<Record<string, Record<string, boolean>> | null>(null);
+  const [rbacMatrixLoaded, setRbacMatrixLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
 
@@ -88,14 +90,29 @@ export default function App() {
     }
 
     let unsubUserDoc: (() => void) | null = null;
+    let unsubRbacMatrix: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       if (unsubUserDoc) {
         unsubUserDoc();
         unsubUserDoc = null;
       }
+      if (unsubRbacMatrix) {
+        unsubRbacMatrix();
+        unsubRbacMatrix = null;
+      }
 
       if (currentUser) {
+        setRbacMatrixLoaded(false);
+        unsubRbacMatrix = onSnapshot(doc(db, 'settings', 'rbac_matrix'), (matrixSnap) => {
+          const matrix = matrixSnap.exists() ? matrixSnap.data().matrix : null;
+          setRbacMatrix(matrix && typeof matrix === 'object' ? matrix : null);
+          setRbacMatrixLoaded(true);
+        }, (matrixError) => {
+          console.warn('RBAC matrix unavailable; using safe role defaults:', matrixError);
+          setRbacMatrix(null);
+          setRbacMatrixLoaded(true);
+        });
         try {
           // The trusted backend owns account provisioning and approval. Never promote
           // users or change role/status from client-side login code.
@@ -141,6 +158,8 @@ export default function App() {
           });
         }
       } else {
+        setRbacMatrix(null);
+        setRbacMatrixLoaded(true);
         setUser(null);
         setUserData(null);
         localStorage.removeItem('kaivincia_active_user');
@@ -151,11 +170,12 @@ export default function App() {
 
     return () => {
       if (unsubUserDoc) unsubUserDoc();
+      if (unsubRbacMatrix) unsubRbacMatrix();
       unsubscribeAuth();
     };
   }, []);
 
-  if (loading) {
+  if (loading || (user && !rbacMatrixLoaded)) {
     return (
       <div className="min-h-screen bg-[#05070a] relative flex flex-col items-center justify-center overflow-hidden">
         {/* Background stars */}
@@ -244,6 +264,25 @@ export default function App() {
 
   const hasAccess = Boolean(user || isGuest);
 
+  // Apply per-user overrides first, then the persisted role matrix, and only
+  // then the documented role defaults for legacy profiles without a matrix.
+  const canAccessPermission = (permissionId: string, fallbackRoles: string[]) => {
+    const role = normalizeRole(effectiveUserData?.role);
+    const userOverride = effectiveUserData?.permissions?.[permissionId];
+    if (typeof userOverride === 'boolean') return userOverride;
+
+    const roleMatrix = rbacMatrix?.[role] || (role === 'agent' ? rbacMatrix?.sales : undefined);
+    const matrixValue = roleMatrix?.[permissionId];
+    if (typeof matrixValue === 'boolean') return matrixValue;
+
+    return fallbackRoles.includes(role);
+  };
+
+  const requirePermission = (permissionId: string, fallbackRoles: string[], element: React.ReactNode) =>
+    canAccessPermission(permissionId, fallbackRoles)
+      ? element
+      : <Navigate to="/crm/dashboard" replace />;
+
   return (
     <BrowserRouter>
       <Routes>
@@ -280,31 +319,31 @@ export default function App() {
           <Route path="tasks" element={<Tasks />} />
           <Route path="calendar" element={<CalendarView />} />
           <Route path="chat" element={<Chat />} />
-          <Route path="cobranza" element={<Cobranza />} />
-          <Route path="call-center" element={userData?.role !== "superadmin" && userData?.role !== "admin" ? <Navigate to="/crm/dashboard" /> : <CallCenterAdmin />} />
+          <Route path="cobranza" element={requirePermission('view_financial_dashboard', ['superadmin', 'admin', 'ceo', 'gestor'], <Cobranza />)} />
+          <Route path="call-center" element={requirePermission('telephony_config', ['superadmin', 'admin'], <CallCenterAdmin />)} />
           
           {/* New Modules */}
           <Route path="superadmin" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SuperAdmin />} />
           <Route path="appearance" element={userData?.role !== 'superadmin' && userData?.role !== 'admin' ? <Navigate to="/crm/dashboard" /> : <AppearancePanel />} />
-          <Route path="automations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Automations />} />
+          <Route path="automations" element={requirePermission('automations_engine', ['superadmin', 'admin', 'ceo', 'gestor'], <Automations />)} />
           <Route path="form-templates" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <FormTemplates />} />
-          <Route path="integrations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Integrations />} />
+          <Route path="integrations" element={requirePermission('telephony_config', ['superadmin', 'admin'], <Integrations />)} />
           <Route path="academy-internal" element={<AcademyInternal />} />
           <Route path="academy-external" element={<AcademyExternal />} />
           <Route path="digital-products" element={<DigitalProducts />} />
-          <Route path="calls" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <CallSystem />} />
+          <Route path="calls" element={requirePermission('voip_calls', ['superadmin', 'admin', 'ceo', 'gestor', 'agent', 'collaborator'], <CallSystem />)} />
           
           {/* Administrativo */}
-          <Route path="recruitment" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Recruitment />} />
-          <Route path="team" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TeamManagement />} />
-          <Route path="payroll" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Payroll />} />
-          <Route path="accounting" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Accounting />} />
-          <Route path="client-management" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <ClientManagement />} />
-          <Route path="billing" element={<Billing />} />
+          <Route path="recruitment" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <Recruitment />)} />
+          <Route path="team" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <TeamManagement />)} />
+          <Route path="payroll" element={requirePermission('recruitment_payroll', ['superadmin', 'admin', 'ceo', 'rrhh'], <Payroll />)} />
+          <Route path="accounting" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'ceo'], <Accounting />)} />
+          <Route path="client-management" element={requirePermission('client_base_global', ['superadmin', 'admin', 'ceo', 'gestor'], <ClientManagement />)} />
+          <Route path="billing" element={requirePermission('accounting_gps', ['superadmin', 'admin', 'ceo'], <Billing />)} />
           <Route path="operations" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Operations />} />
           <Route path="marketing" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Marketing />} />
           <Route path="projects" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Projects />} />
-          <Route path="reports" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Reports />} />
+          <Route path="reports" element={requirePermission('export_databases', ['superadmin', 'admin', 'ceo', 'gestor'], <Reports />)} />
           <Route path="commissions" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Commissions />} />
           <Route path="tactical" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <TacticalDeployment />} />
           <Route path="manuales" element={<SOPManuals />} />
@@ -312,7 +351,7 @@ export default function App() {
           <Route path="helpdesk" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <Helpdesk />} />
           <Route path="drive" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <DocumentDrive />} />
           <Route path="audits" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <AuditsSGI />} />
-          <Route path="security" element={userData?.role !== 'superadmin' ? <Navigate to="/crm/dashboard" /> : <SecurityCenter />} />
+          <Route path="security" element={requirePermission('security_center', ['superadmin', 'admin', 'ceo'], <SecurityCenter />)} />
           <Route path="nervous" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <NervousSystem />} />
           <Route path="strategy-blog" element={<StrategyBlog />} />
           
