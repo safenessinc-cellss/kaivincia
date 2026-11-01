@@ -565,40 +565,33 @@ export default function Pipeline() {
   
 
   const handleSaveAppointment = async (clientId: string, appointment: AppointmentData) => {
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      pipelineStage: 'CITA_AGENDADA',
-      appointment,
-      notes: [
-        {
-          id: `app_note_${Date.now()}`,
-          author: appointment.assignedAgent,
-          text: `Cita agendada para el ${appointment.date} a las ${appointment.time}. Modalidad: ${appointment.type}. Guardada en Agenda & Reuniones de la app.`,
-          createdAt: new Date().toISOString(),
-          disposition: 'CITA_AGENDADA'
-        },
-        ...(l.notes || [])
-      ]
-    } : l));
+    const targetLead = leads.find(l => l.id === clientId);
+    if (!targetLead) throw new Error('No se encontró la oportunidad seleccionada.');
+
+    const createdAt = new Date().toISOString();
+    const note = {
+      id: `app_note_${Date.now()}`,
+      author: appointment.assignedAgent || currentUser?.displayName || currentUser?.email || 'Agente',
+      text: `Cita agendada para el ${appointment.date} a las ${appointment.time}. Modalidad: ${appointment.type}.`,
+      createdAt,
+      disposition: 'CITA_AGENDADA'
+    };
 
     try {
-      const leadRef = doc(db, 'clients', clientId);
-      await updateDoc(leadRef, {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'clients', clientId), {
         pipelineStage: 'CITA_AGENDADA',
         appointment,
-        updatedAt: new Date().toISOString()
+        notes: [note, ...(targetLead.notes || [])],
+        updatedAt: serverTimestamp()
       });
-
-      // Sincronizar directamente en la colección appointments para Agenda & Reuniones
-      const targetLead = leads.find(l => l.id === clientId);
-      const appDocRef = doc(db, 'appointments', `app_${clientId}`);
-      await setDoc(appDocRef, {
+      batch.set(doc(db, 'appointments', `app_${clientId}`), {
         id: `app_${clientId}`,
         clientId,
-        clientName: targetLead?.name || 'Cliente Oportunidad',
-        clientPhone: targetLead?.phone || '',
-        clientCompany: targetLead?.companyName || targetLead?.company || '',
-        title: `Cita Comercial: ${targetLead?.name || 'Cliente'} (${appointment.type})`,
+        clientName: targetLead.name || 'Cliente',
+        clientPhone: targetLead.phone || '',
+        clientCompany: targetLead.companyName || targetLead.company || '',
+        title: `Cita Comercial: ${targetLead.name || 'Cliente'} (${appointment.type})`,
         date: appointment.date,
         time: appointment.time,
         assignedAgent: appointment.assignedAgent,
@@ -611,78 +604,94 @@ export default function Pipeline() {
         gpsCoordinates: appointment.gpsCoordinates || null,
         gpsVerified: Boolean(appointment.gpsVerified),
         source: 'marketing_pipeline',
-        updatedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp()
       }, { merge: true });
-    } catch (e) {
-      console.warn(e);
+      await batch.commit();
+
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        pipelineStage: 'CITA_AGENDADA',
+        appointment,
+        notes: [note, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
     }
   };
+
+  
 
   const handleSaveGpsFeedback = async (clientId: string, updatedAppointment: AppointmentData) => {
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      pipelineStage: 'CITA_CUMPLIDA',
-      appointment: updatedAppointment,
-      notes: [
-        {
-          id: `gps_note_${Date.now()}`,
-          author: updatedAppointment.assignedAgent,
-          text: `Cita Cumplida y Verificada por GPS (${updatedAppointment.gpsCoordinates?.lat}, ${updatedAppointment.gpsCoordinates?.lng}). Feedback: "${updatedAppointment.clientFeedback?.comment}"`,
-          createdAt: new Date().toISOString()
-        },
-        ...(l.notes || [])
-      ]
-    } : l));
+    const targetLead = leads.find(l => l.id === clientId);
+    if (!targetLead) throw new Error('No se encontró la oportunidad seleccionada.');
+    if (!updatedAppointment.gpsCoordinates) throw new Error('No se recibieron coordenadas GPS para verificar la cita.');
 
-    try {
-      const leadRef = doc(db, 'clients', clientId);
-      await updateDoc(leadRef, {
-        pipelineStage: 'CITA_CUMPLIDA',
-        appointment: updatedAppointment,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Actualizar estado en appointments
-      const appDocRef = doc(db, 'appointments', `app_${clientId}`);
-      await setDoc(appDocRef, {
-        status: 'cumplida',
-        gpsVerified: true,
-        gpsCoordinates: updatedAppointment.gpsCoordinates || null,
-        clientFeedback: updatedAppointment.clientFeedback || null,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
-    } catch (e) {
-      console.warn(e);
-    }
-  };
-
-  const handleAddNote = async (clientId: string, noteText: string) => {
-    const newNote = {
-      id: `note_${Date.now()}`,
-      author: selectedTLMK !== 'all' ? selectedTLMK : 'Zaydeli De La Rosa',
-      text: noteText,
+    const note = {
+      id: `gps_note_${Date.now()}`,
+      author: updatedAppointment.assignedAgent || currentUser?.displayName || currentUser?.email || 'Agente',
+      text: `Cita cumplida y verificada por GPS (${updatedAppointment.gpsCoordinates.lat}, ${updatedAppointment.gpsCoordinates.lng}). Feedback: "${updatedAppointment.clientFeedback?.comment || ''}"`,
       createdAt: new Date().toISOString()
     };
 
-    setLeads(prev => prev.map(l => l.id === clientId ? {
-      ...l,
-      notes: [newNote, ...(l.notes || [])]
-    } : l));
-
     try {
-      const lead = leads.find(l => l.id === clientId);
-      if (lead) {
-        const leadRef = doc(db, 'clients', clientId);
-        await updateDoc(leadRef, {
-          notes: [newNote, ...(lead.notes || [])],
-          updatedAt: new Date().toISOString()
-        });
-      }
-    } catch (e) {
-      console.warn(e);
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'clients', clientId), {
+        pipelineStage: 'CITA_CUMPLIDA',
+        appointment: updatedAppointment,
+        notes: [note, ...(targetLead.notes || [])],
+        updatedAt: serverTimestamp()
+      });
+      batch.set(doc(db, 'appointments', `app_${clientId}`), {
+        status: 'cumplida',
+        gpsVerified: true,
+        gpsCoordinates: updatedAppointment.gpsCoordinates,
+        clientFeedback: updatedAppointment.clientFeedback || null,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      await batch.commit();
+
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        pipelineStage: 'CITA_CUMPLIDA',
+        appointment: updatedAppointment,
+        notes: [note, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
     }
   };
+
+  
+
+  const handleAddNote = async (clientId: string, noteText: string) => {
+    const lead = leads.find(l => l.id === clientId);
+    if (!lead) throw new Error('No se encontró la oportunidad seleccionada.');
+    const newNote = {
+      id: `note_${Date.now()}`,
+      author: currentUser?.displayName || currentUser?.email || (selectedTLMK !== 'all' ? selectedTLMK : 'Agente'),
+      text: noteText.trim(),
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await updateDoc(doc(db, 'clients', clientId), {
+        notes: [newNote, ...(lead.notes || [])],
+        updatedAt: serverTimestamp()
+      });
+      setLeads(prev => prev.map(l => l.id === clientId ? {
+        ...l,
+        notes: [newNote, ...(l.notes || [])]
+      } : l));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `clients/${clientId}`);
+      throw error;
+    }
+  };
+
+  
 
   const handleCall = (phoneNumber: string) => {
     // Navigate to CallSystem with pre-dialed number
