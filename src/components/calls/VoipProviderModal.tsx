@@ -287,7 +287,10 @@ export default function VoipProviderModal({
     const unsub = onSnapshot(collection(db, 'telnyx_sip_credentials'), async (snapshot) => {
       let sips: TelnyxSipCredential[] = [];
       if (!snapshot.empty) {
-        sips = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TelnyxSipCredential));
+        sips = snapshot.docs.map(d => {
+          const data = d.data() as any;
+          return { id: d.id, ...data, status: data.status || (data.activo === true ? 'active' : 'inactive') } as TelnyxSipCredential;
+        });
       } else {
         await SipCredentialsService.seedInitialSips();
         sips = await SipCredentialsService.getAllSips();
@@ -366,7 +369,7 @@ export default function VoipProviderModal({
   }, [availableSips, selectedSipId, form.credentials?.authUsername, form.credentials?.username]);
 
   const hasAvailableSips = useMemo(() => {
-    return availableSips.some(s => s.status === 'active' && (!s.assignedTo || s.assignedTo === user?.uid || isAdmin));
+    return availableSips.some(s => (s.status === 'active' || (!s.status && (s as any).activo === true)) && (!s.assignedTo || s.assignedTo === user?.uid || isAdmin));
   }, [availableSips, user?.uid, isAdmin]);
 
   if (!isOpen) return null;
