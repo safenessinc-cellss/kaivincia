@@ -55,32 +55,58 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // An operator and credential must be assigned by an administrator.
-    // Never create a Telnyx credential merely because someone authenticated.
+    // Agents require an exclusive assignment. Privileged users receive account-wide
+    // call visibility, but use a dedicated/unassigned admin credential rather than
+    // borrowing a credential currently assigned to an agent.
+    const isPrivileged = PRIVILEGED_ROLES.has(role);
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
-    if (!operatorSnap.exists) {
+    const operator = operatorSnap.exists ? (operatorSnap.data() || {}) : {};
+    let credentialId = String(operator.telnyxCredentialId || '');
+
+    if (!isPrivileged && (!operatorSnap.exists || operator.activo !== true || !credentialId)) {
       res.statusCode = 403;
-      res.end(JSON.stringify({ error: 'No tienes un operador VoIP asignado. Solicita la asignación a un administrador.' }));
+      res.end(JSON.stringify({ error: 'No tienes un operador VoIP activo con credencial SIP asignada. Solicita la asignación a un administrador.' }));
       return;
     }
-    const operator = operatorSnap.data() || {};
-    if (operator.activo !== true || !operator.telnyxCredentialId) {
-      res.statusCode = 403;
-      res.end(JSON.stringify({ error: 'Operador desactivado o sin credencial SIP asignada.' }));
-      return;
-    }
-    if (operator.permiteSalientes !== true && operator.permiteEntrantes !== true) {
+    if (!isPrivileged && operator.permiteSalientes !== true && operator.permiteEntrantes !== true) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'El operador no tiene permisos de llamadas.' }));
       return;
     }
-    if (!PRIVILEGED_ROLES.has(role) && !verificarHorario(operator.horario)) {
+    if (!isPrivileged && !verificarHorario(operator.horario)) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'Fuera del horario laboral asignado.' }));
       return;
     }
 
-    const credentialId = String(operator.telnyxCredentialId);
+    // A superadmin may use the configured admin credential or a single unassigned
+    // active credential. Never select an agent-owned SIP credential implicitly.
+    if (isPrivileged) {
+      const configSnap = await adminDb.collection('settings').doc('telnyx_config').get();
+      const config = configSnap.data() || {};
+      const configuredAdminCredential = String(
+        config.adminCredentialId || config.defaultAdminCredentialId || ''
+      ).trim();
+      if (configuredAdminCredential) credentialId = configuredAdminCredential;
+
+      if (!credentialId) {
+        const unassignedSnap = await adminDb.collection('telnyx_sip_credentials')
+          .where('activo', '==', true).get();
+        const unassigned = unassignedSnap.docs.filter((snap: any) => {
+          const data = snap.data() || {};
+          const assigned = data.assignedTo || data.operadorUid || null;
+          const state = String(data.status || 'active').toLowerCase();
+          return !assigned && !['inactive', 'disabled', 'revoked', 'deleted'].includes(state);
+        });
+        if (unassigned.length === 1) credentialId = unassigned[0].id;
+      }
+    }
+
+    if (!credentialId) {
+      res.statusCode = 409;
+      res.end(JSON.stringify({ error: 'Falta asignar una credencial SIP exclusiva al superadministrador. En Administración VoIP, configura el ID en settings/telnyx_config.adminCredentialId o deja una única credencial activa sin asignar.' }));
+      return;
+    }
     const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(credentialId).get();
     if (!credentialSnap.exists) {
       res.statusCode = 403;
@@ -90,38 +116,46 @@ export default async function handler(req: any, res: any) {
     const credential = credentialSnap.data() || {};
     const assignedUid = credential.assignedTo || credential.operadorUid || null;
 
-    // The assignment collection is the second half of the atomic admin workflow.
-    // Older imported credentials may have a missing assignedTo field, so verify
-    // the reverse mapping before repairing it; never infer ownership from the
-    // operator document alone and never accept a credential mapped to another UID.
-    const directAssignment = await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
-    const assignmentQuery = await adminDb.collection('telnyx_agent_assignments')
-      .where('telnyxCredentialId', '==', credentialId)
-      .limit(2)
-      .get();
-    const matchingAssignments = assignmentQuery.docs;
+    const directAssignment = isPrivileged
+      ? null
+      : await adminDb.collection('telnyx_agent_assignments').doc(authUser.uid).get();
+    const assignmentQuery = isPrivileged ? null : await adminDb.collection('telnyx_agent_assignments')
+      .where('telnyxCredentialId', '==', credentialId).limit(2).get();
+    const matchingAssignments = assignmentQuery?.docs || [];
     const uniqueReverseAssignment = matchingAssignments.length === 1 &&
       matchingAssignments[0].data()?.agentId === authUser.uid;
-    const directAssignmentData = directAssignment.exists ? (directAssignment.data() || {}) : {};
-    const directAssignmentMatches = directAssignment.exists &&
+    const directAssignmentData = directAssignment?.exists ? (directAssignment.data() || {}) : {};
+    const directAssignmentMatches = Boolean(directAssignment?.exists) &&
       directAssignmentData.agentId === authUser.uid &&
       directAssignmentData.telnyxCredentialId === credentialId;
 
-    if (
+    if (isPrivileged) {
+      if (assignedUid && assignedUid !== authUser.uid) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: 'Esta credencial pertenece a un agente. Asigna una credencial SIP independiente al superadministrador para mantener sesiones aisladas.' }));
+        return;
+      }
+    } else if (
       (assignedUid !== null && assignedUid !== authUser.uid) ||
-      (matchingAssignments.length > 1) ||
+      matchingAssignments.length > 1 ||
       (matchingAssignments.length === 1 && !uniqueReverseAssignment) ||
-      (assignedUid === null && !uniqueReverseAssignment && !directAssignmentMatches) ||
-      (assignedUid === authUser.uid && matchingAssignments.length === 1 && !uniqueReverseAssignment)
+      (!uniqueReverseAssignment && !directAssignmentMatches)
     ) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'La credencial SIP no está asignada exclusivamente a este operador. Revisa la asignación desde Administración VoIP.' }));
       return;
     }
 
-    // Repair only a verified, unique legacy mapping. Admin SDK bypasses Firestore
-    // client rules, but the proof above binds the credential to this authenticated UID.
-    if (assignedUid === null && uniqueReverseAssignment) {
+    // Legacy imported credentials only stored activo=true (no status field).
+    // Treat that shape as active, but continue to reject explicit inactive states.
+    const credentialStatus = String(credential.status || (credential.activo === true ? 'active' : 'inactive')).toLowerCase();
+    if (credentialStatus !== 'active' || credential.activo === false) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'La credencial SIP está desactivada o no tiene un estado válido.' }));
+      return;
+    }
+
+    if (!isPrivileged && assignedUid === null && uniqueReverseAssignment) {
       await credentialSnap.ref.update({
         assignedTo: authUser.uid,
         assignedToEmail: authUser.email || '',
@@ -129,19 +163,15 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    if (credential.status !== 'active' || credential.activo !== true) {
-      res.statusCode = 403;
-      res.end(JSON.stringify({ error: 'La credencial SIP está desactivada o no tiene un estado válido.' }));
-      return;
-    }
-
     const token = await TelnyxBackendService.generateAgentJwt(credentialId);
     const numberIds: string[] = Array.isArray(operator.numerosAsignados)
       ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
       : [];
-    const assignment = directAssignment.exists
-      ? directAssignmentData
-      : (await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get()).docs[0]?.data() || {};
+    const assignment = isPrivileged
+      ? {}
+      : (directAssignment?.exists
+        ? directAssignmentData
+        : (await adminDb.collection('telnyx_agent_assignments').where('agentId', '==', authUser.uid).limit(1).get()).docs[0]?.data() || {});
     const assignedPhones: string[] = Array.isArray(assignment.authorizedNumbers)
       ? assignment.authorizedNumbers.filter((value: unknown): value is string => typeof value === 'string')
       : [];
@@ -153,7 +183,7 @@ export default async function handler(req: any, res: any) {
         const status = String(data.status || '').toLowerCase();
         const isUsable = !['disabled', 'deleted', 'inactive', 'released'].includes(status);
         if (!isUsable) return false;
-        if (PRIVILEGED_ROLES.has(role)) return true;
+        if (isPrivileged) return true;
         return numberIds.includes(snap.id) || assignedPhones.includes(phone);
       })
       .map((snap: any) => {
@@ -162,10 +192,12 @@ export default async function handler(req: any, res: any) {
       })
       .filter((item: any) => Boolean(item.phoneNumber));
 
-    await adminDb.collection('operadores').doc(authUser.uid).update({
-      disponible: true,
-      ultimaActividad: new Date().toISOString(),
-    });
+    if (operatorSnap.exists) {
+      await adminDb.collection('operadores').doc(authUser.uid).update({
+        disponible: true,
+        ultimaActividad: new Date().toISOString(),
+      });
+    }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
@@ -216,6 +248,9 @@ function verificarHorario(horario: any): boolean {
 
 
 async function hasVoipPermission(uid: string, profile: any, role: string): Promise<boolean> {
+  // Account-level administrators retain full calling access even if a
+  // legacy per-user override accidentally denies the voip_calls capability.
+  if (PRIVILEGED_ROLES.has(role)) return true;
   const override = profile.permissions?.voip_calls;
   if (typeof override === 'boolean') return override;
   const matrixSnap = await adminDb.collection('settings').doc('rbac_matrix').get();
