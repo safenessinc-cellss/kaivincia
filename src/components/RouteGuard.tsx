@@ -8,8 +8,6 @@ interface RouteGuardProps {
   children: React.ReactNode;
 }
 
-const PRIVILEGED_ROLES = ['admin', 'superadmin', 'ceo', 'gestor', 'owner', 'supervisor'];
-
 export default function RouteGuard({ children }: RouteGuardProps) {
   const { user, userData, loading: authLoading } = useAuth();
   const location = useLocation();
@@ -42,8 +40,6 @@ export default function RouteGuard({ children }: RouteGuardProps) {
 
   const status = String(userData.status || '').toLowerCase();
   const role = normalizeRole(userData.role);
-  const isPrivileged = PRIVILEGED_ROLES.some((candidate) => normalizeRole(candidate) === role);
-
   // Explicit negative states always win, including for administrators.
   if (['rejected', 'suspended', 'disabled', 'blocked'].includes(status)) {
     return <PendingApproval />;
