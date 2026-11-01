@@ -1,15 +1,21 @@
 import { adminDb } from '../server/_lib/firebaseAdmin.js';
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
+const ALLOWED_VOIP_ROLES = new Set([
+  'superadmin', 'admin', 'owner', 'ceo', 'gestor',
+  'supervisor', 'agent', 'agente', 'tlmk', 'ventas',
+  'telemarketing', 'collaborator'
+]);
+const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
+
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  res.setHeader('Cache-Control', 'no-store, private');
+  res.setHeader('Vary', 'Authorization');
 
   if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   if (req.method !== 'GET') {
     res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Allow', 'GET, OPTIONS');
     res.end(JSON.stringify({ error: 'Method Not Allowed' }));
     return;
   }
@@ -17,157 +23,132 @@ export default async function handler(req: any, res: any) {
   try {
     const authHeader = req.headers['authorization'] || req.headers['Authorization'];
     const authUser = await TelnyxBackendService.verifyAuthToken(authHeader);
-
     if (!authUser?.uid) {
       res.statusCode = 401;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'No autorizado. Se requiere token de Firebase.' }));
+      res.end(JSON.stringify({ error: 'Se requiere una sesión válida de Firebase.' }));
       return;
     }
 
-    console.log('[telnyx-token] Usuario autenticado:', authUser.uid, authUser.email);
-
-    const db = adminDb;
-    const operadorDoc = await db.collection('operadores').doc(authUser.uid).get();
-
-    let operadorData: any;
-    let credentialId: string;
-    let sipUsername: string;
-
-    if (!operadorDoc.exists) {
-      console.log('[telnyx-token] Operador no existe, creando...');
-      const connectionId = (req.query?.connectionId as string) || process.env.TELNYX_CONNECTION_ID || '';
-      const credential = await TelnyxBackendService.getOrCreateTelephonyCredential(authUser.uid, connectionId);
-
-      operadorData = {
-        id: authUser.uid,
-        email: authUser.email || '',
-        nombre: authUser.email?.split('@')[0] || 'Operador',
-        rol: 'agente',
-        telnyxCredentialId: credential.id,
-        telnyxUsername: credential.sip_username,
-        numerosAsignados: [],
-        horario: {
-          inicio: '00:00',
-          fin: '23:59',
-          zonaHoraria: 'America/Los_Angeles',
-          diasLaborables: ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'],
-        },
-        disponible: false,
-        enLlamada: false,
-        permiteSalientes: true,
-        permiteEntrantes: true,
-        activo: true,
-        creadoEn: new Date().toISOString(),
-      };
-
-      await db.collection('operadores').doc(authUser.uid).set(operadorData);
-      credentialId = credential.id;
-      sipUsername = credential.sip_username;
-    } else {
-      operadorData = operadorDoc.data();
-      credentialId = operadorData.telnyxCredentialId;
-      sipUsername = operadorData.telnyxUsername;
-
-      if (!credentialId) {
-        console.log('[telnyx-token] Operador sin credencial, creando...');
-        const connectionId = (req.query?.connectionId as string) || process.env.TELNYX_CONNECTION_ID || '';
-        const credential = await TelnyxBackendService.getOrCreateTelephonyCredential(authUser.uid, connectionId);
-        credentialId = credential.id;
-        sipUsername = credential.sip_username;
-
-        await db.collection('operadores').doc(authUser.uid).update({
-          telnyxCredentialId: credentialId,
-          telnyxUsername: sipUsername,
-          actualizadoEn: new Date().toISOString(),
-        });
-      }
+    const userSnap = await adminDb.collection('users').doc(authUser.uid).get();
+    if (!userSnap.exists) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'Perfil de usuario no provisionado.' }));
+      return;
     }
 
-    if (operadorData.rol !== 'admin' && operadorData.rol !== 'supervisor') {
-      const enHorario = verificarHorario(operadorData.horario);
-      if (!enHorario) {
+    const profile = userSnap.data() || {};
+    const status = String(profile.status || '').toLowerCase();
+    const role = String(profile.role || '').toLowerCase().trim();
+    if (!['approved', 'active'].includes(status) || !ALLOWED_VOIP_ROLES.has(role)) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'La cuenta no está aprobada o no tiene permiso de telefonía.' }));
+      return;
+    }
+
+    // An operator and credential must be assigned by an administrator.
+    // Never create a Telnyx credential merely because someone authenticated.
+    const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
+    if (!operatorSnap.exists) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'No tienes un operador VoIP asignado. Solicita la asignación a un administrador.' }));
+      return;
+    }
+    const operator = operatorSnap.data() || {};
+    if (operator.activo === false || !operator.telnyxCredentialId) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'Operador desactivado o sin credencial SIP asignada.' }));
+      return;
+    }
+    if (operator.permiteSalientes === false && operator.permiteEntrantes === false) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'El operador no tiene permisos de llamadas.' }));
+      return;
+    }
+    if (!PRIVILEGED_ROLES.has(role) && !verificarHorario(operator.horario)) {
+      res.statusCode = 403;
+      res.end(JSON.stringify({ error: 'Fuera del horario laboral asignado.' }));
+      return;
+    }
+
+    const credentialId = String(operator.telnyxCredentialId);
+    const credentialSnap = await adminDb.collection('telnyx_sip_credentials').doc(credentialId).get();
+    if (credentialSnap.exists) {
+      const credential = credentialSnap.data() || {};
+      const assignedUid = credential.assignedTo || credential.operadorUid || null;
+      if (assignedUid && assignedUid !== authUser.uid) {
         res.statusCode = 403;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({
-          error: 'Fuera de horario laboral. Contacta a tu supervisor.',
-          horario: operadorData.horario,
-        }));
+        res.end(JSON.stringify({ error: 'La credencial SIP pertenece a otro operador.' }));
+        return;
+      }
+      if (credential.status === 'inactive' || credential.activo === false) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: 'La credencial SIP está desactivada.' }));
         return;
       }
     }
 
-    if (operadorData.activo === false) {
-      res.statusCode = 403;
-      res.setHeader('Content-Type', 'application/json');
-      res.end(JSON.stringify({ error: 'Cuenta desactivada. Contacta al administrador.' }));
-      return;
-    }
-
-    console.log('[telnyx-token] Generando JWT para credencial:', credentialId);
     const token = await TelnyxBackendService.generateAgentJwt(credentialId);
+    const numberIds: string[] = Array.isArray(operator.numerosAsignados)
+      ? operator.numerosAsignados.filter((id: unknown): id is string => typeof id === 'string')
+      : [];
+    const numberDocs = PRIVILEGED_ROLES.has(role)
+      ? await adminDb.collection('telnyx_phone_numbers').get()
+      : numberIds.length
+        ? await Promise.all(numberIds.map((id) => adminDb.collection('telnyx_phone_numbers').doc(id).get()))
+        : [];
 
-    await db.collection('operadores').doc(authUser.uid).update({
+    const numbers = numberDocs.docs
+      .filter((snap: any) => snap.exists)
+      .map((snap: any) => {
+        const data = snap.data() || {};
+        return { id: snap.id, phoneNumber: data.phoneNumber || data.phone_number || '', status: data.status || 'unknown' };
+      })
+      .filter((item: any) => Boolean(item.phoneNumber));
+
+    await adminDb.collection('operadores').doc(authUser.uid).update({
       disponible: true,
       ultimaActividad: new Date().toISOString(),
     });
-
-    const numerosAsignados: any[] = [];
-    if (operadorData.numerosAsignados && operadorData.numerosAsignados.length > 0) {
-      for (const numId of operadorData.numerosAsignados) {
-        const numDoc = await db.collection('telnyx_phone_numbers').doc(numId).get();
-        if (numDoc.exists) {
-          numerosAsignados.push({ id: numDoc.id, ...numDoc.data() });
-        }
-      }
-    }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify({
       token,
-      sipUsername,
+      sipUsername: operator.telnyxUsername || '',
       credentialId,
-      connectionId: process.env.TELNYX_CONNECTION_ID || '',
-      operador: {
-        uid: authUser.uid,
-        nombre: operadorData.nombre,
-        rol: operadorData.rol,
-        horario: operadorData.horario,
-      },
-      numerosAsignados,
-      allowedNumbers: numerosAsignados.map((n) => n.phoneNumber),
+      connectionId: operator.connectionId || process.env.TELNYX_CONNECTION_ID || '',
+      operador: { uid: authUser.uid, nombre: operator.nombre || profile.name || authUser.email || 'Operador', rol: role },
+      numerosAsignados: numbers,
+      allowedNumbers: numbers.map((number: any) => number.phoneNumber),
     }));
   } catch (err: any) {
-    console.error('[API /api/telnyx-token] Error:', err);
+    console.error('[api/telnyx-token] Request rejected:', err?.message || 'unknown error');
     res.statusCode = 500;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: err.message || 'Error interno al generar credenciales de Telnyx' }));
+    res.end(JSON.stringify({ error: 'No fue posible obtener las credenciales de telefonía.' }));
   }
 }
 
 function verificarHorario(horario: any): boolean {
   if (!horario || !horario.inicio || !horario.fin) return true;
   try {
-    const zonaHoraria = horario.zonaHoraria || 'America/Los_Angeles';
-    const ahora = new Date().toLocaleString('en-US', { timeZone: zonaHoraria });
-    const fecha = new Date(ahora);
-    const horaActual = fecha.getHours() * 60 + fecha.getMinutes();
-    const [inicioH, inicioM] = horario.inicio.split(':').map(Number);
-    const [finH, finM] = horario.fin.split(':').map(Number);
-    const horaInicio = inicioH * 60 + inicioM;
-    const horaFin = finH * 60 + finM;
-
-    if (horario.diasLaborables && Array.isArray(horario.diasLaborables)) {
-      const diasMap = ['dom', 'lun', 'mar', 'mie', 'jue', 'vie', 'sab'];
-      const diaActual = diasMap[fecha.getDay()];
-      if (!horario.diasLaborables.includes(diaActual)) return false;
-    }
-
-    if (horaFin < horaInicio) return horaActual >= horaInicio || horaActual <= horaFin;
-    return horaActual >= horaInicio && horaActual <= horaFin;
-  } catch (err) {
-    console.error('[verificarHorario] Error:', err);
-    return true;
+    const zone = horario.zonaHoraria || 'America/Los_Angeles';
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+    }).formatToParts(now);
+    const value = (type: string) => parts.find((part) => part.type === type)?.value || '';
+    const dayMap: Record<string, string> = { Sun: 'dom', Mon: 'lun', Tue: 'mar', Wed: 'mie', Thu: 'jue', Fri: 'vie', Sat: 'sab' };
+    const day = dayMap[value('weekday')];
+    if (Array.isArray(horario.diasLaborables) && !horario.diasLaborables.includes(day)) return false;
+    const current = Number(value('hour')) * 60 + Number(value('minute'));
+    const [startHour, startMinute] = String(horario.inicio).split(':').map(Number);
+    const [endHour, endMinute] = String(horario.fin).split(':').map(Number);
+    if (![startHour, startMinute, endHour, endMinute].every(Number.isFinite)) return false;
+    const start = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
+    return end < start ? current >= start || current <= end : current >= start && current <= end;
+  } catch {
+    return false;
   }
 }
