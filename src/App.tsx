@@ -270,7 +270,7 @@ export default function App() {
             </RouteGuard>
           }
         >
-          <Route index element={<Navigate to={effectiveUserData?.role === 'alumno' ? "/crm/academy-internal" : (effectiveUserData?.role === 'tlmk' ? "/crm/pipeline" : "/crm/dashboard")} />} />
+          <Route index element={<Navigate to={normalizeRole(effectiveUserData?.role) === 'alumno' ? "/crm/academy-internal" : (normalizeRole(effectiveUserData?.role) === 'agent' ? "/crm/pipeline" : "/crm/dashboard")} />} />
           <Route path="dashboard" element={userData?.role === 'alumno' ? <Navigate to="/crm/academy-internal" /> : <Dashboard />} />
           <Route path="dashboard/customize" element={<DashboardCustomizer />} />
           <Route path="strategic-report" element={userData?.role === 'alumno' ? <Navigate to="/crm/user-portal" /> : <StrategicReport />} />
