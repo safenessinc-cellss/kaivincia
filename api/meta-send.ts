@@ -1,127 +1,32 @@
 import { MetaBackendService } from '../server/metaBackend.js';
-import type { MetaChannel, MetaSendPayload } from '../src/types/meta.js';
+import type { MetaSendPayload } from '../src/types/meta.js';
+import { authorizeCrmRequest } from '../server/authorization.js';
+import { adminDb } from '../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
-  // Configuración de encabezados CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_URL || 'https://www.kaivinciacorp.com');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Dev-UID');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.end(JSON.stringify({ error: `Method ${req.method} Not Allowed. Use POST.` }));
-    return;
-  }
-
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); return res.status(405).json({ success: false, error: 'Method Not Allowed' }); }
   try {
-    // 1. Verificación de Autenticación de Firebase
-    const authHeader = req.headers['authorization'] || '';
-    const authUser = await MetaBackendService.verifyAuthToken(authHeader);
-
-    // En producción se exige token de sesión válido; en dev se permite X-Dev-UID para pruebas asistidas
-    if (!authUser && !req.headers['x-dev-uid'] && process.env.NODE_ENV === 'production') {
-      res.statusCode = 401;
-      res.end(JSON.stringify({
-        success: false,
-        error: 'No autorizado. Se requiere token de autenticación de Firebase válido.'
-      }));
-      return;
-    }
-
-    // 2. Parseo del cuerpo de la petición
+    const principal = await authorizeCrmRequest(req, res);
+    if (!principal) return;
     let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        body = {};
-      }
-    } else if (!body && typeof req.on === 'function') {
-      const buffers: any[] = [];
-      for await (const chunk of req) {
-        buffers.push(chunk);
-      }
-      const dataStr = Buffer.concat(buffers).toString();
-      body = dataStr ? JSON.parse(dataStr) : {};
-    }
-
+    if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ success: false, error: 'JSON inválido.' }); } }
     const { channel, to, text, template } = (body || {}) as MetaSendPayload;
-
-    // 3. Validación de campos obligatorios
-    if (!channel || !['whatsapp', 'facebook', 'instagram'].includes(channel)) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({
-        success: false,
-        error: "El campo 'channel' es obligatorio y debe ser 'whatsapp', 'facebook' o 'instagram'."
-      }));
-      return;
-    }
-
-    if (!to || typeof to !== 'string' || !to.trim()) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({
-        success: false,
-        error: "El campo 'to' (destinatario / ID / número de teléfono) es obligatorio."
-      }));
-      return;
-    }
-
-    if (!template && (!text || typeof text !== 'string' || !text.trim())) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({
-        success: false,
-        error: "Se requiere un mensaje de texto ('text') o una plantilla ('template') válida para enviar."
-      }));
-      return;
-    }
-
+    if (!channel || !['whatsapp', 'facebook', 'instagram'].includes(channel)) return res.status(400).json({ success: false, error: 'Canal inválido.' });
+    if (!to || typeof to !== 'string' || !to.trim()) return res.status(400).json({ success: false, error: 'Destinatario obligatorio.' });
+    if (!template && (!text || typeof text !== 'string' || !text.trim())) return res.status(400).json({ success: false, error: 'Se requiere texto o plantilla.' });
     const recipient = to.trim();
-
-    // 4. Enrutamiento por Canal
-    let sendResult;
-
-    if (channel === 'whatsapp') {
-      if (template && template.name) {
-        sendResult = await MetaBackendService.sendWhatsAppTemplate(
-          recipient,
-          template.name,
-          template.params,
-          template.languageCode || 'es'
-        );
-      } else {
-        sendResult = await MetaBackendService.sendWhatsAppMessage(recipient, text || '');
-      }
-    } else if (channel === 'facebook') {
-      sendResult = await MetaBackendService.sendFacebookMessage(recipient, text || '');
-    } else if (channel === 'instagram') {
-      sendResult = await MetaBackendService.sendInstagramMessage(recipient, text || '');
-    }
-
-    // 5. Auditoría del envío
-    console.log(`[AUDIT] Action: META_MESSAGE_SENT | Channel: ${channel} | Recipient: ${recipient} | User: ${authUser?.email || 'system'} | MessageId: ${sendResult?.messageId}`);
-
-    res.statusCode = 200;
-    res.end(JSON.stringify({
-      success: true,
-      messageId: sendResult?.messageId || `meta_msg_${Date.now()}`,
-      channel,
-      recipientId: recipient
-    }));
-    return;
+    const result = channel === 'whatsapp'
+      ? (template?.name ? await MetaBackendService.sendWhatsAppTemplate(recipient, template.name, template.params, template.languageCode || 'es') : await MetaBackendService.sendWhatsAppMessage(recipient, text || ''))
+      : channel === 'facebook' ? await MetaBackendService.sendFacebookMessage(recipient, text || '') : await MetaBackendService.sendInstagramMessage(recipient, text || '');
+    await adminDb.collection('audit_logs').add({ action: 'META_MESSAGE_SENT', result: 'SUCCESS', actorUid: principal.uid, actorEmail: principal.email, channel, recipient, messageId: result?.messageId || null, timestamp: new Date() });
+    return res.status(200).json({ success: true, messageId: result?.messageId || null, channel, recipientId: recipient });
   } catch (err: any) {
-    console.error('[API /api/meta-send] Error:', err);
-    res.statusCode = 500;
-    res.end(JSON.stringify({
-      success: false,
-      error: err.message || 'Error al enviar mensaje a través de Meta Graph API'
-    }));
-    return;
+    console.error('[meta-send] Error:', err);
+    return res.status(502).json({ success: false, error: 'No se pudo enviar el mensaje mediante Meta.' });
   }
 }

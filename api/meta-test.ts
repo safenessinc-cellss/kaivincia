@@ -1,85 +1,27 @@
 import { MetaBackendService } from '../server/metaBackend.js';
 import type { MetaChannel } from '../src/types/meta.js';
+import { authorizeCrmRequest } from '../server/authorization.js';
+import { adminDb } from '../server/_lib/firebaseAdmin.js';
 
 export default async function handler(req: any, res: any) {
-  // Configuración de encabezados CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_URL || 'https://www.kaivinciacorp.com');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-Dev-UID');
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-
-  if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.end(JSON.stringify({ error: `Method ${req.method} Not Allowed. Use POST.` }));
-    return;
-  }
-
+  res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
+  if (req.method !== 'POST') { res.setHeader('Allow', 'POST, OPTIONS'); return res.status(405).json({ success: false, error: 'Method Not Allowed' }); }
   try {
-    // 1. Verificación de Autenticación de Firebase (Permite modo diagnóstico si hay X-Dev-UID)
-    const authHeader = req.headers['authorization'] || '';
-    const authUser = await MetaBackendService.verifyAuthToken(authHeader);
-
-    if (!authUser && !req.headers['x-dev-uid'] && process.env.NODE_ENV === 'production') {
-      res.statusCode = 401;
-      res.end(JSON.stringify({
-        success: false,
-        error: 'No autorizado. Se requiere token de sesión administrativo.'
-      }));
-      return;
-    }
-
-    // 2. Parseo del cuerpo de la petición
+    const principal = await authorizeCrmRequest(req, res, { adminOnly: true });
+    if (!principal) return;
     let body = req.body;
-    if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        body = {};
-      }
-    } else if (!body && typeof req.on === 'function') {
-      const buffers: any[] = [];
-      for await (const chunk of req) {
-        buffers.push(chunk);
-      }
-      const dataStr = Buffer.concat(buffers).toString();
-      body = dataStr ? JSON.parse(dataStr) : {};
-    }
-
+    if (typeof body === 'string') { try { body = JSON.parse(body); } catch { return res.status(400).json({ success: false, error: 'JSON inválido.' }); } }
     const channel = body?.channel as MetaChannel | undefined;
-
-    if (channel && !['whatsapp', 'facebook', 'instagram'].includes(channel)) {
-      res.statusCode = 400;
-      res.end(JSON.stringify({
-        success: false,
-        error: "Canal inválido. Los canales permitidos son 'whatsapp', 'facebook' o 'instagram'."
-      }));
-      return;
-    }
-
-    // 3. Ejecutar diagnóstico contra Meta Graph API
+    if (channel && !['whatsapp', 'facebook', 'instagram'].includes(channel)) return res.status(400).json({ success: false, error: 'Canal inválido.' });
     const result = await MetaBackendService.testConnection(channel);
-
-    console.log(`[AUDIT] Action: META_CONNECTION_TEST | Channel: ${channel || 'all'} | Success: ${result.success} | User: ${authUser?.email || 'diagnostic'}`);
-
-    res.statusCode = 200;
-    res.end(JSON.stringify({
-      success: result.success,
-      results: result.results
-    }));
-    return;
+    await adminDb.collection('audit_logs').add({ action: 'META_CONNECTION_TEST', result: result.success ? 'SUCCESS' : 'FAILED', actorUid: principal.uid, actorEmail: principal.email, channel: channel || 'all', timestamp: new Date() });
+    return res.status(result.success ? 200 : 502).json({ success: result.success, results: result.results });
   } catch (err: any) {
-    console.error('[API /api/meta-test] Error:', err);
-    res.statusCode = 500;
-    res.end(JSON.stringify({
-      success: false,
-      error: err.message || 'Error al ejecutar test de conexión con Meta Graph API'
-    }));
-    return;
+    console.error('[meta-test] Error:', err);
+    return res.status(500).json({ success: false, error: 'No se pudo probar la conexión Meta.' });
   }
 }

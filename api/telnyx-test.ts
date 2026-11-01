@@ -1,47 +1,34 @@
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
+import { authorizeCrmRequest } from '../server/authorization.js';
 
 export default async function handler(req: any, res: any) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', process.env.APP_URL || 'https://www.kaivinciacorp.com');
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    res.statusCode = 200;
-    res.end();
-    return;
-  }
-
+  if (req.method === 'OPTIONS') { res.statusCode = 204; res.end(); return; }
   if (req.method !== 'POST') {
-    res.statusCode = 405;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed' }));
-    return;
+    res.setHeader('Allow', 'POST, OPTIONS');
+    return res.status(405).json({ success: false, error: 'Method Not Allowed' });
   }
 
   try {
+    const principal = await authorizeCrmRequest(req, res, { adminOnly: true });
+    if (!principal) return;
+
     let body = req.body;
     if (typeof body === 'string') {
-      try {
-        body = JSON.parse(body);
-      } catch {
-        body = {};
-      }
+      try { body = JSON.parse(body); } catch { body = {}; }
     }
-
-    const connectionId = body?.connectionId || process.env.TELNYX_CONNECTION_ID || '';
-    const result = await TelnyxBackendService.testConnection(connectionId);
-
-    res.statusCode = result.httpStatus >= 200 && result.httpStatus < 300 ? 200 : result.httpStatus;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(result));
+    const requested = typeof body?.connectionId === 'string' ? body.connectionId.trim() : '';
+    const configured = process.env.TELNYX_CONNECTION_ID || '';
+    if (requested && configured && requested !== configured) {
+      return res.status(403).json({ success: false, error: 'Sólo se permite probar la conexión Telnyx configurada en el servidor.' });
+    }
+    const result = await TelnyxBackendService.testConnection(configured);
+    return res.status(result.httpStatus >= 200 && result.httpStatus < 300 ? 200 : result.httpStatus).json(result);
   } catch (err: any) {
     console.error('[API /api/telnyx-test] Error:', err);
-    res.statusCode = 500;
-    res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({
-      success: false,
-      httpStatus: 500,
-      message: err.message || 'Error interno del servidor al probar conexión'
-    }));
+    return res.status(500).json({ success: false, httpStatus: 500, message: 'Error interno al probar la conexión.' });
   }
 }

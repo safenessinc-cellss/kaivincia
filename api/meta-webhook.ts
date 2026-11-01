@@ -50,40 +50,42 @@ export default async function handler(req: any, res: any) {
     res.setHeader('Content-Type', 'application/json');
 
     try {
-      let rawBody = '';
-      let payload: any = req.body;
+      // La firma de Meta debe calcularse sobre los bytes originales recibidos.
+      // Nunca reconstruir el cuerpo desde req.body: JSON.stringify cambia el contenido firmado.
+      const rawCandidate = req.rawBody ?? req.bodyRaw ?? (Buffer.isBuffer(req.body) ? req.body : null) ?? (typeof req.body === 'string' ? req.body : null);
+      const rawBuffer = Buffer.isBuffer(rawCandidate)
+        ? rawCandidate
+        : typeof rawCandidate === 'string' ? Buffer.from(rawCandidate, 'utf8') : null;
+      const appSecret = MetaBackendService.getAppSecret();
+      const signatureHeader = req.headers['x-hub-signature-256'] as string | undefined;
 
-      if (typeof payload === 'string') {
-        rawBody = payload;
-        try {
-          payload = JSON.parse(rawBody);
-        } catch {
-          payload = {};
-        }
-      } else if (!payload && typeof req.on === 'function') {
-        const buffers: any[] = [];
-        for await (const chunk of req) {
-          buffers.push(chunk);
-        }
-        rawBody = Buffer.concat(buffers).toString('utf-8');
-        payload = rawBody ? JSON.parse(rawBody) : {};
-      } else if (payload && typeof payload === 'object') {
-        rawBody = JSON.stringify(payload);
+      if (!appSecret) {
+        console.error('[Meta Webhook] META_APP_SECRET no configurado; se rechaza el evento.');
+        res.statusCode = 503;
+        res.end(JSON.stringify({ received: false, error: 'Webhook no configurado de forma segura.' }));
+        return;
+      }
+      if (!rawBuffer || !signatureHeader || !/^sha256=[a-f0-9]{64}$/i.test(signatureHeader)) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ received: false, error: 'Firma o cuerpo original del webhook ausente.' }));
+        return;
       }
 
-      // Verificación opcional de firma SHA256 si App Secret está configurado y hay cabecera X-Hub-Signature-256
-      const appSecret = MetaBackendService.getAppSecret();
-      const signatureHeader = req.headers['x-hub-signature-256'] as string;
+      const expected = crypto.createHmac('sha256', appSecret).update(rawBuffer).digest();
+      const supplied = Buffer.from(signatureHeader.slice(7), 'hex');
+      if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+        res.statusCode = 401;
+        res.end(JSON.stringify({ received: false, error: 'Firma del webhook inválida.' }));
+        return;
+      }
 
-      if (appSecret && signatureHeader && rawBody) {
-        try {
-          const expectedSig = 'sha256=' + crypto.createHmac('sha256', appSecret).update(rawBody).digest('hex');
-          if (signatureHeader !== expectedSig) {
-            console.warn('[Meta Webhook] Firma X-Hub-Signature-256 no coincide. Procesando con advertencia.');
-          }
-        } catch (sigErr) {
-          console.warn('[Meta Webhook] Error al validar firma:', sigErr);
-        }
+      let payload: any;
+      try {
+        payload = JSON.parse(rawBuffer.toString('utf8'));
+      } catch {
+        res.statusCode = 400;
+        res.end(JSON.stringify({ received: false, error: 'JSON inválido.' }));
+        return;
       }
 
       // Procesar eventos entrantes a través del servicio central
