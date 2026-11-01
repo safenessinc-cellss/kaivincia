@@ -282,19 +282,36 @@ service cloud.firestore {
       );
     }
 
+    // Legacy chat records used channelId before type/targetId were introduced.
+    // Infer only the historical schema that the client already recognizes.
+    function chatMessageType(data) {
+      return data.get('type', data.get('channelId', '') in ['general', 'dev-ops']
+        ? 'groups'
+        : (data.get('channelId', '') is string && data.get('channelId', '') != ''
+          ? 'clients'
+          : (data.get('senderId', '') is string && data.get('targetId', '') is string ? 'private' : '')));
+    }
+
+    function chatMessageTarget(data) {
+      return data.get('targetId', data.get('channelId', ''));
+    }
+
     function canReadChatMessage(data) {
+      let messageType = chatMessageType(data);
+      let target = chatMessageTarget(data);
       return isApproved() && (
-        (data.get('type', '') == 'groups' && isApproved() && (data.get('targetId', '') == 'general' || isAdmin())) ||
-        (data.get('type', '') == 'private' &&
-          (data.get('senderId', '') == request.auth.uid || data.get('targetId', '') == request.auth.uid)) ||
-        (data.get('type', '') == 'clients' &&
-          data.get('targetId', '') is string &&
-          canAccessClient(data.get('targetId', '')))
+        (messageType == 'groups' && (target == 'general' || isAdmin())) ||
+        (messageType == 'private' &&
+          (data.get('senderId', '') == request.auth.uid || target == request.auth.uid)) ||
+        (messageType == 'clients' &&
+          target is string && target.size() > 0 &&
+          canAccessClient(target))
       );
     }
 
     match /chat_messages/{messageId} {
-      // Queries must be constrained by type, conversation target and/or participant.
+      // Modern messages use type/targetId; legacy records are authorized
+      // using their historical channelId/participant fields without widening access.
       allow get, list: if canReadChatMessage(existing());
       allow create: if isApproved() &&
         request.resource.data.get('senderId', '') == request.auth.uid &&
