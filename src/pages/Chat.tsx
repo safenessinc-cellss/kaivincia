@@ -534,7 +534,7 @@ export default function Chat() {
                 <div className="flex items-center justify-between px-3 mb-3">
                   <h3 className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Canales de Equipo</h3>
                   <span className="bg-white/5 text-gray-400 text-[8px] font-black px-1.5 py-0.5 rounded">
-                    {baseChannels.length}
+                    {visibleBaseChannels.length}
                   </span>
                 </div>
                 <div className="space-y-0.5">
