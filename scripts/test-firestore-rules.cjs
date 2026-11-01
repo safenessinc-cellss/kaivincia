@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, deleteDoc } = require('firebase/firestore');
+const { doc, setDoc, getDoc, getDocs, collection, query, where, updateDoc, deleteDoc, Timestamp, serverTimestamp } = require('firebase/firestore');
 
 const projectId = 'demo-kaivincia-security';
 const rules = fs.readFileSync('firestore.rules', 'utf8');
@@ -18,6 +18,7 @@ async function main() {
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved' }],
+        ['admin-no-helpdesk', { role: 'admin', status: 'approved', permissions: { helpdesk_manage: false } }],
         ['superadmin', { role: 'superadmin', status: 'approved' }],
         ['admin-no-telephony', { role: 'admin', status: 'approved', permissions: { telephony_config: false } }],
         ['agent-no-voip', { role: 'agent', status: 'approved', permissions: { voip_calls: false } }],
@@ -46,7 +47,9 @@ async function main() {
       await setDoc(doc(db, 'support_tickets', 'alice-ticket'), {
         userId: 'alice', userEmail: 'alice@example.test', subject: 'Login issue',
         description: 'Cannot log in', priority: 'medium', status: 'open',
-        assignedTo: null, assignedToEmail: null, messages: [], createdAt: '2026-11-01'
+        assignedTo: null, assignedToEmail: null,
+        messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message', createdAt: Timestamp.now() }],
+        createdAt: '2026-11-01'
       });
       await setDoc(doc(db, 'support_tickets', 'bob-ticket'), {
         userId: 'bob', userEmail: 'bob@example.test', subject: 'Billing issue',
@@ -55,17 +58,19 @@ async function main() {
       });
       await setDoc(doc(db, 'candidates', 'candidate-1'), { name: 'Candidate One', email: 'candidate@example.test', status: 'Nuevo' });
       await setDoc(doc(db, 'jobs', 'job-1'), { title: 'HR Analyst', department: 'People', status: 'active' });
+      await setDoc(doc(db, 'jobs', 'closed-job'), { title: 'Closed role', department: 'People', status: 'closed' });
       await setDoc(doc(db, 'attendance_logs', 'alice-attendance'), { userId: 'alice', type: 'in', timestamp: '2026-11-01T09:00:00Z' });
       await setDoc(doc(db, 'absence_requests', 'alice-absence'), { userId: 'alice', status: 'pending', reason: 'Personal', startDate: '2026-11-02', endDate: '2026-11-02' });
     });
 
-    const alice = env.authenticatedContext('alice').firestore();
-    const bob = env.authenticatedContext('bob').firestore();
+    const alice = env.authenticatedContext('alice', { email: 'alice@example.test' }).firestore();
+    const bob = env.authenticatedContext('bob', { email: 'bob@example.test' }).firestore();
     const pending = env.authenticatedContext('pending').firestore();
-    const hr = env.authenticatedContext('hr').firestore();
+    const hr = env.authenticatedContext('hr', { email: 'hr@example.test' }).firestore();
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
-    const admin = env.authenticatedContext('admin').firestore();
+    const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
+    const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
     const superadmin = env.authenticatedContext('superadmin').firestore();
     const accountOwner = env.authenticatedContext('account-owner', { email: 'safeness.c.a@gmail.com' }).firestore();
     const adminNoTelephony = env.authenticatedContext('admin-no-telephony').firestore();
@@ -144,10 +149,20 @@ async function main() {
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { status: 'closed', updatedAt: 'now' }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { priority: 'critical', updatedAt: 'now' }));
     await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { assignedTo: 'bob', updatedAt: 'now' }));
+    const originalTicketMessage = { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Original message' };
     await assertSucceeds(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
-      messages: [{ senderId: 'alice', text: 'Additional details' }], updatedAt: 'now'
+      messages: [ { ...originalTicketMessage, createdAt: Timestamp.now() }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Additional details', createdAt: Timestamp.now() } ],
+      updatedAt: serverTimestamp()
     }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), {
+      messages: [{ senderId: 'alice', senderEmail: 'alice@example.test', text: 'Rewritten history', createdAt: Timestamp.now() }, { senderId: 'alice', senderEmail: 'alice@example.test', text: 'Forged append', createdAt: Timestamp.now() }],
+      updatedAt: serverTimestamp()
+    }));
+    await assertFails(updateDoc(doc(alice, 'support_tickets', 'alice-ticket'), { description: 'Changed original report' }));
     await assertSucceeds(updateDoc(doc(admin, 'support_tickets', 'alice-ticket'), { status: 'in_progress' }));
+    await assertFails(getDoc(doc(adminNoHelpdesk, 'support_tickets', 'bob-ticket')));
+    await assertFails(updateDoc(doc(adminNoHelpdesk, 'support_tickets', 'alice-ticket'), { status: 'closed' }));
+    await assertFails(deleteDoc(doc(admin, 'support_tickets', 'alice-ticket')));
 
     // HR can read and manage recruitment/attendance data, but cannot grant
     // application roles, permissions or account approval.
@@ -161,14 +176,46 @@ async function main() {
     await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
     await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
+    await assertFails(getDoc(doc(anonymous, 'jobs', 'job-1')));
+    await assertSucceeds(getDoc(doc(hr, 'jobs', 'job-1')));
+    await assertSucceeds(setDoc(doc(anonymous, 'candidates', 'public-application'), {
+      name: 'Public Applicant', email: 'applicant@example.test', phone: '+15555550111',
+      city: 'New York', linkedin: '', role: 'HR Analyst', experience: 'Three years',
+      jobId: 'job-1', skills: ['Recruitment'], status: 'Nuevo', hasPhoto: false,
+      hasResume: true, resumeFileName: 'resume.pdf', resumeText: 'Applicant CV content',
+      createdAt: serverTimestamp()
+    }));
+    await assertFails(setDoc(doc(anonymous, 'candidates', 'closed-job-application'), {
+      name: 'Public Applicant', email: 'applicant@example.test', phone: '+15555550111',
+      city: 'New York', linkedin: '', role: 'HR Analyst', experience: 'Three years',
+      jobId: 'closed-job', skills: ['Recruitment'], status: 'Nuevo', hasPhoto: false,
+      hasResume: true, resumeFileName: 'resume.pdf', resumeText: 'Applicant CV content',
+      createdAt: serverTimestamp()
+    }));
     await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
     await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista', hrNotes: 'Revisión inicial completada.' }));
     await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { hrNotes: 'x'.repeat(5001) }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
-    await assertSucceeds(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
+    await assertFails(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
+    await assertFails(setDoc(doc(alice, 'attendance_logs', 'backdated-attendance'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'in',
+      timestamp: '2020-01-01T09:00:00.000Z', source: 'web'
+    }));
+    await assertSucceeds(setDoc(doc(alice, 'attendance_logs', 'server-timestamp-attendance'), {
+      userId: 'alice', userName: 'alice@example.test', type: 'in',
+      timestamp: serverTimestamp(), source: 'web'
+    }));
     await assertSucceeds(getDoc(doc(hr, 'absence_requests', 'alice-absence')));
-    await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), { status: 'approved' }));
+    await assertSucceeds(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), {
+      status: 'approved', reviewedAt: serverTimestamp(), reviewedBy: 'hr', reviewerEmail: 'hr@example.test'
+    }));
+    await assertFails(updateDoc(doc(hr, 'absence_requests', 'alice-absence'), { userId: 'hr' }));
+    await assertSucceeds(setDoc(doc(alice, 'absence_requests', 'alice-new-absence'), {
+      type: 'Día Libre', startDate: '2026-11-03', endDate: '2026-11-04',
+      reason: 'Personal', userId: 'alice', userName: 'alice@example.test',
+      status: 'pending', createdAt: serverTimestamp()
+    }));
     await assertFails(getDoc(doc(hr, 'audit_logs', 'private-audit')));
     await assertSucceeds(setDoc(doc(alice, 'audit_logs', 'alice-event'), { actorUid: 'alice', action: 'TEST' }));
     await assertFails(setDoc(doc(alice, 'audit_logs', 'forged-event'), { actorUid: 'bob', action: 'FORGED' }));
