@@ -249,9 +249,19 @@ export default function App() {
     );
   }
 
-  // Usuario logueado pero pendiente de aprobación → pantalla de espera (sin auto-activación)
-  if (user && userData && (userData.status === 'pending' || !userData.role || userData.role === 'none')) {
-    return <PendingApproval />;
+  // Keep the top-level gate consistent with RouteGuard: explicit negative
+  // states always block; only the approved SuperAdmin legacy exception may
+  // enter while pending. Unknown roles fail closed.
+  if (user && userData) {
+    const accountStatus = String(userData.status || '').toLowerCase();
+    const accountRole = normalizeRole(userData.role);
+    if (
+      ['rejected', 'suspended', 'disabled', 'blocked'].includes(accountStatus) ||
+      (accountStatus === 'pending' && accountRole !== 'superadmin') ||
+      accountRole === 'none'
+    ) {
+      return <PendingApproval />;
+    }
   }
 
   // Never synthesize an operational role for an identity without a CRM profile.
