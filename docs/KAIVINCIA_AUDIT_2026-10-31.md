@@ -106,3 +106,35 @@ Fecha: 2026-10-31. Esta fase contiene cambios propuestos; todavía no están fus
 5. Revisar endpoints restantes de eSIM, SIP, webhooks, configuración de carrier y reglas Firestore antes de declarar completada la seguridad VoIP.
 
 No se ha realizado deploy de esta rama. No se deben considerar las correcciones activas hasta que PR sea revisada, CI pase y un preview sea probado.
+
+
+## Remediación incremental — fase 1 (2026-11-01)
+
+Rama: `audit/kaivincia-full-platform-review`  
+PR: #22 (Draft)  
+Base protegida: `eab664c88b67fd191496eb4bbfffe966438e3c29`
+
+### Cambios implementados en código
+- `src/constants/roles.ts`: añade `normalizeRole()` para mapear alias históricos `sales/ventas/tlmk/telemarketing/setter/closer/agente/operador` a `agent`, sin migrar ni sobrescribir perfiles existentes.
+- `src/components/RouteGuard.tsx`: aplica normalización y bloquea estados explícitos `rejected/suspended/disabled/blocked`; mantiene compatibilidad de perfiles activos y SuperAdmin legacy.
+- `src/App.tsx`: elimina el fallback que inventaba un perfil operativo `tlmk/active` cuando faltaba el perfil CRM; ahora falla cerrado con `none/pending`.
+- `src/components/CRMLayout.tsx`: usa la normalización de roles para resolver correctamente la navegación de cuentas históricas.
+- `src/pages/CallSystem.tsx`: sólo `admin/superadmin` ven paneles administrativos Telnyx/Meta; la pestaña se sincroniza con query params y browser history; el acceso por URL a tabs administrativas se corrige a Monitor para roles no autorizados; se elimina el estado fijo “Zadarma Online” y las sesiones locales llevan aviso DEMO.
+- `src/pages/SuperAdmin.tsx`: modificar permisos de módulo ya no activa ni aprueba implícitamente al usuario; el feedback distingue el registro de invitación del envío real de correo y la eliminación del perfil Firestore de la eliminación de la cuenta Firebase; si falla el guardado de la matriz se restaura el estado local confirmado.
+- `src/constants/roles.test.ts`: pruebas unitarias de alias históricos, jerarquía y límites de privilegios.
+
+### Validación y limitaciones
+- Los cambios están versionados en la rama independiente y aparecen en PR #22; no se han fusionado ni desplegado.
+- Aún no hay un resultado CI asociado al HEAD de esta fase; no afirmar typecheck/tests/build aprobados hasta que corran.
+- No se endurecieron reglas Firestore porque las consultas actuales de Tasks/Calendar/Clients escuchan colecciones amplias; primero hay que adaptar consultas y probar aislamiento con Emulator para evitar bloquear procesos legítimos.
+- Sigue pendiente conectar la matriz RBAC persistida con cada ruta y acción; hoy la existencia de la matriz no implica que esté aplicada globalmente.
+- Las políticas globales y sincronización de red en SuperAdmin deben pasar a persistencia/operación real o mostrarse como no disponibles; todavía no se declaran funcionales.
+
+### Siguiente lote de trabajo
+1. Crear y ejecutar gates CI reproducibles (typecheck, unit tests, build; lint reportado por separado por deuda heredada).
+2. Inventariar y alinear ruta → módulo → permiso → endpoint → colección para las 100+ rutas/pantallas.
+3. Aislar primero Tasks/Calendar/Clients con Emulator y queries owner/assigned; después leads/chat/omnicanal/finanzas/telefonía.
+4. Corregir las acciones de demostración del panel SuperAdmin y verificar persistencia.
+5. Pruebas end-to-end por rol, incluyendo deep links y acciones prohibidas.
+
+**No desplegar a producción hasta completar las pruebas de seguridad y funcionales.**
