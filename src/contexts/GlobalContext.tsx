@@ -83,7 +83,8 @@ export const GlobalProvider: React.FC<{children: React.ReactNode}> = ({ children
           ? [collection(db, 'tasks')]
           : [
               query(collection(db, 'tasks'), where('createdBy', '==', user.uid)),
-              query(collection(db, 'tasks'), where('assignedTo', '==', user.uid))
+              query(collection(db, 'tasks'), where('assignedTo', '==', user.uid)),
+              query(collection(db, 'tasks'), where('assignedManagerId', '==', user.uid))
             ];
         taskQueries.forEach(taskQuery => {
           unsubTasks.push(onSnapshot(taskQuery, snapshot => {
