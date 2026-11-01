@@ -16,7 +16,6 @@ const STAGES = ["Nuevo", "En Revisión", "Entrevista", "Academia Kaivincia", "Co
 
 export default function Recruitment() {
   const [activeTab, setActiveTab] = useState<'candidates' | 'jobs' | 'portal' | 'docs' | 'employee-portal'>('candidates');
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isAttendanceModalOpen, setIsAttendanceModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
@@ -223,7 +222,6 @@ export default function Recruitment() {
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setIsUploading(false);
     setUploadError(`El análisis de CV con IA no está conectado. No se cargó el archivo ni se creó un candidato: ${file.name}`);
     e.target.value = '';
   };
@@ -305,8 +303,8 @@ export default function Recruitment() {
                   <Fingerprint className="w-6 h-6 text-[#00F0FF]" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Terminal Kaivincia Core v5</p>
+                  <h3 className="text-xl font-black text-gray-900 uppercase italic tracking-tighter">Control de Fichaje personal</h3>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Registro web de asistencia</p>
                 </div>
               </div>
 
@@ -314,6 +312,7 @@ export default function Recruitment() {
                 <div className="text-center py-10 bg-gray-50 rounded-[2.5rem] border border-gray-100">
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-2 font-mono">Estado del fichaje</p>
                   <p className="text-5xl font-black text-gray-900 italic tracking-tighter">{isCheckedIn ? 'ENTRADA REGISTRADA' : 'SIN FICHAJE ACTIVO'}</p>
+                  <p className="text-[9px] text-gray-500 mt-3">{attendanceLog[0]?.timestamp ? `Último evento: ${new Date(attendanceLog[0].timestamp).toLocaleString()}` : 'Sin registros de asistencia todavía'}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -348,8 +347,8 @@ export default function Recruitment() {
                       <MapPin className="w-5 h-5" />
                    </div>
                    <div>
-                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación no verificada</p>
-                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">No se captura GPS ni IP en este módulo.</p>
+                      <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest leading-none">Ubicación no capturada</p>
+                      <p className="text-[9px] text-blue-700/70 mt-1 uppercase">No se registra GPS ni IP. El evento se asocia a tu cuenta autenticada.</p>
                    </div>
                 </div>
               </div>
@@ -666,7 +665,7 @@ export default function Recruitment() {
                     </div>
                     <div className="flex justify-between items-end mb-10">
                        <div>
-                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Monitor de Disponibilidad</h3>
+                          <h3 className="text-xl font-black text-gray-900 uppercase tracking-tighter italic">Disponibilidad del equipo</h3>
                           <p className="text-[10px] font-black text-[#00F0FF] uppercase tracking-widest mt-1 italic">Sin telemetría global conectada</p>
                        </div>
                        <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl flex items-center gap-4 shadow-xl">
@@ -820,17 +819,18 @@ export default function Recruitment() {
                         <Sparkles className="w-5 h-5 text-[#00F0FF] animate-pulse" />
                      </div>
                      <div>
-                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Clasificador de Talento Nucleus</h3>
-                        <p className="text-[9px] font-black text-[#00F0FF] uppercase tracking-widest mt-0.5 italic">Extracción y Catalogación IA Multi-Factor</p>
+                        <h3 className="text-lg font-black text-gray-900 uppercase tracking-tighter italic">Importación de CV — no conectada</h3>
+                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-widest mt-0.5 italic">Extracción IA no disponible</p>
                      </div>
                   </div>
                   <p className="text-[10px] text-gray-500 font-medium leading-relaxed italic pr-8">
-                    Sube archivos PDF de currículos. Nuestro motor de IA extraerá automáticamente la experiencia, catalogará las habilidades y asignará un <b className="text-gray-900 uppercase">Ajuste Cultural</b> basado en los valores de Kaivincia.
+                    La extracción automática de CV todavía no está conectada. Seleccionar un archivo no lo sube, no lo analiza y no crea candidatos.
                   </p>
+                  {uploadError && <p role="alert" className="mt-3 text-[10px] font-semibold text-rose-600">{uploadError}</p>}
                </div>
                <div className="flex-1 max-w-sm">
                   <label className="block">
-                     <div className={`border-2 border-dashed border-gray-100 rounded-3xl p-6 bg-gray-50/50 hover:bg-white hover:border-[#00F0FF]/50 transition-all cursor-pointer text-center group/uploader relative overflow-hidden shadow-inner ${isUploading ? 'animate-pulse opacity-50 pointer-events-none' : ''}`}>
+                     <div className="border-2 border-dashed border-gray-200 rounded-3xl p-6 bg-gray-50 text-center group/uploader relative overflow-hidden shadow-inner">
                         <input 
                            type="file" 
                            className="hidden" 
@@ -838,11 +838,11 @@ export default function Recruitment() {
                            onChange={handleFileUpload}
                         />
                         <div className="absolute top-0 left-0 w-full h-0.5 bg-[#00F0FF] origin-left scale-x-0 group-hover/uploader:scale-x-100 transition-transform duration-1000" />
-                        <Upload className={`w-8 h-8 text-gray-400 mx-auto mb-2 group-hover/uploader:text-[#00F0FF] group-hover/uploader:scale-110 transition-all ${isUploading ? 'animate-bounce' : ''}`} />
+                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                           {isUploading ? 'Extrayendo Datos...' : 'Importar Lote de CVs'}
+                           Importación no disponible
                         </p>
-                        <p className="text-[8px] font-black text-gray-300 mt-1 uppercase tracking-tight">PDF • WORD • LINKEDIN • AI DRIVEN</p>
+                        <p className="text-[8px] font-black text-gray-300 mt-1 uppercase tracking-tight">PDF • WORD — SIN PROCESAMIENTO</p>
                      </div>
                   </label>
                </div>
