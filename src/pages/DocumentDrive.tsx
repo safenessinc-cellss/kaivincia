@@ -23,9 +23,9 @@ interface DocumentFile {
 }
 
 const INITIAL_DOCS: DocumentFile[] = [
-  { id: 'DOC-991', title: 'Políticas de Seguridad CISO', type: 'pdf', status: 'approved', size: '2.4 MB', date: new Date().toISOString(), tags: ['Confidencial', 'Regulatorio'], category: 'CISO' },
-  { id: 'DOC-992', title: 'Contrato Master Alpha Ind.', type: 'pdf', status: 'pending', size: '1.1 MB', date: new Date(Date.now() - 86400000).toISOString(), tags: ['Legal', 'B2B'], category: 'Legal' },
-  { id: 'DOC-993', title: 'Estructura Salarial 2026', type: 'xls', status: 'draft', size: '840 KB', date: new Date(Date.now() - 172800000).toISOString(), tags: ['RRHH', 'Confidencial'], category: 'RRHH' },
+  { id: 'DOC-991', title: 'DEMO — Políticas de Seguridad CISO', type: 'pdf', status: 'draft', size: '2.4 MB (ejemplo)', date: new Date().toISOString(), tags: ['DEMO', 'Confidencial (ejemplo)'], category: 'CISO' },
+  { id: 'DOC-992', title: 'DEMO — Contrato Master de ejemplo', type: 'pdf', status: 'draft', size: '1.1 MB (ejemplo)', date: new Date(Date.now() - 86400000).toISOString(), tags: ['DEMO', 'Legal (ejemplo)'], category: 'Legal' },
+  { id: 'DOC-993', title: 'DEMO — Estructura salarial', type: 'xls', status: 'draft', size: '840 KB (ejemplo)', date: new Date(Date.now() - 172800000).toISOString(), tags: ['DEMO', 'RRHH (ejemplo)'], category: 'RRHH' },
 ];
 
 export default function DocumentDrive() {
@@ -33,15 +33,14 @@ export default function DocumentDrive() {
   const [activeTab, setActiveTab] = useState('all');
   
   // Auth Modal (CISO specific)
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [selectedFileForAuth, setSelectedFileForAuth] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   
   // Upload Flow States
   const [isDragging, setIsDragging] = useState(false);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [classificationModalOpen, setClassificationModalOpen] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [isRSAActive, setIsRSAActive] = useState(false);
+  const [isSimulatingUpload, setIsSimulatingUpload] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form state for classification
@@ -53,20 +52,13 @@ export default function DocumentDrive() {
 
   const filteredDocs = docs.filter(t => activeTab === 'all' || activeTab === 'starred' || t.category.toLowerCase() === activeTab.toLowerCase());
 
-  const handleFileAction = (doc: DocumentFile, action: string) => {
-    if (doc.category === 'CISO') {
-      setSelectedFileForAuth(doc.title);
-      setAuthModalOpen(true);
-    } else {
-      if (action === 'sign') {
-         setDocs(prev => prev.map(d => d.id === doc.id ? { ...d, status: 'approved' as Status } : d));
-         alert(`Documento ${doc.title} firmado digitalmente bajo formato ISO 9001.`);
-      } else if (action === 'view') {
-         alert(`Abriendo visor para: ${doc.title}`);
-      } else if(action === 'download') {
-         alert(`Descargando: ${doc.title}`);
-      }
-    }
+  const handleFileAction = (_doc: DocumentFile, action: string) => {
+    const messages: Record<string, string> = {
+      view: 'El visor documental todavía no está conectado. No se abrió ningún archivo.',
+      download: 'La descarga documental todavía no está conectada. No se descargó ningún archivo.',
+      sign: 'La firma electrónica no está implementada. No se firmó ni aprobó ningún documento.'
+    };
+    setFeedback(messages[action] || 'Esta acción documental todavía no está disponible.');
   };
 
   const onDragOver = (e: React.DragEvent) => {
@@ -95,7 +87,7 @@ export default function DocumentDrive() {
   const handleFileSelection = (file: File) => {
      const ext = file.name.split('.').pop()?.toLowerCase();
      if (!['pdf', 'docx', 'csv'].includes(ext || '')) {
-        alert("Solo se permiten archivos PDF, DOCX o CSV.");
+        setFeedback("Sólo se permiten archivos PDF, DOCX o CSV.");
         return;
      }
      setStagedFile(file);
@@ -107,11 +99,11 @@ export default function DocumentDrive() {
      if (!stagedFile) return;
      
      const isCiso = formData.category === 'CISO';
-     setIsRSAActive(isCiso);
+     setIsSimulatingUpload(true);
      setClassificationModalOpen(false);
      setUploadProgress(0);
 
-     // Simulate GSuite / Encrypted Upload
+     // Simulación local: no hay llamada a backend ni cifrado real.
      const interval = setInterval(() => {
         setUploadProgress(prev => {
            if (prev === null) return null;
@@ -128,26 +120,25 @@ export default function DocumentDrive() {
 
   const finishUpload = () => {
      setTimeout(() => {
-        const isCiso = formData.category === 'CISO';
         const newDoc: DocumentFile = {
            id: formData.code,
            title: stagedFile?.name || 'Documento Importado',
            type: stagedFile?.name.split('.').pop() || 'pdf',
            status: 'pending',
-           size: '1.5 MB', // mock size
+           size: stagedFile ? `${(stagedFile.size / (1024 * 1024)).toFixed(1)} MB (local)` : 'Tamaño desconocido',
            date: new Date().toISOString(),
-           tags: isCiso ? ['Cifrado RSA-4096', 'High Security'] : ['Importado'],
+           tags: ['DEMO', 'Sólo sesión local', 'Sin cifrado'],
            category: formData.category
         };
         
         setDocs(prev => [newDoc, ...prev]);
         setUploadProgress(null);
         setStagedFile(null);
-        setIsRSAActive(false);
+        setIsSimulatingUpload(false);
         setActiveTab('all');
         
         // Timeout for toast
-        setTimeout(() => alert(isCiso ? "Documento Cifrado y Almacenado en Vault SGI" : "Documento Almacenado en Vault SGI"), 100);
+        setFeedback('Vista previa local creada. El archivo no se guardó en servidor ni se cifró; desaparecerá al recargar.');
      }, 500);
   };
 
@@ -158,6 +149,9 @@ export default function DocumentDrive() {
       onDragLeave={onDragLeave}
       onDrop={onDrop}
     >
+      <div role="status" className="relative z-10 rounded-xl border border-amber-300/40 bg-amber-400/10 px-4 py-3 text-xs text-amber-200">DEMO: documentos de ejemplo y archivos cargados sólo en memoria de esta sesión. No hay Firebase Storage, visor, descarga, firma electrónica, doble autenticación ni cifrado RSA conectados.</div>
+      {feedback && <div role="status" className="relative z-10 rounded-xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3 text-xs text-cyan-100">{feedback}</div>}
+
       {/* Grid Pattern Background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_1px_1px,rgba(148,163,184,0.12)_1px,transparent_0)] [background-size:24px_24px] opacity-60 pointer-events-none" />
 
@@ -236,15 +230,15 @@ export default function DocumentDrive() {
             </div>
           </div>
           
-          <div className={`mt-auto bg-gradient-to-b from-[#0f172a] to-[#020617] border rounded-3xl p-6 text-center shadow-[0_4px_20px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-300 ${isRSAActive ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.3)]' : 'border-[#1E293B]'}`}>
+          <div className={`mt-auto bg-gradient-to-b from-[#0f172a] to-[#020617] border rounded-3xl p-6 text-center shadow-[0_4px_20px_rgba(0,0,0,0.5)] relative overflow-hidden transition-all duration-300 ${isSimulatingUpload ? 'border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.3)]' : 'border-[#1E293B]'}`}>
              <div className="absolute inset-0 bg-cyan-400/5" />
-             {isRSAActive && <div className="absolute inset-0 border-2 border-cyan-400 rounded-3xl animate-[pulse_1s_infinite]" />}
+             {isSimulatingUpload && <div className="absolute inset-0 border-2 border-cyan-400 rounded-3xl animate-[pulse_1s_infinite]" />}
              
-             <Key className={`w-8 h-8 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)] mx-auto mb-3 relative z-10 transition-colors ${isRSAActive ? 'text-white' : 'text-cyan-400'}`} />
-             <p className={`text-[9px] font-mono uppercase tracking-widest mb-1 relative z-10 ${isRSAActive ? 'text-cyan-200' : 'text-cyan-400/70'}`}>Cifrado Militar</p>
-             <h4 className={`text-sm font-black drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] mb-2 relative z-10 tracking-widest ${isRSAActive ? 'text-white' : 'text-cyan-400'}`}>RSA-4096 ACTIVO</h4>
+             <Key className={`w-8 h-8 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)] mx-auto mb-3 relative z-10 transition-colors ${isSimulatingUpload ? 'text-white' : 'text-cyan-400'}`} />
+             <p className={`text-[9px] font-mono uppercase tracking-widest mb-1 relative z-10 ${isSimulatingUpload ? 'text-cyan-200' : 'text-cyan-400/70'}`}>Estado de seguridad</p>
+             <h4 className={`text-sm font-black drop-shadow-[0_0_8px_rgba(34,211,238,0.6)] mb-2 relative z-10 tracking-widest ${isSimulatingUpload ? 'text-white' : 'text-cyan-400'}`}>CIFRADO NO CONECTADO</h4>
              <p className="text-xs text-slate-400 leading-relaxed relative z-10 mt-2">
-               {isRSAActive ? 'Asegurando el canal de transmisión de datos...' : 'Los archivos subidos a la carpeta "CISO" requieren autenticación.'}
+               {isSimulatingUpload ? 'Simulación visual de carga; no se cifra ni transmite el archivo.' : 'No hay almacenamiento seguro ni cifrado configurado en este módulo.'}
              </p>
           </div>
         </div>
@@ -260,7 +254,7 @@ export default function DocumentDrive() {
                >
                   <div className="flex justify-between items-center mb-2">
                      <h4 className="text-xs font-black uppercase tracking-widest text-[#22D3EE] flex items-center gap-2">
-                        <Upload className="w-3.5 h-3.5 animate-pulse" /> Sincronizando con Google Workspace API
+                        <Upload className="w-3.5 h-3.5 animate-pulse" /> Simulando carga local (sin servidor)
                      </h4>
                      <span className="text-xs font-mono text-gray-400">{uploadProgress}%</span>
                   </div>
@@ -275,8 +269,8 @@ export default function DocumentDrive() {
             <h2 className="text-sm font-black uppercase tracking-widest text-white">
               {activeTab === 'all' ? 'Acceso Reciente' : activeTab.replace('iso', 'ISO ')}
             </h2>
-            <button className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-cyan-400 transition-colors">
-              <Filter className="w-3.5 h-3.5" /> Filtrar
+            <button disabled title="Filtro aún no implementado" className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-not-allowed">
+              <Filter className="w-3.5 h-3.5" /> Filtro no disponible
             </button>
           </div>
 
@@ -401,11 +395,11 @@ export default function DocumentDrive() {
                            <option value="Legal">Legal & Fiscal</option>
                            <option value="iso9001">Manuales ISO 9001</option>
                            <option value="RRHH">Recursos Humanos</option>
-                           <option value="CISO">Seguridad de la Información (CISO)</option>
+                           <option value="CISO" disabled>Seguridad de la Información (CISO) — no disponible</option>
                         </select>
                         {formData.category === 'CISO' && (
                            <div className="mt-2 flex items-center gap-2 text-cyan-400 text-[10px] font-mono uppercase tracking-widest bg-cyan-400/10 px-2 py-1 rounded">
-                              <AlertCircle className="w-3 h-3" /> Requiere Cifrado RSA-4096
+                              <AlertCircle className="w-3 h-3" /> Cifrado CISO no disponible en esta versión
                            </div>
                         )}
                      </div>
@@ -434,63 +428,12 @@ export default function DocumentDrive() {
 
                      <button type="submit" className="w-full mt-4 py-4 bg-cyan-500 text-[#020617] rounded-xl font-black uppercase italic tracking-[0.2em] shadow-[0_0_20px_rgba(34,211,238,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
                         {formData.category === 'CISO' ? <Lock className="w-4 h-4" /> : <Upload className="w-4 h-4"/>} 
-                        {formData.category === 'CISO' ? 'Cifrar y Guardar' : 'Procesar Archivo'}
+                        {formData.category === 'CISO' ? 'No disponible' : 'Simular vista previa'}
                      </button>
                   </form>
                </motion.div>
             </motion.div>
          )}
-      </AnimatePresence>
-
-      {/* Auth Modal */}
-      <AnimatePresence>
-        {authModalOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[#020617]/90 backdrop-blur-sm p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#0f172a] border border-cyan-500/30 rounded-2xl p-8 max-w-md w-full shadow-[0_0_40px_rgba(34,211,238,0.1)] relative overflow-hidden"
-            >
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-50" />
-              
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-3">
-                   <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20 text-cyan-400">
-                     <ShieldCheck className="w-6 h-6" />
-                   </div>
-                   <div>
-                     <h3 className="text-lg font-black uppercase tracking-widest text-white">Doble Autenticación</h3>
-                     <p className="text-[10px] font-mono text-cyan-400 uppercase tracking-widest">Requerida para acceso CISO</p>
-                   </div>
-                </div>
-                <button onClick={() => setAuthModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="mb-6 p-4 bg-[#020617] rounded-xl border border-[#1E293B] text-center">
-                 <ScanFace className="w-12 h-12 text-cyan-400/50 mx-auto mb-3" />
-                 <p className="text-sm font-medium text-slate-300">Escaneo biométrico o llave de seguridad requerida para:</p>
-                 <p className="text-cyan-400 font-bold mt-2 uppercase tracking-wide">{selectedFileForAuth}</p>
-              </div>
-
-              <div className="flex gap-3">
-                <button onClick={() => setAuthModalOpen(false)} className="flex-1 py-3 border border-[#1E293B] text-slate-300 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#1E293B] transition-colors">
-                  Cancelar
-                </button>
-                <button onClick={() => { setAuthModalOpen(false); alert("Autenticación completada."); }} className="flex-1 py-3 bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-cyan-400 hover:text-[#020617] shadow-[0_0_15px_rgba(34,211,238,0.2)] transition-all">
-                  Proceder
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
       </AnimatePresence>
 
       <style>{`
