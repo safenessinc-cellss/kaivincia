@@ -224,8 +224,7 @@ export default function Apply() {
     } catch (error) {
       console.error("Submission error:", error);
       handleFirestoreError(error, OperationType.CREATE, 'candidates');
-      // Even if firestore errors due to permissions/offline, show friendly confirmation
-      setSubmitted(true);
+      setAiStatus('No se pudo guardar la postulación. Verifica tu conexión e inténtalo nuevamente.');
     } finally {
       setLoading(false);
       setAiStatus('');
