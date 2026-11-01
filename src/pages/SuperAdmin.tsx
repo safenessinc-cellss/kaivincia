@@ -180,7 +180,6 @@ export default function SuperAdmin() {
       await updateDoc(doc(db, 'users', userId), { status });
       await addDoc(collection(db, 'audit_logs'), {
         userId: user?.uid || 'unknown',
-        actorUid: user?.uid || null,
         userEmail: user?.email || null,
         action: 'UPDATE_USER_STATUS',
         resourceType: 'User',
