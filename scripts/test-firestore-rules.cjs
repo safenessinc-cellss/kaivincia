@@ -162,7 +162,8 @@ async function main() {
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
     await assertFails(getDoc(doc(hrDenied, 'candidates', 'candidate-1')));
     await assertSucceeds(getDoc(doc(agentHrOverride, 'candidates', 'candidate-1')));
-    await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista' }));
+    await assertSucceeds(updateDoc(doc(hr, 'candidates', 'candidate-1'), { status: 'Entrevista', hrNotes: 'Revisión inicial completada.' }));
+    await assertFails(updateDoc(doc(hr, 'candidates', 'candidate-1'), { hrNotes: 'x'.repeat(5001) }));
     await assertSucceeds(updateDoc(doc(hr, 'jobs', 'job-1'), { status: 'closed' }));
     await assertSucceeds(getDoc(doc(hr, 'attendance_logs', 'alice-attendance')));
     await assertSucceeds(updateDoc(doc(hr, 'attendance_logs', 'alice-attendance'), { type: 'out' }));
