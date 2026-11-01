@@ -128,6 +128,10 @@ async function main() {
     await assertFails(getDoc(doc(bob, 'telnyx_sip_credentials', 'alice-sip')));
     await assertSucceeds(getDoc(doc(alice, 'voip_call_history', 'alice-call')));
     await assertSucceeds(getDoc(doc(manager, 'voip_call_history', 'alice-call')));
+    await assertSucceeds(setDoc(doc(alice, 'voip_call_history', 'alice-call-own'), { agentId: 'alice', contactPhone: '+15555550101', direction: 'outbound' }));
+    await assertFails(setDoc(doc(alice, 'voip_call_history', 'alice-call-spoofed'), { agentId: 'bob', contactPhone: '+15555550102', direction: 'outbound' }));
+    await assertFails(setDoc(doc(admin, 'voip_call_history', 'admin-call-spoofed'), { agentId: 'alice', contactPhone: '+15555550103', direction: 'outbound' }));
+    await assertSucceeds(setDoc(doc(admin, 'voip_call_history', 'admin-call-own'), { agentId: 'admin', contactPhone: '+15555550104', direction: 'outbound' }));
     await assertFails(getDoc(doc(manager, 'voip_providers', 'telnyx')));
     await assertFails(getDoc(doc(manager, 'settings', 'telnyx_config')));
     await assertFails(getDoc(doc(adminNoTelephony, 'settings', 'telnyx_config')));
