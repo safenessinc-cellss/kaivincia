@@ -94,7 +94,7 @@ export default async function handler(req: any, res: any) {
       res.end(JSON.stringify({ error: 'La credencial SIP no está asignada exclusivamente a este operador.' }));
       return;
     }
-    if (credential.status !== 'active' && credential.activo !== true) {
+    if (credential.status !== 'active' || credential.activo !== true) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'La credencial SIP está desactivada o no tiene un estado válido.' }));
       return;
@@ -140,6 +140,10 @@ export default async function handler(req: any, res: any) {
       credentialId,
       connectionId: operator.connectionId || process.env.TELNYX_CONNECTION_ID || '',
       operador: { uid: authUser.uid, nombre: operator.nombre || profile.name || authUser.email || 'Operador', rol: role },
+      permissions: {
+        outbound: operator.permiteSalientes === true,
+        inbound: operator.permiteEntrantes === true
+      },
       numerosAsignados: numbers,
       allowedNumbers: numbers.map((number: any) => number.phoneNumber),
     }));
