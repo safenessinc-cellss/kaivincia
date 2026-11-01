@@ -56,6 +56,7 @@ import CompanyAuth from './pages/b2b/CompanyAuth';
 import CompanyDashboard from './pages/b2b/CompanyDashboard';
 import CallCenterAdmin from './pages/CallCenterAdmin';
 import RouteGuard from "./components/RouteGuard";
+import { normalizeRole } from "./constants/roles";
 export default function App() {
   const [user, setUser] = useState<any>(() => {
     try {
