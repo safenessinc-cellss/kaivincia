@@ -685,8 +685,11 @@ export default function SoftphoneDialer({
     }
 
     // Validación de zona autorizada
-    const areaCode = cleanDigits.substring(0, 3);
-    if ((dialNum.startsWith('+1') || cleanDigits.length === 10 || cleanDigits.length === 11) && authorizedZones.length > 0) {
+    const isUsDestination = dialNum.startsWith('+1') || (cleanDigits.length === 10) || (cleanDigits.length === 11 && cleanDigits.startsWith('1'));
+    const areaCode = cleanDigits.length === 11 && cleanDigits.startsWith('1')
+      ? cleanDigits.slice(1, 4)
+      : cleanDigits.substring(0, 3);
+    if (isUsDestination && authorizedZones.length > 0) {
       const isAuthorized = authorizedZones.some((zone: any) => zone.enabled && zone.areaCodes.includes(areaCode));
       if (!isAuthorized) {
         showToast(`⛔ Zona no autorizada. Solo puedes llamar a: ${authorizedZones.map((z: any) => z.zoneName).join(', ')}`);
