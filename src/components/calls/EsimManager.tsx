@@ -46,7 +46,6 @@ export default function EsimManager({ className = '', onStartCall }: EsimManager
   const [loading, setLoading] = useState(true);
   const [showProvisionModal, setShowProvisionModal] = useState(false);
   const [integrationNotice, setIntegrationNotice] = useState('Aprovisionamiento eSIM y consumo en tiempo real: proveedor no conectado.');
-  const [isSimulatingId, setIsSimulatingId] = useState<string | null>(null);
 
   // Modal de configuración de línea & WhatsApp
   const [configModalProfile, setConfigModalProfile] = useState<EsimProfile | null>(null);
