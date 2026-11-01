@@ -122,7 +122,7 @@ export default function Apply() {
         jobId: jobId || 'general-pool',
         skills: skills.slice(0, 30),
         status: 'Nuevo',
-        hasPhoto: !!photoFile,
+        hasPhoto: false,
         hasResume: !!resumeFile,
         resumeFileName: resumeFile.name.slice(0, 180),
         resumeText: resumeText.slice(0, 15000),
