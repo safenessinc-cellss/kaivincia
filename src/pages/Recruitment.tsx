@@ -116,7 +116,7 @@ export default function Recruitment() {
     try {
       await updateDoc(doc(db, 'candidates', candidateId), { status: newStage });
       if (newStage === 'Academia Kaivincia') {
-        alert('Candidato aprobado para la Academia. (Simulación: Correo de bienvenida enviado con accesos)');
+        alert('Etapa del candidato actualizada. No se ha enviado ningún correo ni se han creado accesos a la Academia.');
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `candidates/${candidateId}`);
