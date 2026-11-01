@@ -58,7 +58,9 @@ export default function TeamManagement() {
   const { tasks, users: contextUsers } = useGlobalContext();
 
   // Auth Guard & Timing State
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, userData } = useAuth();
+  const canManageAccess = ['superadmin', 'admin'].includes(String(userData?.role || '').toLowerCase());
+  const isHrRole = String(userData?.role || '').toLowerCase() === 'rrhh';
   const [firestoreUsers, setFirestoreUsers] = useState<any[]>([]);
   const [firestoreAuditLogs, setFirestoreAuditLogs] = useState<any[]>([]);
 
@@ -229,8 +231,10 @@ export default function TeamManagement() {
         <div className="flex border-b border-gray-200 overflow-x-auto hide-scrollbar shrink-0">
           {[
             { id: 'directory', label: 'Directorio & Rendimiento', icon: Users },
-            { id: 'commissions', label: 'Comisiones y Pagos', icon: DollarSign },
-            { id: 'security', label: 'Seguridad y Auditoría', icon: ShieldAlert },
+            ...(!isHrRole ? [
+              { id: 'commissions', label: 'Comisiones y Pagos', icon: DollarSign },
+              { id: 'security', label: 'Seguridad y Auditoría', icon: ShieldAlert },
+            ] : []),
           ].map(tab => (
             <button 
               key={tab.id}
@@ -436,12 +440,12 @@ export default function TeamManagement() {
                       <p className="text-sm text-[#00F0FF] font-black uppercase tracking-[0.2em] mt-1">Especialista de Elite {activeMember?.role || 'Nodo'}</p>
                     </div>
                   </div>
-                  <button 
+                  {canManageAccess && <button 
                     onClick={() => activeMember && setSelectedUserForPerms(activeMember)}
                     className="h-14 px-8 bg-gray-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl hover:bg-[#00F0FF] transition-all shadow-xl active:scale-95"
                   >
                     Modificar Roles
-                  </button>
+                  </button>}
                 </div>
 
                 {/* Meta Mensual */}
