@@ -245,7 +245,7 @@ class TelnyxWebRTCService {
     console.log(`[TelnyxWebRTC] Iniciando llamada a ${destinationNumber} con Caller ID ${callerIdNumber || 'default'}`);
 
     if (!this.client?.newCall) {
-      throw new Error('El cliente TelnyxRTC no está inicializado. Ve a la pestaña de configuración del softphone y pulsa "Configurar JWT" para autenticarte con Telnyx.');
+      throw new Error('El cliente TelnyxRTC no está inicializado. Vuelve a abrir el softphone para renovar el JWT individual o verifica la asignación de credenciales del operador.');
     }
 
     // Crear la llamada con remoteElement para reproducir el audio entrante
