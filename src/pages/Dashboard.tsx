@@ -36,7 +36,7 @@ export default function Dashboard() {
   
   // Data State
   const [clients, setClients] = useState<any[]>([]);
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const isOptimizing = false;
   const [users, setUsers] = useState<any[]>([]);
   
   // System Events Feed
@@ -75,22 +75,7 @@ export default function Dashboard() {
   const teamROI = null;
   const academyGrowth = null;
 
-  const handleAiOptimization = () => {
-    setIsOptimizing(true);
-    setTimeout(() => {
-      setIsOptimizing(false);
-      const newEvent: SystemEvent = {
-        id: Math.random().toString(),
-        module: 'Talento',
-        type: 'success',
-        message: 'Optimización IA: Carga redistribuida según certificaciones Academia',
-        timestamp: new Date(),
-        impact: '+15% Eficiencia Operativa'
-      };
-      setEvents([newEvent, ...events.slice(0, 4)]);
-    }, 2000);
-  };
-
+  // AI optimization remains unavailable until a real, permission-checked workflow exists.
   // No revenue/expense series is shown until transactions are sourced from accounting records.
   const chartData: Array<{ name: string; revenue: number; expenses: number }> = [];
 
