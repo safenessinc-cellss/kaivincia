@@ -7,7 +7,7 @@ const ALLOWED_VOIP_ROLES = new Set([
 ]);
 const normalizeRole = (value: unknown) => {
   const raw = String(value || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
-  return ({ super_usuario: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
+  return ({ super_usuario: 'superuser', super_user: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
 const PRIVILEGED_ROLES = new Set(['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor']);
 
