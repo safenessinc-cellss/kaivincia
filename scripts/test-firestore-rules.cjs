@@ -21,7 +21,7 @@ async function main() {
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
         ['doc-code-admin', { role: 'admin', status: 'approved', email: 'doc-code-admin@example.test', permissions: { document_code_assign: true } }],
-        ['doc-code-matrix-admin', { role: 'admin', status: 'approved', email: 'doc-code-matrix-admin@example.test' }],
+        ['doc-code-matrix-admin', { role: 'gestor', status: 'approved', email: 'doc-code-matrix-admin@example.test' }],
         ['pending-admin', { role: 'admin', status: 'pending', email: 'pending-admin@example.test' }],
         ['missing-status-admin', { role: 'admin', email: 'missing-status-admin@example.test' }],
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
@@ -35,7 +35,7 @@ async function main() {
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
       await setDoc(doc(db, 'settings', 'rbac_matrix'), {
-        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false }, admin: { document_code_assign: true } }
+        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false }, gestor: { document_code_assign: true } }
       });
       await setDoc(doc(db, 'company_profiles', 'alice'), { ownerUid: 'alice', email: 'alice@example.test', status: 'pending' });
       await setDoc(doc(db, 'clients', 'alice-client'), { name: 'Alice Client', createdBy: 'alice', assignedTo: 'alice' });
