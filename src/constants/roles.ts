@@ -22,6 +22,7 @@ export type Role = keyof typeof ROLE_LEVELS;
 const ROLE_ALIASES: Record<string, string> = {
   'super usuario': 'superuser',
   super_usuario: 'superuser',
+  super_user: 'superuser',
   'super-user': 'superuser',
   superusuarios: 'superuser',
   'super admin': 'superadmin',
