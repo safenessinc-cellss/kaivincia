@@ -124,19 +124,6 @@ export default async function handler(req: any, res: any) {
     }
 
     if (!credentialId) {
-        const unassignedSnap = await adminDb.collection('telnyx_sip_credentials')
-          .where('activo', '==', true).get();
-        const unassigned = unassignedSnap.docs.filter((snap: any) => {
-          const data = snap.data() || {};
-          const assigned = data.assignedTo || data.operadorUid || null;
-          const state = String(data.status || 'active').toLowerCase();
-          return !assigned && !['inactive', 'disabled', 'revoked', 'deleted'].includes(state);
-        });
-        if (unassigned.length === 1) credentialId = unassigned[0].id;
-      }
-    }
-
-    if (!credentialId) {
       res.statusCode = 409;
       res.end(JSON.stringify({ error: 'Falta asignar una credencial SIP exclusiva al superadministrador. En Administración VoIP, configura el ID en settings/telnyx_config.adminCredentialId o deja una única credencial activa sin asignar.' }));
       return;
