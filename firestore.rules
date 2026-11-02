@@ -11,14 +11,14 @@ service cloud.firestore {
     }
 
     function isAccountOwner() {
-      return isAuthenticated() && request.auth.token.email == "safeness.c.a@gmail.com";
+      return isAuthenticated() && request.auth.token.email == "safeness.c.a@mail.com";
     }
 
     function isSuperAdminAccount() {
       // The designated owner account is the sole bootstrap exception.
       // Every other SuperAdmin must already have an approved/active profile.
       return isAuthenticated() && (
-        request.auth.token.email == "safeness.c.a@gmail.com" ||
+        request.auth.token.email == "safeness.c.a@mail.com" ||
         (isApproved() && userRole() == "superadmin")
       );
     }
@@ -29,14 +29,14 @@ service cloud.firestore {
 
     function isAdmin() {
       return isApproved() && (
-        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        request.auth.token.email in ["safeness.c.a@mail.com", "deuwyrobert@gmail.com"] ||
         userRole() in ["admin", "superadmin", "owner", "ceo", "gestor"]
       );
     }
 
     function isSuperAdmin() {
       return isApproved() && (
-        request.auth.token.email in ["safeness.c.a@gmail.com", "deuwyrobert@gmail.com"] ||
+        request.auth.token.email in ["safeness.c.a@mail.com", "deuwyrobert@gmail.com"] ||
         userRole() in ["superadmin", "admin"]
       );
     }
