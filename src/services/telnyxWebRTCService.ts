@@ -25,6 +25,8 @@ class TelnyxWebRTCService {
   private client: any = null;
   private currentCall: any = null;
   private tokenRequestVersion = 0;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private refreshInFlight: Promise<{ success: boolean; token?: string; message: string }> | null = null;
   private state: TelnyxWebRTCState = {
     isInitialized: false,
     isConnected: false,
@@ -44,6 +46,7 @@ class TelnyxWebRTCService {
     const cleanToken = (newJwt || '').trim();
     TELNYX_WEBRTC_LOGIN_TOKEN = cleanToken;
     this.state.loginToken = cleanToken;
+    this.scheduleTokenRefresh(cleanToken);
     this.notify();
 
     if (persistToFirestore && cleanToken) {
@@ -64,6 +67,17 @@ class TelnyxWebRTCService {
    * Solicita un nuevo JWT renovado al backend (/api/telnyx-token)
    */
   public async fetchFreshTokenFromBackend(): Promise<{ success: boolean; token?: string; message: string }> {
+    // Coalesce warning/timer/manual refresh requests into one backend request.
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = this.performTokenRefresh();
+    try {
+      return await this.refreshInFlight;
+    } finally {
+      this.refreshInFlight = null;
+    }
+  }
+
+  private async performTokenRefresh(): Promise<{ success: boolean; token?: string; message: string }> {
     try {
       const requestVersion = ++this.tokenRequestVersion;
       const currentUser = auth.currentUser;
@@ -116,6 +130,45 @@ class TelnyxWebRTCService {
         success: false,
         message: err.message || 'Error al conectar con /api/telnyx-token'
       };
+    }
+  }
+
+  /**
+   * Programar renovación preventiva usando el exp del JWT.
+   * Renueva 5 minutos antes de expirar; en caso de fallo transitorio,
+   * reintenta en 60 segundos sin entrar en un bucle agresivo.
+   */
+  private scheduleTokenRefresh(jwt: string): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    try {
+      const payloadPart = jwt.split('.')[1];
+      if (!payloadPart) return;
+      const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const payload = JSON.parse(atob(padded));
+      const expMs = Number(payload.exp) * 1000;
+      if (!Number.isFinite(expMs) || expMs <= Date.now()) return;
+
+      const refreshAt = Math.max(1000, expMs - Date.now() - 5 * 60 * 1000);
+      this.refreshTimer = setTimeout(async () => {
+        this.refreshTimer = null;
+        if (!auth.currentUser) return;
+
+        const result = await this.fetchFreshTokenFromBackend();
+        if (!result.success && this.state.isInitialized && auth.currentUser) {
+          // Limited retry delay; do not repeatedly hammer Telnyx/backend.
+          this.refreshTimer = setTimeout(() => {
+            this.refreshTimer = null;
+            void this.fetchFreshTokenFromBackend();
+          }, 60_000);
+        }
+      }, refreshAt);
+    } catch {
+      // If exp cannot be decoded, leave manual/SDK-warning refresh available.
     }
   }
 
@@ -293,6 +346,9 @@ class TelnyxWebRTCService {
   /** Disconnects and clears all in-memory credentials when the operator changes. */
   public clearSession(): void {
     this.tokenRequestVersion += 1;
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = null;
+    this.refreshInFlight = null;
     try { this.currentCall?.hangup?.(); } catch {}
     try { this.client?.disconnect?.(); } catch {}
     this.currentCall = null;
