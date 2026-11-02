@@ -120,7 +120,7 @@ export default function SuperAdmin() {
   }, []);
 
   const pendingUsers = users.filter(u => u.status === 'pending' || u.role === 'none');
-  const canDeleteUsers = user?.email === 'safeness.c.a@gmail.com';
+  const canDeleteUsers = user?.email === 'safeness.c.a@mail.com';
 
   // Load Users, Audit Logs, Clients, and Projects (Guarded by Auth)
   useEffect(() => {
