@@ -195,31 +195,59 @@ export class TelnyxBackendService {
    */
   public static async generateAgentJwt(credentialId: string): Promise<string> {
     const apiKey = this.getApiKey();
+    const cleanCredentialId = String(credentialId || '').trim();
     if (!apiKey) {
       throw new Error('TELNYX_API_KEY no configurada en el servidor.');
     }
+    if (!cleanCredentialId) {
+      throw new Error('Falta el ID de telephony credential de Telnyx.');
+    }
 
-    const tokenRes = await fetch(`https://api.telnyx.com/v2/telephony_credentials/${credentialId}/token`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+    // Telnyx documents this endpoint as text/plain. Request that format
+    // explicitly; some API gateways may still wrap the response in JSON.
+    const tokenRes = await fetch(
+      `https://api.telnyx.com/v2/telephony_credentials/${encodeURIComponent(cleanCredentialId)}/token`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: 'text/plain',
+        },
       }
-    });
+    );
 
+    const responseBody = await tokenRes.text();
     if (!tokenRes.ok) {
-      const text = await tokenRes.text();
-      throw new Error(`Error generando JWT de Telnyx (${tokenRes.status}): ${text}`);
+      // Avoid returning response details that could contain account information.
+      throw new Error(`Error generando JWT Telnyx (HTTP ${tokenRes.status}). Verifica API key y credential ID.`);
     }
 
-    // Telnyx returns raw JWT string or JSON with token
+    let token = responseBody.trim();
     const contentType = tokenRes.headers.get('content-type') || '';
-    if (contentType.includes('application/json')) {
-      const json = await tokenRes.json();
-      return json.token || json.data?.token || JSON.stringify(json);
+    if (contentType.includes('application/json') || token.startsWith('{') || token.startsWith('"')) {
+      try {
+        const parsed = JSON.parse(token);
+        if (typeof parsed === 'string') token = parsed;
+        else if (typeof parsed?.token === 'string') token = parsed.token;
+        else if (typeof parsed?.data === 'string') token = parsed.data;
+        else if (typeof parsed?.data?.token === 'string') token = parsed.data.token;
+        else if (typeof parsed?.access_token === 'string') token = parsed.access_token;
+        else throw new Error('Formato JSON de respuesta Telnyx no reconocido.');
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          throw new Error('Telnyx devolvió una respuesta JSON inválida al generar el JWT.');
+        }
+        throw error;
+      }
     }
 
-    return await tokenRes.text();
+    token = String(token || '').trim().replace(/^["']|["']$/g, '');
+    const segments = token.split('.');
+    if (segments.length !== 3 || segments.some((segment) => !segment)) {
+      throw new Error('Telnyx no devolvió un JWT válido para esta credencial. Revisa el ID y estado de la telephony credential.');
+    }
+
+    return token;
   }
 
   /**
