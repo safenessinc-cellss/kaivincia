@@ -92,8 +92,10 @@ class TelnyxWebRTCService {
         this.state.canMakeOutbound = data.permissions?.outbound === true;
         this.state.canReceiveInbound = data.permissions?.inbound === true;
         await this.setLoginToken(data.token, false);
-        if (this.client?.updateToken && this.state.isInitialized) {
-          this.client.updateToken(data.token);
+        if (this.client?.login && this.state.isInitialized) {
+          // TelnyxRTC SDK re-authenticates using login({ creds }); updateToken
+          // is not part of the documented SDK interface.
+          await this.client.login({ creds: { login_token: data.token } });
         } else {
           await this.initClient(data.token);
         }
@@ -145,7 +147,9 @@ class TelnyxWebRTCService {
     }
 
     try {
-      console.log('[TelnyxWebRTC] Inicializando TelnyxRTC con login_token:', `${token.slice(0, 15)}...${token.slice(-10)}`);
+      // Never log JWT fragments: token pieces are credentials and should not
+      // appear in browser logs or support screenshots.
+      console.log('[TelnyxWebRTC] Inicializando cliente TelnyxRTC con token temporal.');
 
       // Desconectar cliente existente antes de crear uno nuevo
       if (this.client) {
@@ -191,8 +195,18 @@ class TelnyxWebRTCService {
       });
 
       this.client.on('telnyx.error', (error: any) => {
-        console.error('[TelnyxWebRTC] ❌ Error en cliente:', error);
-        this.state.lastError = error?.message || 'Error en conexión Telnyx WebRTC';
+        // Login/authentication errors mean the SDK is not registered. Prevent
+        // the dialer from attempting an invite on an unauthenticated socket.
+        const message = String(error?.message || error?.error?.message || 'Error en conexión Telnyx WebRTC');
+        const authFailure = /login incorrect|authentication required|login_failed|authentication failed/i.test(message);
+        if (authFailure) {
+          this.state.isConnected = false;
+          this.state.isInitialized = false;
+          this.state.canMakeOutbound = false;
+          this.state.canReceiveInbound = false;
+        }
+        this.state.lastError = message;
+        console.error('[TelnyxWebRTC] Error en cliente Telnyx:', message);
         this.notify();
       });
 
@@ -229,8 +243,12 @@ class TelnyxWebRTCService {
 
     console.log(`[TelnyxWebRTC] Iniciando llamada a ${destinationNumber} con Caller ID ${callerIdNumber || 'default'}`);
 
-    if (!this.client?.newCall) {
-      throw new Error('El cliente TelnyxRTC no está inicializado. Vuelve a abrir el softphone para renovar el JWT individual o verifica la asignación de credenciales del operador.');
+    if (!this.client?.newCall || !this.state.isConnected) {
+      throw new Error(
+        this.state.lastError
+          ? `Telnyx no está autenticado: ${this.state.lastError}. Renueva el token y espera el estado “Conectado” antes de llamar.`
+          : 'Telnyx aún no está conectado. Espera a que el softphone muestre “Conectado” antes de llamar.'
+      );
     }
 
     // Crear la llamada con remoteElement para reproducir el audio entrante
