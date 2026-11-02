@@ -156,7 +156,17 @@ export class TelnyxBackendService {
 
     if (listRes.ok) {
       const listData = await listRes.json();
-      const existing = listData.data?.find((c: any) => c.name === `kaivincia-agent-${uid}`);
+      // Credential names are not sufficient to identify the correct SIP
+      // connection. Reuse only when Telnyx confirms it belongs to the requested
+      // connection; otherwise create a connection-scoped credential.
+      const baseName = `kaivincia-agent-${uid}`;
+      const connectionScopedName = `${baseName}-${connId}`;
+      const credentials = Array.isArray(listData.data) ? listData.data : [];
+      const existing = credentials.find((credential: any) =>
+        credential.name === baseName && String(credential.connection_id || '') === String(connId)
+      ) || credentials.find((credential: any) =>
+        credential.name === connectionScopedName && String(credential.connection_id || '') === String(connId)
+      );
       if (existing) {
         return {
           id: existing.id,
@@ -174,7 +184,9 @@ export class TelnyxBackendService {
       },
       body: JSON.stringify({
         connection_id: connId,
-        name: `kaivincia-agent-${uid}`
+        // Avoid colliding with a legacy credential bound to another
+        // connection. The connection ID is part of the unique credential name.
+        name: `kaivincia-agent-${uid}-${connId}`
       })
     });
 
