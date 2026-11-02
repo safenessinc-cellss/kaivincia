@@ -10,7 +10,7 @@ const normalizeRole = (value: unknown) => {
   return ({ super_usuario: 'superuser', super_user: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
 const PRIVILEGED_ROLES = new Set(['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor']);
-const SYSTEM_OWNER_EMAIL = 'safeness.c.a@gmail.com';
+const SYSTEM_OWNER_EMAIL = 'safeness.c.a@mail.com';
 const isSystemOwner = (user: any) => String(user?.email || '').toLowerCase().trim() === SYSTEM_OWNER_EMAIL;
 
 export default async function handler(req: any, res: any) {
