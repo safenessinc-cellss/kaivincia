@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   GoogleAuthProvider,
-  getRedirectResult,
+  browserLocalPersistence,
+  setPersistence,
+  signInWithPopup,
   signInWithRedirect,
 } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -14,34 +16,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let active = true;
-    getRedirectResult(auth)
-      .then((result) => {
-        if (active && result?.user) navigate('/crm/dashboard', { replace: true });
-      })
-      .catch((err: any) => {
-        if (!active) return;
-        const code = String(err?.code || '');
-        setError(code === 'auth/unauthorized-domain'
-          ? 'Este dominio no está autorizado en Firebase Authentication.'
-          : err?.message || 'No se pudo completar el inicio de sesión de Google.');
-        setLoading(false);
-      });
-    return () => { active = false; };
-  }, [navigate]);
-
   const handleGoogleLogin = async () => {
     try {
       setLoading(true);
       setError('');
+      // Persist the Firebase session before opening Google's authentication UI.
+      await setPersistence(auth, browserLocalPersistence);
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      // Redirect avoids popup window.close/COOP issues and is more reliable
-      // in browsers with strict cross-origin opener policies.
-      await signInWithRedirect(auth, provider);
+
+      // COOP is configured as same-origin-allow-popups on Vercel. Popup avoids
+      // the cross-domain redirect-storage problem on the Firebase authDomain.
+      const result = await signInWithPopup(auth, provider);
+      if (result.user) {
+        navigate('/crm/dashboard', { replace: true });
+      }
     } catch (err: any) {
-      setError(err?.message || 'Error al iniciar sesión con Google.');
+      const code = String(err?.code || '');
+      if (code === 'auth/popup-blocked') {
+        try {
+          const provider = new GoogleAuthProvider();
+          provider.setCustomParameters({ prompt: 'select_account' });
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr: any) {
+          setError(redirectErr?.message || 'No se pudo completar el acceso con Google.');
+        }
+      } else if (code === 'auth/unauthorized-domain') {
+        setError('Este dominio no está autorizado en Firebase Authentication.');
+      } else if (code === 'auth/popup-closed-by-user') {
+        setError('La ventana de Google se cerró antes de completar el acceso. Intenta nuevamente.');
+      } else {
+        setError(err?.message || 'Error al iniciar sesión con Google.');
+      }
       setLoading(false);
     }
   };
