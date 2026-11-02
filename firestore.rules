@@ -120,10 +120,10 @@ service cloud.firestore {
     }
 
     function isVoipUser() {
-      // Superadmins are the account-wide telephony owners; per-user RBAC
+      // Superadmins and superusers are account-wide telephony owners; per-user RBAC
       // overrides must not accidentally remove their call-center access.
       return isApproved() && (
-        userRole() == "superadmin" ||
+        userRole() in ["superadmin", "superuser", "super_usuario", "super usuario", "super-user"] ||
         hasEffectivePermission(
           "voip_calls",
           userRole() in ["admin", "owner", "ceo", "gestor", "supervisor", "agent", "sales", "ventas", "tlmk", "telemarketing", "setter", "closer", "agente", "operador", "call_agent", "collaborator"]
@@ -132,9 +132,12 @@ service cloud.firestore {
     }
 
     function isTelephonyAdmin() {
-      return isApproved() &&
-        userRole() in ["superadmin", "admin"] &&
-        (userRole() == "superadmin" || hasEffectivePermission("telephony_config", true));
+      // Approved superusers/superadmins always manage the call center.
+      // Other admins still require the configured RBAC permission.
+      return isApproved() && (
+        userRole() in ["superadmin", "superuser", "super_usuario", "super usuario", "super-user"] ||
+        (userRole() == "admin" && hasEffectivePermission("telephony_config", true))
+      );
     }
 
     function isApproved() {
