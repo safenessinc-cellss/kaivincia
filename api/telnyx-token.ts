@@ -281,5 +281,6 @@ async function hasVoipPermission(uid: string, profile: any, role: string): Promi
   const roleMatrix = matrix[role] || (role === 'agent' ? matrix.sales : undefined);
   const matrixValue = roleMatrix?.voip_calls;
   if (typeof matrixValue === 'boolean') return matrixValue;
-  return ['superadmin', 'admin', 'owner', 'ceo', 'gestor', 'supervisor', 'agent', 'collaborator'].includes(role);
+  // Fail closed: a missing RBAC matrix entry must never implicitly grant VoIP.
+  return false;
 }
