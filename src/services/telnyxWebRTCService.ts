@@ -25,6 +25,7 @@ class TelnyxWebRTCService {
   private client: any = null;
   private currentCall: any = null;
   private tokenRequestVersion = 0;
+  private activeUid: string | null = null;
   private refreshTimer: ReturnType<typeof setTimeout> | null = null;
   private refreshInFlight: Promise<{ success: boolean; token?: string; message: string }> | null = null;
   private state: TelnyxWebRTCState = {
@@ -82,16 +83,28 @@ class TelnyxWebRTCService {
       const requestVersion = ++this.tokenRequestVersion;
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error('Debes iniciar sesión para generar un token VoIP individual.');
+      if (this.activeUid && this.activeUid !== currentUser.uid) {
+        // Never carry a Telnyx session or JWT across Firebase identities.
+        this.clearSession();
+      }
+      this.activeUid = currentUser.uid;
       const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await currentUser.getIdToken()}`
+        'Authorization': `Bearer ${await currentUser.getIdToken(true)}`
       };
 
-      const res = await fetch('/api/telnyx-token', { headers });
-      const data = await res.json();
+      const res = await fetch('/api/telnyx-token', {
+        method: 'GET',
+        headers,
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok || data.error) {
-        if (res.status === 401 || res.status === 403) this.clearSession();
+        if (res.status === 401 || res.status === 403) {
+          // Authorization was denied by the trusted backend. Disable telephony
+          // and clear only the Telnyx session; do not sign out Firebase globally.
+          this.clearSession();
+        }
         throw new Error(data.error || `HTTP ${res.status}`);
       }
 
@@ -280,11 +293,13 @@ class TelnyxWebRTCService {
         }
       });
 
-      this.client.connect();
+      // connect() starts the SDK lifecycle. The authenticated/registered state
+      // is only set by telnyx.ready; do not treat token receipt as ready.
+      await this.client.connect();
 
       return {
         success: true,
-        message: 'SDK de Telnyx WebRTC inicializado correctamente con el nuevo login_token.'
+        message: 'Conexión Telnyx iniciada; esperando registro telnyx.ready.'
       };
     } catch (err: any) {
       console.error('[TelnyxWebRTC] ❌ Error inicializando SDK:', err);
@@ -346,6 +361,7 @@ class TelnyxWebRTCService {
   /** Disconnects and clears all in-memory credentials when the operator changes. */
   public clearSession(): void {
     this.tokenRequestVersion += 1;
+    this.activeUid = null;
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     this.refreshTimer = null;
     this.refreshInFlight = null;
