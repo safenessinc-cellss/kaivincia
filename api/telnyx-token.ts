@@ -10,6 +10,8 @@ const normalizeRole = (value: unknown) => {
   return ({ super_usuario: 'superuser', super_user: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
 const PRIVILEGED_ROLES = new Set(['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor']);
+const SYSTEM_OWNER_EMAIL = 'safeness.c.a@gmail.com';
+const isSystemOwner = (user: any) => String(user?.email || '').toLowerCase().trim() === SYSTEM_OWNER_EMAIL;
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, private');
@@ -49,7 +51,8 @@ export default async function handler(req: any, res: any) {
     const profile = userSnap.data() || {};
     const status = String(profile.status || '').toLowerCase();
     const role = normalizeRole(profile.role);
-    if (!['approved', 'active'].includes(status) || !ALLOWED_VOIP_ROLES.has(role) || !(await hasVoipPermission(authUser.uid, profile, role))) {
+    const ownerAccount = isSystemOwner(authUser);
+    if ((!ownerAccount && !['approved', 'active'].includes(status)) || (!ownerAccount && !ALLOWED_VOIP_ROLES.has(role)) || (!ownerAccount && !(await hasVoipPermission(authUser.uid, profile, role)))) {
       res.statusCode = 403;
       res.end(JSON.stringify({ error: 'La cuenta no está aprobada o no tiene permiso de telefonía.' }));
       return;
@@ -58,7 +61,7 @@ export default async function handler(req: any, res: any) {
     // Agents require an exclusive assignment. Privileged users receive account-wide
     // call visibility, but use a dedicated/unassigned admin credential rather than
     // borrowing a credential currently assigned to an agent.
-    const isPrivileged = PRIVILEGED_ROLES.has(role);
+    const isPrivileged = ownerAccount || PRIVILEGED_ROLES.has(role);
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
     const operator = operatorSnap.exists ? (operatorSnap.data() || {}) : {};
     let credentialId = String(operator.telnyxCredentialId || '');
