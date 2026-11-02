@@ -5,6 +5,7 @@
 
 export const ROLE_LEVELS = {
   superadmin: 100,
+  superuser: 95,
   admin: 90,
   owner: 85,
   ceo: 80,
@@ -19,6 +20,13 @@ export type Role = keyof typeof ROLE_LEVELS;
 // Normalize historical role IDs to one canonical key without changing stored
 // user profiles. This keeps legacy accounts working while policies converge.
 const ROLE_ALIASES: Record<string, string> = {
+  'super usuario': 'superuser',
+  super_usuario: 'superuser',
+  super_user: 'superuser',
+  'super-user': 'superuser',
+  superusuarios: 'superuser',
+  'super admin': 'superadmin',
+  super_admin: 'superadmin',
   sales: 'agent',
   ventas: 'agent',
   tlmk: 'agent',
@@ -51,7 +59,7 @@ export function hasMinLevel(role: string | null | undefined, min: number): boole
 
 // Alias retrocompatible con el codigo existente.
 // Equivale a "puede ver todos los caller IDs del tenant" (nivel >= 80).
-export const PRIVILEGED_ROLES = ['superadmin', 'admin', 'owner', 'ceo', 'gestor'] as const;
+export const PRIVILEGED_ROLES = ['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor'] as const;
 
 export function isPrivilegedRole(role?: string | null): boolean {
   return hasMinLevel(role, 80);

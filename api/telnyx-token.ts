@@ -2,14 +2,14 @@ import { adminDb  , isFirebaseAdminConfigured } from '../server/_lib/firebaseAdm
 import { TelnyxBackendService } from '../server/telnyxBackend.js';
 
 const ALLOWED_VOIP_ROLES = new Set([
-  'superadmin', 'admin', 'owner', 'ceo', 'gestor',
+  'superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor',
   'supervisor', 'agent', 'collaborator'
 ]);
 const normalizeRole = (value: unknown) => {
-  const raw = String(value || '').toLowerCase().trim();
-  return ({ sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
+  const raw = String(value || '').toLowerCase().trim().replace(/[\s-]+/g, '_');
+  return ({ super_usuario: 'superuser', super_user: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
-const PRIVILEGED_ROLES = new Set(['superadmin', 'admin', 'owner', 'ceo', 'gestor']);
+const PRIVILEGED_ROLES = new Set(['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor']);
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Cache-Control', 'no-store, private');
