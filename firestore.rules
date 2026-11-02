@@ -52,7 +52,9 @@ service cloud.firestore {
         ? "sales"
         : rawRole;
       let rolePermissions = matrix.get(matrixRole, {});
-      return overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
+      // The system owner is a hard-coded root principal and cannot be denied by RBAC.
+      return isAccountOwner() ||
+        overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
     }
 
     // Official document-code governance. A code may be assigned/changed only
@@ -144,9 +146,11 @@ service cloud.firestore {
       // Fail closed: a missing status is not an implicit approval.
       // Trusted provisioning explicitly writes "active" for allowlisted
       // administrators and "pending" for every other new account.
-      return isAuthenticated() &&
+      return isAccountOwner() || (
+        isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "pending") in ["approved", "active"];
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get("status", "pending") in ["approved", "active"]
+      );
     }
 
     function isUser(userId) {
