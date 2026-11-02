@@ -10,7 +10,7 @@ const normalizeRole = (value: unknown) => {
   return ({ super_usuario: 'superuser', super_user: 'superuser', superusuarios: 'superuser', super_admin: 'superadmin', sales: 'agent', ventas: 'agent', tlmk: 'agent', telemarketing: 'agent', setter: 'agent', closer: 'agent', agente: 'agent', operador: 'agent', call_agent: 'agent' } as Record<string, string>)[raw] || raw;
 };
 const PRIVILEGED_ROLES = new Set(['superadmin', 'superuser', 'admin', 'owner', 'ceo', 'gestor']);
-const SYSTEM_OWNER_EMAIL = 'safeness.c.a@mail.com';
+const SYSTEM_OWNER_EMAIL = 'safeness.c.a@gmail.com';
 const isSystemOwner = (user: any) => String(user?.email || '').toLowerCase().trim() === SYSTEM_OWNER_EMAIL;
 
 export default async function handler(req: any, res: any) {
@@ -63,7 +63,7 @@ export default async function handler(req: any, res: any) {
     // borrowing a credential currently assigned to an agent.
     const isPrivileged = ownerAccount || PRIVILEGED_ROLES.has(role);
     const operatorSnap = await adminDb.collection('operadores').doc(authUser.uid).get();
-    const operator = operatorSnap.exists ? (operatorSnap.data() || {}) : {};
+    let operator = operatorSnap.exists ? (operatorSnap.data() || {}) : {};
     let credentialId = String(operator.telnyxCredentialId || '');
 
     if (!isPrivileged && (!operatorSnap.exists || operator.activo !== true || !credentialId)) {
@@ -82,17 +82,48 @@ export default async function handler(req: any, res: any) {
       return;
     }
 
-    // A superadmin may use the configured admin credential or a single unassigned
-    // active credential. Never select an agent-owned SIP credential implicitly.
+    // Restore the proven 25-Oct WebRTC flow for privileged users:
+    // provision/reuse a Telnyx credential directly on the server-configured
+    // Credential Connection. This avoids stale Firestore admin credential IDs.
+    // Agents continue to use their strict exclusive assignments below.
     if (isPrivileged) {
-      const configSnap = await adminDb.collection('settings').doc('telnyx_config').get();
-      const config = configSnap.data() || {};
-      const configuredAdminCredential = String(
-        config.adminCredentialId || config.defaultAdminCredentialId || ''
-      ).trim();
-      if (configuredAdminCredential) credentialId = configuredAdminCredential;
+      const connectionId = TelnyxBackendService.getDefaultConnectionId();
+      if (!connectionId) {
+        res.statusCode = 503;
+        res.end(JSON.stringify({ error: 'Telnyx no está configurado: falta TELNYX_CONNECTION_ID.' }));
+        return;
+      }
 
-      if (!credentialId) {
+      const generated = await TelnyxBackendService.getOrCreateTelephonyCredential(authUser.uid, connectionId);
+      credentialId = generated.id;
+      const credentialRecord = {
+        id: generated.id,
+        telnyxCredentialId: generated.id,
+        username: generated.sip_username,
+        sipUsername: generated.sip_username,
+        telnyxUsername: generated.sip_username,
+        connectionId,
+        connection_id: connectionId,
+        assignedTo: authUser.uid,
+        assignedToEmail: authUser.email || '',
+        activo: true,
+        status: 'active',
+        updatedAt: new Date().toISOString(),
+      };
+      await adminDb.collection('telnyx_sip_credentials').doc(credentialId).set(credentialRecord, { merge: true });
+      await adminDb.collection('operadores').doc(authUser.uid).set({
+        id: authUser.uid,
+        uid: authUser.uid,
+        telnyxCredentialId: credentialId,
+        telnyxUsername: generated.sip_username,
+        connectionId,
+        activo: true,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      operator = { ...operator, ...credentialRecord, telnyxCredentialId: credentialId, telnyxUsername: generated.sip_username, connectionId, activo: true };
+    }
+
+    if (!credentialId) {
         const unassignedSnap = await adminDb.collection('telnyx_sip_credentials')
           .where('activo', '==', true).get();
         const unassigned = unassignedSnap.docs.filter((snap: any) => {
