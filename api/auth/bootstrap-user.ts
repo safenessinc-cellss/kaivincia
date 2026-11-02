@@ -1,9 +1,11 @@
 import { adminAuth, adminDb  , isFirebaseAdminConfigured } from '../../server/_lib/firebaseAdmin.js';
 import { FieldValue } from 'firebase-admin/firestore';
 
-const SUPERADMINS = (process.env.SUPERADMIN_EMAILS || '')
-  .split(',')
-  .map((e) => e.trim())
+// Keep the designated production owner as a bootstrap allowlist entry even if
+// the optional SUPERADMIN_EMAILS environment variable is missing or stale.
+const OWNER_EMAIL = 'safeness.c.a@mail.com';
+const SUPERADMINS = [OWNER_EMAIL, ...(process.env.SUPERADMIN_EMAILS || '').split(',')]
+  .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
 export default async function handler(req: any, res: any) {
