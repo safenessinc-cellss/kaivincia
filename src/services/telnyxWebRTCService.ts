@@ -159,8 +159,7 @@ class TelnyxWebRTCService {
       // Crear cliente usando el SDK importado desde @telnyx/webrtc
       this.client = new TelnyxRTC({
         login_token: token,
-        debug: true,
-        debugOutput: 'socket',
+        // Keep SDK socket debug disabled: debug output can expose login_token JWTs.
         ringbackFile: '/sounds/ringback.mp3',
         ringtoneFile: '/sounds/ringtone.mp3'
       });
@@ -197,16 +196,26 @@ class TelnyxWebRTCService {
       this.client.on('telnyx.error', (error: any) => {
         // Login/authentication errors mean the SDK is not registered. Prevent
         // the dialer from attempting an invite on an unauthenticated socket.
-        const message = String(error?.message || error?.error?.message || 'Error en conexión Telnyx WebRTC');
+        const eventError = error?.error || error;
+        const message = String(eventError?.message || 'Error en conexión Telnyx WebRTC');
         const authFailure = /login incorrect|authentication required|login_failed|authentication failed/i.test(message);
         if (authFailure) {
           this.state.isConnected = false;
           this.state.isInitialized = false;
           this.state.canMakeOutbound = false;
           this.state.canReceiveInbound = false;
+          this.state.lastError = 'Telnyx rechazó la autenticación. Verifica la credencial SIP y vuelve a solicitar un token.';
+          // Stop the SDK's repeated login attempts with the same rejected token.
+          // A fresh connection should only be created after an explicit token refresh.
+          if (this.client === clientForSession) {
+            try { clientForSession.disconnect(); } catch {}
+            this.client = null;
+          }
+          console.error('[TelnyxWebRTC] Autenticación Telnyx rechazada; cliente desconectado.');
+        } else {
+          this.state.lastError = message;
+          console.error('[TelnyxWebRTC] Error en cliente Telnyx:', message);
         }
-        this.state.lastError = message;
-        console.error('[TelnyxWebRTC] Error en cliente Telnyx:', message);
         this.notify();
       });
 
