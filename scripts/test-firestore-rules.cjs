@@ -20,6 +20,8 @@ async function main() {
         ['hr-denied', { role: 'rrhh', status: 'approved', permissions: { recruitment_payroll: false } }],
         ['agent-hr-override', { role: 'agent', status: 'approved', permissions: { recruitment_payroll: true } }],
         ['admin', { role: 'admin', status: 'approved', email: 'admin@example.test' }],
+        ['doc-code-admin', { role: 'admin', status: 'approved', email: 'doc-code-admin@example.test', permissions: { document_code_assign: true } }],
+        ['doc-code-matrix-admin', { role: 'gestor', status: 'approved', email: 'doc-code-matrix-admin@example.test' }],
         ['pending-admin', { role: 'admin', status: 'pending', email: 'pending-admin@example.test' }],
         ['missing-status-admin', { role: 'admin', email: 'missing-status-admin@example.test' }],
         ['admin-no-helpdesk', { role: 'admin', status: 'approved', email: 'admin-no-helpdesk@example.test', permissions: { helpdesk_manage: false } }],
@@ -33,7 +35,7 @@ async function main() {
       ];
       for (const [uid, profile] of profiles) await setDoc(doc(db, 'users', uid), profile);
       await setDoc(doc(db, 'settings', 'rbac_matrix'), {
-        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false } }
+        matrix: { rrhh: { recruitment_payroll: true }, agent: { recruitment_payroll: false }, sales: { recruitment_payroll: false }, gestor: { document_code_assign: true } }
       });
       await setDoc(doc(db, 'company_profiles', 'alice'), { ownerUid: 'alice', email: 'alice@example.test', status: 'pending' });
       await setDoc(doc(db, 'clients', 'alice-client'), { name: 'Alice Client', createdBy: 'alice', assignedTo: 'alice' });
@@ -75,6 +77,8 @@ async function main() {
       await setDoc(doc(db, 'absence_requests', 'alice-absence'), { userId: 'alice', status: 'pending', reason: 'Personal', startDate: '2026-11-02', endDate: '2026-11-02' });
       await setDoc(doc(db, 'attendance_logs', 'alice-legacy-attendance'), { userUid: 'alice', type: 'out', timestamp: '2026-10-31T18:00:00Z' });
       await setDoc(doc(db, 'absence_requests', 'alice-legacy-absence'), { userUid: 'alice', status: 'pending', reason: 'Legacy request', startDate: '2026-11-02', endDate: '2026-11-02' });
+      await setDoc(doc(db, 'documents', 'iso-doc'), { title: 'Procedimiento ISO', ownerId: 'alice', code: 'ISO-QMS-001', status: 'draft' });
+      await setDoc(doc(db, 'documents', 'alice-draft'), { title: 'Borrador propio', ownerId: 'alice', code: '', status: 'draft' });
     });
 
     const alice = env.authenticatedContext('alice', { email: 'alice@example.test' }).firestore();
@@ -85,6 +89,8 @@ async function main() {
     const hrDenied = env.authenticatedContext('hr-denied').firestore();
     const agentHrOverride = env.authenticatedContext('agent-hr-override').firestore();
     const admin = env.authenticatedContext('admin', { email: 'admin@example.test' }).firestore();
+    const docCodeAdmin = env.authenticatedContext('doc-code-admin', { email: 'doc-code-admin@example.test' }).firestore();
+    const docCodeMatrixAdmin = env.authenticatedContext('doc-code-matrix-admin', { email: 'doc-code-matrix-admin@example.test' }).firestore();
     const pendingAdmin = env.authenticatedContext('pending-admin', { email: 'pending-admin@example.test' }).firestore();
     const missingStatusAdmin = env.authenticatedContext('missing-status-admin', { email: 'missing-status-admin@example.test' }).firestore();
     const adminNoHelpdesk = env.authenticatedContext('admin-no-helpdesk', { email: 'admin-no-helpdesk@example.test' }).firestore();
@@ -241,6 +247,15 @@ async function main() {
     await assertSucceeds(updateDoc(doc(superadmin, 'users', 'bob'), { role: 'admin' }));
     await assertFails(updateDoc(doc(pendingSuperadmin, 'users', 'bob'), { role: 'admin' }));
     await assertFails(updateDoc(doc(admin, 'settings', 'rbac_matrix'), { matrix: {} }));
+    // ISO official codes: only SuperAdmin/owner or an explicitly permissioned user may assign/change.
+    await assertFails(updateDoc(doc(alice, 'documents', 'iso-doc'), { code: 'ISO-QMS-002' }));
+    await assertFails(updateDoc(doc(admin, 'documents', 'iso-doc'), { code: 'ISO-QMS-002' }));
+    await assertSucceeds(updateDoc(doc(docCodeAdmin, 'documents', 'iso-doc'), { code: 'ISO-QMS-002' }));
+    await assertSucceeds(updateDoc(doc(docCodeMatrixAdmin, 'documents', 'iso-doc'), { code: 'ISO-QMS-003' }));
+    await assertSucceeds(updateDoc(doc(superadmin, 'documents', 'iso-doc'), { code: 'ISO-QMS-004' }));
+    await assertSucceeds(updateDoc(doc(alice, 'documents', 'alice-draft'), { title: 'Borrador modificado' }));
+    await assertFails(setDoc(doc(alice, 'documents', 'new-coded-doc'), { ownerId: 'alice', code: 'ISO-QMS-999', title: 'Forged official number' }));
+    await assertSucceeds(setDoc(doc(alice, 'documents', 'new-uncoded-doc'), { ownerId: 'alice', code: '', title: 'Draft without official code' }));
     await assertSucceeds(updateDoc(doc(superadmin, 'settings', 'rbac_matrix'), { updatedBy: 'superadmin' }));
     await assertSucceeds(getDoc(doc(hr, 'candidates', 'candidate-1')));
     await assertSucceeds(getDoc(doc(owner, 'candidates', 'candidate-1')));

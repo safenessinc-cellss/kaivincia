@@ -51,10 +51,11 @@ const RBAC_PERMISSIONS: RBACPermission[] = [
   { id: 'automations_engine', name: 'Motor de Automatizaciones & Reglas', module: 'Automatizaciones' },
   { id: 'security_center', name: 'Centro de Seguridad & Auditoría', module: 'Seguridad' },
   { id: 'export_databases', name: 'Exportar Bases de Datos & Reportes', module: 'Datos' },
+  { id: 'document_code_assign', name: 'Asignar / modificar códigos oficiales de documentos ISO', module: 'Control documental ISO' },
 ];
 
 const DEFAULT_MATRIX_STATE: Record<string, Record<string, boolean>> = {
-  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
+  superadmin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true, document_code_assign: true },
   owner: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
   ceo: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: false, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
   admin: { view_financial_dashboard: true, accounting_gps: true, client_base_global: true, client_base_assigned: true, academy_management: true, voip_calls: true, recruitment_payroll: true, telephony_config: true, automations_engine: true, security_center: true, export_databases: true, helpdesk_manage: true },
