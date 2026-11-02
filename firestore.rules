@@ -55,6 +55,19 @@ service cloud.firestore {
       return overrides.get(permission, rolePermissions.get(permission, defaultAllowed)) == true;
     }
 
+    // Official document-code governance. A code may be assigned/changed only
+    // by the account owner/SuperAdmin or a user explicitly granted this RBAC permission.
+    function canAssignOfficialDocumentCode() {
+      return isSuperAdminAccount() ||
+        (isApproved() && hasEffectivePermission("document_code_assign", false));
+    }
+
+    function documentCodeFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        "code", "documentCode", "officialCode", "documentNumber"
+      ]);
+    }
+
     function isHR() {
       return isApproved() && hasEffectivePermission(
         "recruitment_payroll",
@@ -733,8 +746,18 @@ service cloud.firestore {
 
         match /documents/{documentId} {
       allow read: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
-      allow create: if isApproved() && request.resource.data.get('ownerId', '') == request.auth.uid && hasOnlyOwnAssignments(request.resource.data);
-      allow update: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid && preservesOwnership(resource.data, request.resource.data));
+      allow create: if isApproved() &&
+        request.resource.data.get('ownerId', '') == request.auth.uid &&
+        hasOnlyOwnAssignments(request.resource.data) &&
+        (!request.resource.data.keys().hasAny(['code', 'documentCode', 'officialCode', 'documentNumber']) ||
+          request.resource.data.get('code', '') == '' ||
+          canAssignOfficialDocumentCode());
+      allow update: if (
+        (isAdmin() || (isApproved() &&
+          resource.data.get('ownerId', '') == request.auth.uid &&
+          preservesOwnership(resource.data, request.resource.data))) &&
+        (!documentCodeFieldsChanged() || canAssignOfficialDocumentCode())
+      );
       allow delete: if isAdmin() || (isApproved() && resource.data.get('ownerId', '') == request.auth.uid);
     }
 
