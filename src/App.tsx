@@ -56,14 +56,10 @@ import CallCenterAdmin from './pages/CallCenterAdmin';
 import RouteGuard from "./components/RouteGuard";
 import { hasEffectivePermission, normalizeRole } from "./constants/roles";
 export default function App() {
-  const [user, setUser] = useState<any>(() => {
-    try {
-      const saved = localStorage.getItem('kaivincia_active_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
-    }
-  });
+  // Firebase Auth is the only source of authenticated identity.
+  // Do not restore a CRM user from localStorage: stale client data can
+  // redirect users into protected routes without a valid Firebase session.
+  const [user, setUser] = useState<any>(null);
   const [userData, setUserData] = useState<any>(null);
   const [rbacMatrix, setRbacMatrix] = useState<Record<string, Record<string, boolean>> | null>(null);
   const [rbacMatrixLoaded, setRbacMatrixLoaded] = useState(false);
